@@ -1,0 +1,126 @@
+{
+  "colorScheme": "dark",
+  "fonts": [
+    {
+      "family": "Inter",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#0E1524",
+    "accent": "#0E1524",
+    "background": "#050816",
+    "textPrimary": "#050816",
+    "link": "#050816"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Inter",
+      "heading": "Inter"
+    },
+    "fontStacks": {
+      "heading": [
+        "Inter",
+        "sans-serif"
+      ],
+      "body": [
+        "Inter",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Inter",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "34px",
+      "h2": "34px",
+      "body": "14px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 12,
+    "borderRadius": "18px"
+  },
+  "components": {
+    "input": {
+      "background": "#0F121F",
+      "textColor": "#FFFFFF",
+      "borderColor": "#191C29",
+      "borderRadius": "16px",
+      "borderRadiusCorners": {
+        "topLeft": "16px",
+        "topRight": "16px",
+        "bottomRight": "16px",
+        "bottomLeft": "16px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#0E1524",
+      "textColor": "#FFFFFF",
+      "borderRadius": "18px",
+      "borderRadiusCorners": {
+        "topLeft": "18px",
+        "topRight": "18px",
+        "bottomRight": "18px",
+        "bottomLeft": "18px"
+      },
+      "shadow": "rgba(37, 99, 235, 0.35) 0px 10px 25px 0px"
+    }
+  },
+  "images": {
+    "favicon": null,
+    "ogImage": null
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": -1,
+    "reasoning": "The only logo candidate is small and located in the body, not in the header, which is not typical for a main brand logo. It does not clearly represent the brand 'Techon LED'.",
+    "confidence": 0.3,
+    "rejected": true,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Login to Dashboard",
+      "reasoning": "The button 'Login to Dashboard' is the only button present and serves as the main call-to-action for accessing the admin panel."
+    },
+    "secondary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "There is no secondary button available on the page."
+    },
+    "confidence": 0.9
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "low",
+    "targetAudience": "business professionals managing LED displays"
+  },
+  "designSystem": {
+    "framework": "custom",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.9,
+    "colors": 0.9,
+    "overall": 0.9
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": -1,
+        "selectedLogoReasoning": "The only logo candidate is small and located in the body, not in the header, which is not typical for a main brand logo. It does not clearly represent the brand 'Techon LED'.",
+        "confidence": 0.3
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}
