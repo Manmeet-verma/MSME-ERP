@@ -19,8 +19,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@workspace/api-client-react";
 
-type UserForm = { name: string; email: string; password: string; role: string };
-const emptyForm: UserForm = { name: "", email: "", password: "", role: "sales" };
+type UserForm = { username: string; email: string; password: string; role: string };
+const emptyForm: UserForm = { username: "", email: "", password: "", role: "sales" };
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "#ef4444", sales: "#3b82f6", viewer: "#6b7280",
@@ -74,7 +74,7 @@ export default function UsersPage() {
   function openCreate() { setEditing(null); setForm(emptyForm); setOpen(true); }
   function openEdit(u: User) {
     setEditing(u);
-    setForm({ name: u.name, email: u.email, password: "", role: u.role });
+    setForm({ username: u.username, email: u.email, password: "", role: u.role });
     setOpen(true);
   }
 
@@ -134,10 +134,10 @@ export default function UsersPage() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary">
-                          {u.name.charAt(0).toUpperCase()}
+                          {(u.username ?? "?").charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-xs">{u.name}</p>
+                          <p className="font-medium text-xs">{u.username}</p>
                           <p className="text-[10px] text-muted-foreground">{u.email}</p>
                         </div>
                       </div>
@@ -173,7 +173,7 @@ export default function UsersPage() {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete user?</AlertDialogTitle>
-                                  <AlertDialogDescription>Delete {u.name}? This cannot be undone.</AlertDialogDescription>
+                                  <AlertDialogDescription>Delete {u.username}? This cannot be undone.</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -198,8 +198,8 @@ export default function UsersPage() {
           <DialogHeader><DialogTitle>{editing ? "Edit User" : "Add User"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+              <Label>Username *</Label>
+              <Input value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} required />
             </div>
             <div className="space-y-1.5">
               <Label>Email *</Label>
