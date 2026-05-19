@@ -82,7 +82,7 @@ export default function NewQuotationPage() {
         widthFt: "",
         heightFt: "",
         quantity: "1",
-        unitPrice: p.unitPrice,
+        unitPrice: p.basePrice,
         unit: p.unit,
       },
     ]);
@@ -99,7 +99,7 @@ export default function NewQuotationPage() {
         addonName: a.name,
         description: a.name,
         quantity: "1",
-        price: a.unitPrice,
+        price: a.price,
       },
     ]);
   }
