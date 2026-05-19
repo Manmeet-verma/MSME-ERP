@@ -40,7 +40,10 @@ export default function ClientsPage() {
         setOpen(false);
         setForm(emptyForm);
       },
-      onError() { toast({ title: "Failed to create client", variant: "destructive" }); },
+      onError(err: unknown) {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        toast({ title: msg ?? "Failed to create client", variant: "destructive" });
+      },
     },
   });
 

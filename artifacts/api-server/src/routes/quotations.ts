@@ -147,7 +147,7 @@ quotationsRouter.get("/quotations/:id", requireAuth, async (req, res) => {
     notes: q.notes ?? null,
     terms: q.terms ?? null,
     items: items.map(i => formatItem(i, productMap.get(i.productId ?? -1) ?? null)),
-    quotationAddons: addons.map(a => formatAddon(a)),
+    addons: addons.map(a => formatAddon(a)),
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   });

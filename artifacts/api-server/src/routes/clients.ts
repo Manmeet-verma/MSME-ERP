@@ -50,6 +50,8 @@ clientsRouter.get("/clients", requireAuth, async (req, res) => {
 clientsRouter.post("/clients", requireAuth, async (req, res) => {
   const { name, email, phone, company, address, city, gstNumber, notes } = req.body;
   if (!name) { res.status(400).json({ error: "Name required" }); return; }
+  const existing = await db.select({ id: clientsTable.id }).from(clientsTable).where(ilike(clientsTable.name, name.trim()));
+  if (existing.length > 0) { res.status(409).json({ error: `A client named "${name.trim()}" already exists` }); return; }
   const [client] = await db.insert(clientsTable).values({
     name, email, phone, company, address, city, gstNumber, notes,
     createdById: req.user!.userId,
