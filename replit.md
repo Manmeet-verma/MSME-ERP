@@ -133,7 +133,10 @@ Live in addition to Rounds 1–2:
 `items, warehouses, stock_movements, vendors, purchase_orders, po_items, grn, grn_items, vendor_bills, vendor_bill_items`. Item `avgCost` is global (not per-warehouse); stock levels computed via `SUM(IN - OUT)` per (item, warehouse).
 
 ### Round-3 gotchas
-- `sales_order_items` has no `itemId` column — SO→stock matching falls back to `description === item.name` in the SO's warehouse. Linking SO lines to items is a future improvement.
+- Sales orders now carry an optional `warehouseId` and SO line items an optional `itemId`. SO→stock dispatch uses these explicitly — lines without `itemId` are skipped (logged) and no description matching is used.
+- Cancelling/draft-reverting a confirmed SO writes compensating `in` movements (reason `return`) rather than deleting prior `sale` movements — preserves the ledger.
+- A PO whose lines already have `receivedQuantity > 0` cannot have its line items edited (returns 409); cancel + recreate instead.
+- Quotation→Sales-Order promotion carries description/qty/price but `itemId` is null (quotation items don't link to inventory yet).
 - `Item.currentStock` returned by the API is denormalized (sum of all warehouses); the authoritative ledger is `stock_movements`.
 - Receiving a GRN line requires the PO item to be linked (`itemId`); unlinked lines are shown as "(not linked)" in the receive dialog.
 - All Round 3 nav/dashboard cards are gated by `org.modules.inventory` and `org.modules.purchase` — toggle them in Settings → Modules.

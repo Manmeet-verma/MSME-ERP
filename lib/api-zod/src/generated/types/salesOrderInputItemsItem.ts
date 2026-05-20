@@ -7,6 +7,8 @@
  */
 
 export type SalesOrderInputItemsItem = {
+  /** @nullable */
+  itemId?: number | null;
   description: string;
   quantity: number;
   unitPrice: number;

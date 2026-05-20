@@ -197,6 +197,32 @@ vendorBillsRouter.patch("/vendor-bills/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const id = Number(req.params.id);
   const b = req.body ?? {};
+  // Validate any FK changes belong to this org
+  if (b.vendorId !== undefined && b.vendorId !== null) {
+    const [v] = await db
+      .select()
+      .from(vendorsTable)
+      .where(and(eq(vendorsTable.id, b.vendorId), eq(vendorsTable.organizationId, orgId)));
+    if (!v) {
+      res.status(400).json({ error: "Invalid vendor" });
+      return;
+    }
+  }
+  if (b.purchaseOrderId !== undefined && b.purchaseOrderId !== null) {
+    const [po] = await db
+      .select()
+      .from(purchaseOrdersTable)
+      .where(
+        and(
+          eq(purchaseOrdersTable.id, b.purchaseOrderId),
+          eq(purchaseOrdersTable.organizationId, orgId),
+        ),
+      );
+    if (!po) {
+      res.status(400).json({ error: "Invalid purchase order" });
+      return;
+    }
+  }
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const f of ["billNumber", "vendorId", "purchaseOrderId", "status", "notes"] as const) {
     if (b[f] !== undefined) updates[f] = b[f];

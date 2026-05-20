@@ -11,6 +11,8 @@ import type { SalesOrderInputStatus } from './salesOrderInputStatus';
 export interface SalesOrderInput {
   /** @nullable */
   clientId?: number | null;
+  /** @nullable */
+  warehouseId?: number | null;
   status?: SalesOrderInputStatus;
   /** @nullable */
   expectedDeliveryAt?: string | null;

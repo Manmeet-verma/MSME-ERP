@@ -1026,6 +1026,8 @@ export interface SalesOrder {
   clientName?: string | null;
   /** @nullable */
   quotationId?: number | null;
+  /** @nullable */
+  warehouseId?: number | null;
   status: string;
   subtotal: number;
   discountAmount?: number;
@@ -1041,6 +1043,8 @@ export interface SalesOrder {
 
 export interface SalesOrderItem {
   id: number;
+  /** @nullable */
+  itemId?: number | null;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -1063,6 +1067,8 @@ export const SalesOrderInputStatus = {
 } as const;
 
 export type SalesOrderInputItemsItem = {
+  /** @nullable */
+  itemId?: number | null;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -1071,6 +1077,8 @@ export type SalesOrderInputItemsItem = {
 export interface SalesOrderInput {
   /** @nullable */
   clientId?: number | null;
+  /** @nullable */
+  warehouseId?: number | null;
   status?: SalesOrderInputStatus;
   /** @nullable */
   expectedDeliveryAt?: string | null;

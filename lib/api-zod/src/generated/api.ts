@@ -1575,6 +1575,7 @@ export const ListSalesOrdersResponseItem = zod.object({
   "clientId": zod.number().nullish(),
   "clientName": zod.string().nullish(),
   "quotationId": zod.number().nullish(),
+  "warehouseId": zod.number().nullish(),
   "status": zod.string(),
   "subtotal": zod.number(),
   "discountAmount": zod.number().optional(),
@@ -1590,10 +1591,12 @@ export const ListSalesOrdersResponse = zod.array(ListSalesOrdersResponseItem)
 
 export const CreateSalesOrderBody = zod.object({
   "clientId": zod.number().nullish(),
+  "warehouseId": zod.number().nullish(),
   "status": zod.enum(['draft', 'confirmed', 'in_production', 'delivered', 'cancelled']).optional(),
   "expectedDeliveryAt": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "items": zod.array(zod.object({
+  "itemId": zod.number().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number()
@@ -1611,6 +1614,7 @@ export const GetSalesOrderResponse = zod.object({
   "clientId": zod.number().nullish(),
   "clientName": zod.string().nullish(),
   "quotationId": zod.number().nullish(),
+  "warehouseId": zod.number().nullish(),
   "status": zod.string(),
   "subtotal": zod.number(),
   "discountAmount": zod.number().optional(),
@@ -1623,6 +1627,7 @@ export const GetSalesOrderResponse = zod.object({
 }).and(zod.object({
   "items": zod.array(zod.object({
   "id": zod.number(),
+  "itemId": zod.number().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
@@ -1637,10 +1642,12 @@ export const UpdateSalesOrderParams = zod.object({
 
 export const UpdateSalesOrderBody = zod.object({
   "clientId": zod.number().nullish(),
+  "warehouseId": zod.number().nullish(),
   "status": zod.enum(['draft', 'confirmed', 'in_production', 'delivered', 'cancelled']).optional(),
   "expectedDeliveryAt": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "items": zod.array(zod.object({
+  "itemId": zod.number().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number()
@@ -1653,6 +1660,7 @@ export const UpdateSalesOrderResponse = zod.object({
   "clientId": zod.number().nullish(),
   "clientName": zod.string().nullish(),
   "quotationId": zod.number().nullish(),
+  "warehouseId": zod.number().nullish(),
   "status": zod.string(),
   "subtotal": zod.number(),
   "discountAmount": zod.number().optional(),

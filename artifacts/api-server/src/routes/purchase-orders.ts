@@ -207,6 +207,18 @@ purchaseOrdersRouter.patch("/purchase-orders/:id", requireAuth, async (req, res)
     return;
   }
   if (Array.isArray(b.items)) {
+    // Preserve GRN progress: only allow item edits while no receipts have happened.
+    const existing = await db
+      .select()
+      .from(purchaseOrderItemsTable)
+      .where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
+    const anyReceived = existing.some((p) => Number(p.receivedQuantity) > 0);
+    if (anyReceived) {
+      res
+        .status(409)
+        .json({ error: "Cannot edit items on a purchase order that has received quantities" });
+      return;
+    }
     await db.delete(purchaseOrderItemsTable).where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
     if (b.items.length > 0) {
       await db.insert(purchaseOrderItemsTable).values(

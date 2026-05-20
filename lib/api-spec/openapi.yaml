@@ -2854,6 +2854,7 @@ components:
         clientId: { type: ["integer", "null"] }
         clientName: { type: ["string", "null"] }
         quotationId: { type: ["integer", "null"] }
+        warehouseId: { type: ["integer", "null"] }
         status: { type: string }
         subtotal: { type: number }
         discountAmount: { type: number }
@@ -2869,6 +2870,7 @@ components:
       required: [id, description, quantity, unitPrice, totalPrice]
       properties:
         id: { type: integer }
+        itemId: { type: ["integer", "null"] }
         description: { type: string }
         quantity: { type: integer }
         unitPrice: { type: number }
@@ -2887,6 +2889,7 @@ components:
       type: object
       properties:
         clientId: { type: ["integer", "null"] }
+        warehouseId: { type: ["integer", "null"] }
         status: { type: string, enum: [draft, confirmed, in_production, delivered, cancelled] }
         expectedDeliveryAt: { type: ["string", "null"] }
         notes: { type: ["string", "null"] }
@@ -2896,6 +2899,7 @@ components:
             type: object
             required: [description, quantity, unitPrice]
             properties:
+              itemId: { type: ["integer", "null"] }
               description: { type: string }
               quantity: { type: integer }
               unitPrice: { type: number }

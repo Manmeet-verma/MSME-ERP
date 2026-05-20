@@ -4,6 +4,8 @@ import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { clientsTable } from "./clients";
 import { usersTable } from "./users";
+import { warehousesTable } from "./warehouses";
+import { itemsTable } from "./items";
 
 export const salesOrdersTable = pgTable("sales_orders", {
   id: serial("id").primaryKey(),
@@ -11,6 +13,7 @@ export const salesOrdersTable = pgTable("sales_orders", {
   orderNumber: text("order_number").notNull(),
   clientId: integer("client_id").references(() => clientsTable.id, { onDelete: "set null" }),
   quotationId: integer("quotation_id"),
+  warehouseId: integer("warehouse_id").references(() => warehousesTable.id, { onDelete: "set null" }),
   status: text("status", { enum: ["draft", "confirmed", "in_production", "delivered", "cancelled"] }).notNull().default("draft"),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
   discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -26,6 +29,7 @@ export const salesOrdersTable = pgTable("sales_orders", {
 export const salesOrderItemsTable = pgTable("sales_order_items", {
   id: serial("id").primaryKey(),
   salesOrderId: integer("sales_order_id").notNull().references(() => salesOrdersTable.id, { onDelete: "cascade" }),
+  itemId: integer("item_id").references(() => itemsTable.id, { onDelete: "set null" }),
   description: text("description").notNull(),
   quantity: integer("quantity").notNull().default(1),
   unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),

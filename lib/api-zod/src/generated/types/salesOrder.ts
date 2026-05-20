@@ -15,6 +15,8 @@ export interface SalesOrder {
   clientName?: string | null;
   /** @nullable */
   quotationId?: number | null;
+  /** @nullable */
+  warehouseId?: number | null;
   status: string;
   subtotal: number;
   discountAmount?: number;

@@ -8,6 +8,8 @@
 
 export interface SalesOrderItem {
   id: number;
+  /** @nullable */
+  itemId?: number | null;
   description: string;
   quantity: number;
   unitPrice: number;
