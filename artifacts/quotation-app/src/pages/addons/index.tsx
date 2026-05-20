@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layout } from "@/components/layout";
+
 import { useListAddons, useCreateAddon, useUpdateAddon, useDeleteAddon } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,9 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import type { Addon } from "@workspace/api-client-react";
 
-type AddonForm = { name: string; description: string; category: string; unitPrice: string; unit: string; isActive: boolean };
-const emptyForm: AddonForm = { name: "", description: "", category: "installation", unitPrice: "", unit: "fixed", isActive: true };
+type PriceType = "fixed" | "percentage";
+type AddonForm = { name: string; description: string; category: string; price: string; priceType: PriceType; isActive: boolean };
+const emptyForm: AddonForm = { name: "", description: "", category: "installation", price: "", priceType: "fixed", isActive: true };
 
 const ADDON_CATEGORIES = ["installation", "structure", "content", "warranty", "logistics", "software", "other"];
 const CATEGORY_COLORS: Record<string, string> = {
@@ -74,13 +75,13 @@ export default function AddonsPage() {
   function openCreate() { setEditing(null); setForm(emptyForm); setOpen(true); }
   function openEdit(a: Addon) {
     setEditing(a);
-    setForm({ name: a.name, description: a.description ?? "", category: a.category, unitPrice: String(a.unitPrice), unit: a.unit, isActive: a.isActive ?? true });
+    setForm({ name: a.name, description: a.description ?? "", category: a.category, price: String(a.price), priceType: a.priceType, isActive: a.isActive ?? true });
     setOpen(true);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...form, unitPrice: parseFloat(form.unitPrice) };
+    const payload = { ...form, price: parseFloat(form.price) };
     if (editing) updateMutation.mutate({ id: editing.id, data: payload });
     else createMutation.mutate({ data: payload });
   }
@@ -92,7 +93,7 @@ export default function AddonsPage() {
   }, {});
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-7xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -157,8 +158,8 @@ export default function AddonsPage() {
                       </div>
                       {a.description && <p className="text-xs text-muted-foreground mb-2">{a.description}</p>}
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-primary">{formatCurrency(a.unitPrice)}</span>
-                        <span className="text-xs text-muted-foreground">/{a.unit}</span>
+                        <span className="text-sm font-semibold text-primary">{formatCurrency(a.price)}</span>
+                        <span className="text-xs text-muted-foreground">/{a.priceType}</span>
                       </div>
                     </div>
                   ))}
@@ -190,13 +191,13 @@ export default function AddonsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Unit *</Label>
-                <select value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} className="w-full h-9 rounded-md border border-input bg-input px-3 text-sm">
+                <select value={form.priceType} onChange={(e) => setForm((f) => ({ ...f, priceType: e.target.value as PriceType }))} className="w-full h-9 rounded-md border border-input bg-input px-3 text-sm">
                   {["fixed", "sqft", "unit", "day", "month"].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Unit Price (₹) *</Label>
-                <Input type="number" min="0" step="0.01" value={form.unitPrice} onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))} required />
+                <Input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} required />
               </div>
             </div>
             <DialogFooter>
@@ -206,6 +207,7 @@ export default function AddonsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </Layout>
+    
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layout } from "@/components/layout";
+
 import { useListQuotations, useDeleteQuotation } from "@workspace/api-client-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,7 @@ export default function QuotationsPage() {
   const quotations = data ?? [];
 
   return (
-    <Layout>
+    
       <div className="p-6 max-w-7xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
@@ -185,6 +185,6 @@ export default function QuotationsPage() {
           </table>
         </div>
       </div>
-    </Layout>
+    
   );
 }

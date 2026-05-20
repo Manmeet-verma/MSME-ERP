@@ -1,42 +1,91 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
-  title: Api
-  version: 0.1.0
-  description: LED Quotation Pro API
+  title: Quotation App
+  version: 2.0.0
+  description: Multi-tenant SaaS quotation & CRM platform for MSMEs
+
 servers:
   - url: /api
-    description: Base API path
+
 tags:
-  - name: health
-  - name: auth
-  - name: users
-  - name: clients
-  - name: products
-  - name: addons
-  - name: quotations
-  - name: reports
+  - name: Health
+  - name: Auth
+  - name: Organizations
+  - name: Members
+  - name: Invitations
+  - name: Clients
+  - name: Products
+  - name: Addons
+  - name: Quotations
+  - name: Reports
+  - name: AuditLogs
+  - name: SMS
+
+security:
+  - bearerAuth: []
 
 paths:
   /healthz:
     get:
-      operationId: healthCheck
-      tags: [health]
+      tags: [Health]
       summary: Health check
+      operationId: healthCheck
+      security: []
       responses:
         "200":
-          description: Healthy
+          description: ok
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                $ref: "#/components/schemas/HealthCheckResponse"
 
-  # ─── Auth ───────────────────────────────────────────────────────────────────
+  # ── Auth ──
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Sign up a new user (without org)
+      operationId: signup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupInput"
+      responses:
+        "201":
+          description: signed up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/signup-with-org:
+    post:
+      tags: [Auth]
+      summary: Sign up a new user and create their organization in one step
+      operationId: signupWithOrg
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupWithOrgInput"
+      responses:
+        "201":
+          description: signed up with org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
   /auth/login:
     post:
+      tags: [Auth]
+      summary: Log in with email + password
       operationId: login
-      tags: [auth]
-      summary: Login
+      security: []
       requestBody:
         required: true
         content:
@@ -45,1458 +94,1339 @@ paths:
               $ref: "#/components/schemas/LoginInput"
       responses:
         "200":
-          description: Login successful
+          description: logged in
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
-        "401":
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /auth/logout:
-    post:
-      operationId: logout
-      tags: [auth]
-      summary: Logout
-      responses:
-        "200":
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
 
   /auth/me:
     get:
+      tags: [Auth]
+      summary: Get the current user and their organizations
       operationId: getMe
-      tags: [auth]
-      summary: Get current user
       responses:
         "200":
-          description: Current user
+          description: ok
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/MeResponse"
 
-  # ─── Users ──────────────────────────────────────────────────────────────────
-  /users:
-    get:
-      operationId: listUsers
-      tags: [users]
-      summary: List all users
-      responses:
-        "200":
-          description: Users list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
+  /auth/switch-org:
     post:
-      operationId: createUser
-      tags: [users]
-      summary: Create user
+      tags: [Auth]
+      summary: Switch the active organization
+      operationId: switchOrg
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserInput"
+              type: object
+              required: [organizationId]
+              properties:
+                organizationId:
+                  type: integer
       responses:
-        "201":
-          description: Created
+        "200":
+          description: switched
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/SwitchOrgResponse"
 
-  /users/{id}:
-    get:
-      operationId: getUser
-      tags: [users]
-      summary: Get user by ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      operationId: logout
       responses:
         "200":
-          description: User
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-    patch:
-      operationId: updateUser
-      tags: [users]
-      summary: Update user
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserUpdate"
-      responses:
-        "200":
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-    delete:
-      operationId: deleteUser
-      tags: [users]
-      summary: Delete user
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Deleted
+          description: ok
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
-  # ─── Clients ────────────────────────────────────────────────────────────────
+  # ── Organizations ──
+  /organizations:
+    post:
+      tags: [Organizations]
+      summary: Create a new organization (signed-in user becomes Owner)
+      operationId: createOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInput"
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrgResponse"
+
+  /organizations/current:
+    get:
+      tags: [Organizations]
+      summary: Get the active organization
+      operationId: getCurrentOrganization
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+    patch:
+      tags: [Organizations]
+      summary: Update the active organization
+      operationId: updateCurrentOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationUpdate"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /organizations/current/modules:
+    put:
+      tags: [Organizations]
+      summary: Update enabled modules
+      operationId: updateOrganizationModules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModulesInput"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /organizations/current/members:
+    get:
+      tags: [Members]
+      summary: List members of the active organization
+      operationId: listMembers
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+
+  /organizations/current/members/{userId}:
+    patch:
+      tags: [Members]
+      summary: Update a member's role
+      operationId: updateMemberRole
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/MemberRole"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+    delete:
+      tags: [Members]
+      summary: Remove a member from the active organization
+      operationId: removeMember
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/current/invitations:
+    get:
+      tags: [Invitations]
+      summary: List pending invitations
+      operationId: listInvitations
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invitation"
+    post:
+      tags: [Invitations]
+      summary: Invite a teammate by email
+      operationId: createInvitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationInput"
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+
+  /organizations/current/invitations/{id}:
+    delete:
+      tags: [Invitations]
+      summary: Revoke an invitation
+      operationId: revokeInvitation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /invitations/{token}:
+    get:
+      tags: [Invitations]
+      summary: Get invitation details by token (public)
+      operationId: getInvitation
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationPublic"
+
+  /invitations/{token}/accept:
+    post:
+      tags: [Invitations]
+      summary: Accept an invitation
+      operationId: acceptInvitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwitchOrgResponse"
+
+  # ── Clients ──
   /clients:
     get:
+      tags: [Clients]
       operationId: listClients
-      tags: [clients]
-      summary: List clients
-      parameters:
-        - name: search
-          in: query
-          schema:
-            type: string
       responses:
         "200":
-          description: Clients list
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/Client"
+                items: { $ref: "#/components/schemas/Client" }
     post:
+      tags: [Clients]
       operationId: createClient
-      tags: [clients]
-      summary: Create client
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ClientInput"
+            schema: { $ref: "#/components/schemas/ClientInput" }
       responses:
         "201":
-          description: Created
+          description: created
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Client"
-
+              schema: { $ref: "#/components/schemas/Client" }
   /clients/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     get:
+      tags: [Clients]
       operationId: getClient
-      tags: [clients]
-      summary: Get client
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Client
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Client"
+              schema: { $ref: "#/components/schemas/Client" }
     patch:
+      tags: [Clients]
       operationId: updateClient
-      tags: [clients]
-      summary: Update client
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ClientUpdate"
+            schema: { $ref: "#/components/schemas/ClientUpdate" }
       responses:
         "200":
-          description: Updated
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Client"
+              schema: { $ref: "#/components/schemas/Client" }
     delete:
+      tags: [Clients]
       operationId: deleteClient
-      tags: [clients]
-      summary: Delete client
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Deleted
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
-  # ─── Products ───────────────────────────────────────────────────────────────
+  # ── Products ──
   /products:
     get:
+      tags: [Products]
       operationId: listProducts
-      tags: [products]
-      summary: List products
       parameters:
         - name: category
           in: query
-          schema:
-            type: string
+          schema: { type: string }
         - name: isActive
           in: query
-          schema:
-            type: boolean
+          schema: { type: boolean }
       responses:
         "200":
-          description: Products list
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/Product"
+                items: { $ref: "#/components/schemas/Product" }
     post:
+      tags: [Products]
       operationId: createProduct
-      tags: [products]
-      summary: Create product
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ProductInput"
+            schema: { $ref: "#/components/schemas/ProductInput" }
       responses:
         "201":
-          description: Created
+          description: created
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Product"
-
+              schema: { $ref: "#/components/schemas/Product" }
   /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     get:
+      tags: [Products]
       operationId: getProduct
-      tags: [products]
-      summary: Get product
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Product
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Product"
+              schema: { $ref: "#/components/schemas/Product" }
     patch:
+      tags: [Products]
       operationId: updateProduct
-      tags: [products]
-      summary: Update product
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ProductUpdate"
+            schema: { $ref: "#/components/schemas/ProductUpdate" }
       responses:
         "200":
-          description: Updated
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Product"
+              schema: { $ref: "#/components/schemas/Product" }
     delete:
+      tags: [Products]
       operationId: deleteProduct
-      tags: [products]
-      summary: Delete product
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Deleted
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
-  # ─── Addons ─────────────────────────────────────────────────────────────────
+  # ── Addons ──
   /addons:
     get:
+      tags: [Addons]
       operationId: listAddons
-      tags: [addons]
-      summary: List addons
       responses:
         "200":
-          description: Addons list
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/Addon"
+                items: { $ref: "#/components/schemas/Addon" }
     post:
+      tags: [Addons]
       operationId: createAddon
-      tags: [addons]
-      summary: Create addon
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/AddonInput"
+            schema: { $ref: "#/components/schemas/AddonInput" }
       responses:
         "201":
-          description: Created
+          description: created
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Addon"
-
+              schema: { $ref: "#/components/schemas/Addon" }
   /addons/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     patch:
+      tags: [Addons]
       operationId: updateAddon
-      tags: [addons]
-      summary: Update addon
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/AddonUpdate"
+            schema: { $ref: "#/components/schemas/AddonUpdate" }
       responses:
         "200":
-          description: Updated
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Addon"
+              schema: { $ref: "#/components/schemas/Addon" }
     delete:
+      tags: [Addons]
       operationId: deleteAddon
-      tags: [addons]
-      summary: Delete addon
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Deleted
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
-  # ─── Quotations ─────────────────────────────────────────────────────────────
+  # ── Quotations ──
   /quotations:
     get:
+      tags: [Quotations]
       operationId: listQuotations
-      tags: [quotations]
-      summary: List quotations
       parameters:
         - name: status
           in: query
-          schema:
-            type: string
+          schema: { type: string }
         - name: clientId
           in: query
-          schema:
-            type: integer
+          schema: { type: integer }
         - name: search
           in: query
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
-          description: Quotations list
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/Quotation"
+                items: { $ref: "#/components/schemas/Quotation" }
     post:
+      tags: [Quotations]
       operationId: createQuotation
-      tags: [quotations]
-      summary: Create quotation
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/QuotationInput"
+            schema: { $ref: "#/components/schemas/QuotationInput" }
       responses:
         "201":
-          description: Created
+          description: created
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Quotation"
+              schema: { $ref: "#/components/schemas/Quotation" }
 
   /quotations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     get:
+      tags: [Quotations]
       operationId: getQuotation
-      tags: [quotations]
-      summary: Get quotation with full details
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Quotation with items and addons
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/QuotationDetail"
+              schema: { $ref: "#/components/schemas/QuotationDetail" }
     patch:
+      tags: [Quotations]
       operationId: updateQuotation
-      tags: [quotations]
-      summary: Update quotation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/QuotationUpdate"
+            schema: { $ref: "#/components/schemas/QuotationUpdate" }
       responses:
         "200":
-          description: Updated
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Quotation"
+              schema: { $ref: "#/components/schemas/Quotation" }
     delete:
+      tags: [Quotations]
       operationId: deleteQuotation
-      tags: [quotations]
-      summary: Delete quotation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Deleted
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
   /quotations/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     patch:
+      tags: [Quotations]
       operationId: updateQuotationStatus
-      tags: [quotations]
-      summary: Update quotation status
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/QuotationStatusUpdate"
+            schema: { $ref: "#/components/schemas/QuotationStatusUpdate" }
       responses:
         "200":
-          description: Status updated
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Quotation"
+              schema: { $ref: "#/components/schemas/Quotation" }
 
   /quotations/{id}/duplicate:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     post:
+      tags: [Quotations]
       operationId: duplicateQuotation
-      tags: [quotations]
-      summary: Duplicate a quotation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "201":
-          description: Duplicated quotation
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Quotation"
+              schema: { $ref: "#/components/schemas/Quotation" }
 
   /quotations/{id}/items:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     post:
+      tags: [Quotations]
       operationId: addQuotationItem
-      tags: [quotations]
-      summary: Add item to quotation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/QuotationItemInput"
+            schema: { $ref: "#/components/schemas/QuotationItemInput" }
       responses:
         "201":
-          description: Item added
+          description: created
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/QuotationItem"
+              schema: { $ref: "#/components/schemas/QuotationItem" }
 
   /quotations/{id}/items/{itemId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: integer }
     patch:
+      tags: [Quotations]
       operationId: updateQuotationItem
-      tags: [quotations]
-      summary: Update quotation item
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/QuotationItemUpdate"
+            schema: { $ref: "#/components/schemas/QuotationItemUpdate" }
       responses:
         "200":
-          description: Updated
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/QuotationItem"
+              schema: { $ref: "#/components/schemas/QuotationItem" }
     delete:
+      tags: [Quotations]
       operationId: deleteQuotationItem
-      tags: [quotations]
-      summary: Delete quotation item
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Deleted
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
   /quotations/{id}/addons:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     post:
+      tags: [Quotations]
       operationId: addQuotationAddon
-      tags: [quotations]
-      summary: Add addon to quotation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/QuotationAddonInput"
+            schema: { $ref: "#/components/schemas/QuotationAddonInput" }
       responses:
         "201":
-          description: Addon added
+          description: created
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/QuotationAddon"
+              schema: { $ref: "#/components/schemas/QuotationAddon" }
 
   /quotations/{id}/addons/{addonId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+      - name: addonId
+        in: path
+        required: true
+        schema: { type: integer }
     delete:
+      tags: [Quotations]
       operationId: deleteQuotationAddon
-      tags: [quotations]
-      summary: Remove addon from quotation
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: addonId
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
-          description: Removed
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
   /quotations/{id}/send-sms:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
     post:
+      tags: [SMS]
       operationId: sendQuotationSms
-      tags: [quotations]
-      summary: Send quotation summary via SMS
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SendSmsInput"
+              type: object
+              required: [phone, message]
+              properties:
+                phone: { type: string }
+                message: { type: string }
       responses:
         "200":
-          description: SMS sent
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          description: SMS service not configured
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+              schema: { $ref: "#/components/schemas/MessageResponse" }
 
-  # ─── Reports / Dashboard ────────────────────────────────────────────────────
+  # ── Reports ──
   /reports/dashboard:
     get:
+      tags: [Reports]
       operationId: getDashboardSummary
-      tags: [reports]
-      summary: Dashboard summary — totals, pipeline, recent activity
       responses:
         "200":
-          description: Dashboard data
+          description: ok
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/DashboardSummary"
+              schema: { $ref: "#/components/schemas/DashboardSummary" }
 
   /reports/monthly:
     get:
-      operationId: getMonthlyStats
-      tags: [reports]
-      summary: Monthly quotation and revenue stats (last 12 months)
+      tags: [Reports]
+      operationId: getMonthlyReport
       responses:
         "200":
-          description: Monthly stats
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/MonthlyStat"
+                items: { $ref: "#/components/schemas/MonthlyStat" }
 
   /reports/top-products:
     get:
+      tags: [Reports]
       operationId: getTopProducts
-      tags: [reports]
-      summary: Top products by revenue and count
       responses:
         "200":
-          description: Top products
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/TopProduct"
+                items: { $ref: "#/components/schemas/TopProduct" }
 
   /reports/pipeline:
     get:
-      operationId: getPipelineStats
-      tags: [reports]
-      summary: Quotation pipeline by status with values
+      tags: [Reports]
+      operationId: getPipeline
       responses:
         "200":
-          description: Pipeline stats
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/PipelineStat"
+                items: { $ref: "#/components/schemas/PipelineStat" }
 
   /audit-logs:
     get:
+      tags: [AuditLogs]
       operationId: listAuditLogs
-      tags: [reports]
-      summary: List audit logs
       parameters:
         - name: limit
           in: query
-          schema:
-            type: integer
+          schema: { type: integer }
         - name: offset
           in: query
-          schema:
-            type: integer
+          schema: { type: integer }
       responses:
         "200":
-          description: Audit logs
+          description: ok
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: "#/components/schemas/AuditLog"
+                items: { $ref: "#/components/schemas/AuditLog" }
 
 components:
-  schemas:
-    SendSmsInput:
-      type: object
-      required: [phone, message]
-      properties:
-        phone:
-          type: string
-          description: Recipient phone number (E.164 format preferred)
-        message:
-          type: string
-          description: SMS message body
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
-    HealthStatus:
+  schemas:
+    HealthCheckResponse:
       type: object
       required: [status]
       properties:
-        status:
-          type: string
-
-    ErrorResponse:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: string
+        status: { type: string, enum: [ok] }
 
     MessageResponse:
       type: object
       required: [message]
       properties:
-        message:
-          type: string
+        message: { type: string }
 
     # ── Auth ──
-    LoginInput:
+    User:
       type: object
-      required: [username, password]
+      required: [id, name, email]
       properties:
-        username:
-          type: string
-        password:
-          type: string
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: ["string", "null"] }
+
+    MemberRole:
+      type: string
+      enum: [owner, admin, sales, viewer]
+
+    OrgSummary:
+      type: object
+      required: [id, name, slug, role]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        slug: { type: string }
+        role: { $ref: "#/components/schemas/MemberRole" }
 
     AuthResponse:
       type: object
-      required: [user, token]
+      required: [token, user, activeOrgId, organizations]
       properties:
-        user:
-          $ref: "#/components/schemas/User"
-        token:
-          type: string
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+        activeOrgId: { type: ["integer", "null"] }
+        organizations:
+          type: array
+          items: { $ref: "#/components/schemas/OrgSummary" }
 
-    # ── Users ──
-    User:
+    MeResponse:
       type: object
-      required: [id, username, email, role, isActive, createdAt]
+      required: [user, activeOrgId, organizations]
       properties:
-        id:
-          type: integer
-        username:
-          type: string
-        email:
-          type: string
-        role:
-          type: string
-          enum: [admin, sales, viewer]
-        isActive:
-          type: boolean
-        lastLogin:
-          type: ["string", "null"]
-        createdAt:
-          type: string
+        user: { $ref: "#/components/schemas/User" }
+        activeOrgId: { type: ["integer", "null"] }
+        organizations:
+          type: array
+          items: { $ref: "#/components/schemas/OrgSummary" }
 
-    UserInput:
+    SwitchOrgResponse:
       type: object
-      required: [username, email, password, role]
+      required: [token, activeOrgId, role]
       properties:
-        username:
-          type: string
-        email:
-          type: string
-        password:
-          type: string
-        role:
-          type: string
-          enum: [admin, sales, viewer]
+        token: { type: string }
+        activeOrgId: { type: integer }
+        role: { $ref: "#/components/schemas/MemberRole" }
 
-    UserUpdate:
+    SignupInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string }
+
+    SignupWithOrgInput:
+      type: object
+      required: [name, email, password, organizationName]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string }
+        organizationName: { type: string }
+        industry: { type: string }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+
+    # ── Organizations ──
+    OrgModules:
+      type: object
+      required: [sales, leads, inventory, purchase, marketing, hr, accounting, social]
+      properties:
+        sales: { type: boolean }
+        leads: { type: boolean }
+        inventory: { type: boolean }
+        purchase: { type: boolean }
+        marketing: { type: boolean }
+        hr: { type: boolean }
+        accounting: { type: boolean }
+        social: { type: boolean }
+
+    OrgLimits:
+      type: object
+      required: [members, leadsPerMonth, emailsPerMonth, storageMB]
+      properties:
+        members: { type: integer }
+        leadsPerMonth: { type: integer }
+        emailsPerMonth: { type: integer }
+        storageMB: { type: integer }
+
+    Organization:
+      type: object
+      required: [id, name, slug, plan, limits, modules, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        slug: { type: string }
+        plan: { type: string, enum: [free, starter, pro] }
+        industry: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        limits: { $ref: "#/components/schemas/OrgLimits" }
+        modules: { $ref: "#/components/schemas/OrgModules" }
+        createdAt: { type: string }
+
+    OrganizationInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        industry: { type: string }
+        gstNumber: { type: string }
+        state: { type: string }
+        address: { type: string }
+        phone: { type: string }
+
+    OrganizationUpdate:
       type: object
       properties:
-        email:
-          type: string
-        role:
-          type: string
-          enum: [admin, sales, viewer]
-        isActive:
-          type: boolean
-        password:
-          type: string
+        name: { type: string }
+        industry: { type: string }
+        gstNumber: { type: string }
+        state: { type: string }
+        address: { type: string }
+        phone: { type: string }
+
+    CreateOrgResponse:
+      type: object
+      required: [token, organization, role]
+      properties:
+        token: { type: string }
+        organization: { $ref: "#/components/schemas/Organization" }
+        role: { $ref: "#/components/schemas/MemberRole" }
+
+    ModulesInput:
+      type: object
+      properties:
+        sales: { type: boolean }
+        leads: { type: boolean }
+        inventory: { type: boolean }
+        purchase: { type: boolean }
+        marketing: { type: boolean }
+        hr: { type: boolean }
+        accounting: { type: boolean }
+        social: { type: boolean }
+
+    Member:
+      type: object
+      required: [id, userId, name, email, role, isActive, joinedAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        isActive: { type: boolean }
+        lastLogin: { type: ["string", "null"] }
+        joinedAt: { type: string }
+
+    InvitationInput:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [admin, sales, viewer] }
+
+    Invitation:
+      type: object
+      required: [id, email, role, token, expiresAt, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        role: { type: string, enum: [admin, sales, viewer] }
+        token: { type: string }
+        acceptUrl: { type: string }
+        acceptedAt: { type: ["string", "null"] }
+        expiresAt: { type: string }
+        createdAt: { type: string }
+
+    InvitationPublic:
+      type: object
+      required: [email, role, organizationId, organizationName, accepted, expired, expiresAt]
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [admin, sales, viewer] }
+        organizationId: { type: integer }
+        organizationName: { type: string }
+        accepted: { type: boolean }
+        expired: { type: boolean }
+        expiresAt: { type: string }
 
     # ── Clients ──
     Client:
       type: object
       required: [id, name, createdAt]
       properties:
-        id:
-          type: integer
-        name:
-          type: string
-        email:
-          type: ["string", "null"]
-        phone:
-          type: ["string", "null"]
-        company:
-          type: ["string", "null"]
-        address:
-          type: ["string", "null"]
-        city:
-          type: ["string", "null"]
-        gstNumber:
-          type: ["string", "null"]
-        notes:
-          type: ["string", "null"]
-        quotationCount:
-          type: integer
-        totalValue:
-          type: number
-        createdAt:
-          type: string
+        id: { type: integer }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        quotationCount: { type: integer }
+        totalValue: { type: number }
+        createdAt: { type: string }
 
     ClientInput:
       type: object
       required: [name]
       properties:
-        name:
-          type: string
-        email:
-          type: string
-        phone:
-          type: string
-        company:
-          type: string
-        address:
-          type: string
-        city:
-          type: string
-        gstNumber:
-          type: string
-        notes:
-          type: string
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        company: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        gstNumber: { type: string }
+        notes: { type: string }
 
     ClientUpdate:
       type: object
       properties:
-        name:
-          type: string
-        email:
-          type: string
-        phone:
-          type: string
-        company:
-          type: string
-        address:
-          type: string
-        city:
-          type: string
-        gstNumber:
-          type: string
-        notes:
-          type: string
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        company: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        gstNumber: { type: string }
+        notes: { type: string }
 
     # ── Products ──
     Product:
       type: object
       required: [id, name, category, unit, basePrice, isActive, createdAt]
       properties:
-        id:
-          type: integer
-        name:
-          type: string
-        category:
-          type: string
-        description:
-          type: ["string", "null"]
-        unit:
-          type: string
-        basePrice:
-          type: number
-        pixelPitch:
-          type: ["string", "null"]
-        resolution:
-          type: ["string", "null"]
-        brightness:
-          type: ["string", "null"]
-        application:
-          type: ["string", "null"]
-        isActive:
-          type: boolean
-        createdAt:
-          type: string
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string }
+        description: { type: ["string", "null"] }
+        unit: { type: string }
+        basePrice: { type: number }
+        pixelPitch: { type: ["string", "null"] }
+        resolution: { type: ["string", "null"] }
+        brightness: { type: ["string", "null"] }
+        application: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string }
 
     ProductInput:
       type: object
       required: [name, category, unit, basePrice]
       properties:
-        name:
-          type: string
-        category:
-          type: string
-        description:
-          type: string
-        unit:
-          type: string
-        basePrice:
-          type: number
-        pixelPitch:
-          type: string
-        resolution:
-          type: string
-        brightness:
-          type: string
-        application:
-          type: string
-        isActive:
-          type: boolean
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        unit: { type: string }
+        basePrice: { type: number }
+        pixelPitch: { type: string }
+        resolution: { type: string }
+        brightness: { type: string }
+        application: { type: string }
+        isActive: { type: boolean }
 
     ProductUpdate:
       type: object
       properties:
-        name:
-          type: string
-        category:
-          type: string
-        description:
-          type: string
-        unit:
-          type: string
-        basePrice:
-          type: number
-        pixelPitch:
-          type: string
-        resolution:
-          type: string
-        brightness:
-          type: string
-        application:
-          type: string
-        isActive:
-          type: boolean
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        unit: { type: string }
+        basePrice: { type: number }
+        pixelPitch: { type: string }
+        resolution: { type: string }
+        brightness: { type: string }
+        application: { type: string }
+        isActive: { type: boolean }
 
     # ── Addons ──
     Addon:
       type: object
       required: [id, name, price, priceType, category, isActive]
       properties:
-        id:
-          type: integer
-        name:
-          type: string
-        description:
-          type: ["string", "null"]
-        price:
-          type: number
-        priceType:
-          type: string
-          enum: [fixed, percentage]
-        category:
-          type: string
-        isActive:
-          type: boolean
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        price: { type: number }
+        priceType: { type: string, enum: [fixed, percentage] }
+        category: { type: string }
+        isActive: { type: boolean }
 
     AddonInput:
       type: object
       required: [name, price, priceType, category]
       properties:
-        name:
-          type: string
-        description:
-          type: string
-        price:
-          type: number
-        priceType:
-          type: string
-          enum: [fixed, percentage]
-        category:
-          type: string
-        isActive:
-          type: boolean
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        priceType: { type: string, enum: [fixed, percentage] }
+        category: { type: string }
+        isActive: { type: boolean }
 
     AddonUpdate:
       type: object
       properties:
-        name:
-          type: string
-        description:
-          type: string
-        price:
-          type: number
-        priceType:
-          type: string
-          enum: [fixed, percentage]
-        category:
-          type: string
-        isActive:
-          type: boolean
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        priceType: { type: string, enum: [fixed, percentage] }
+        category: { type: string }
+        isActive: { type: boolean }
 
     # ── Quotations ──
     Quotation:
       type: object
-      required: [id, quotationNumber, status, subtotal, discountAmount, taxAmount, total, createdAt, updatedAt]
+      required:
+        [id, quotationNumber, status, subtotal, discountAmount, taxAmount, total, createdAt, updatedAt]
       properties:
-        id:
-          type: integer
-        quotationNumber:
-          type: string
-        clientId:
-          type: ["integer", "null"]
-        clientName:
-          type: ["string", "null"]
-        clientCompany:
-          type: ["string", "null"]
-        createdByName:
-          type: ["string", "null"]
-        status:
-          type: string
-          enum: [draft, sent, approved, rejected, expired]
-        validUntil:
-          type: ["string", "null"]
-        subtotal:
-          type: number
-        discountAmount:
-          type: number
-        discountPercent:
-          type: number
-        taxAmount:
-          type: number
-        taxPercent:
-          type: number
-        total:
-          type: number
-        notes:
-          type: ["string", "null"]
-        terms:
-          type: ["string", "null"]
-        itemCount:
-          type: integer
-        createdAt:
-          type: string
-        updatedAt:
-          type: string
+        id: { type: integer }
+        quotationNumber: { type: string }
+        clientId: { type: ["integer", "null"] }
+        clientName: { type: ["string", "null"] }
+        clientCompany: { type: ["string", "null"] }
+        createdByName: { type: ["string", "null"] }
+        status: { type: string, enum: [draft, sent, approved, rejected, expired] }
+        validUntil: { type: ["string", "null"] }
+        subtotal: { type: number }
+        discountAmount: { type: number }
+        discountPercent: { type: number }
+        taxAmount: { type: number }
+        taxPercent: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        itemCount: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
 
     QuotationDetail:
       type: object
-      required: [id, quotationNumber, status, subtotal, discountAmount, taxAmount, total, items, quotationAddons, createdAt, updatedAt]
+      required:
+        [id, quotationNumber, status, subtotal, discountAmount, taxAmount, total, items, quotationAddons, createdAt, updatedAt]
       properties:
-        id:
-          type: integer
-        quotationNumber:
-          type: string
-        clientId:
-          type: ["integer", "null"]
-        clientName:
-          type: ["string", "null"]
-        clientCompany:
-          type: ["string", "null"]
-        clientEmail:
-          type: ["string", "null"]
-        clientPhone:
-          type: ["string", "null"]
-        clientAddress:
-          type: ["string", "null"]
-        clientGstNumber:
-          type: ["string", "null"]
-        createdByName:
-          type: ["string", "null"]
-        status:
-          type: string
-          enum: [draft, sent, approved, rejected, expired]
-        validUntil:
-          type: ["string", "null"]
-        subtotal:
-          type: number
-        discountAmount:
-          type: number
-        discountPercent:
-          type: number
-        taxAmount:
-          type: number
-        taxPercent:
-          type: number
-        total:
-          type: number
-        notes:
-          type: ["string", "null"]
-        terms:
-          type: ["string", "null"]
+        id: { type: integer }
+        quotationNumber: { type: string }
+        clientId: { type: ["integer", "null"] }
+        clientName: { type: ["string", "null"] }
+        clientCompany: { type: ["string", "null"] }
+        clientEmail: { type: ["string", "null"] }
+        clientPhone: { type: ["string", "null"] }
+        clientAddress: { type: ["string", "null"] }
+        clientGstNumber: { type: ["string", "null"] }
+        createdByName: { type: ["string", "null"] }
+        status: { type: string, enum: [draft, sent, approved, rejected, expired] }
+        validUntil: { type: ["string", "null"] }
+        subtotal: { type: number }
+        discountAmount: { type: number }
+        discountPercent: { type: number }
+        taxAmount: { type: number }
+        taxPercent: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
         items:
           type: array
-          items:
-            $ref: "#/components/schemas/QuotationItem"
+          items: { $ref: "#/components/schemas/QuotationItem" }
         quotationAddons:
           type: array
-          items:
-            $ref: "#/components/schemas/QuotationAddon"
-        createdAt:
-          type: string
-        updatedAt:
-          type: string
+          items: { $ref: "#/components/schemas/QuotationAddon" }
+        createdAt: { type: string }
+        updatedAt: { type: string }
 
     QuotationInput:
       type: object
       properties:
-        clientId:
-          type: integer
-        validUntil:
-          type: string
-        notes:
-          type: string
-        terms:
-          type: string
-        discountPercent:
-          type: number
-        taxPercent:
-          type: number
+        clientId: { type: integer }
+        validUntil: { type: string }
+        notes: { type: string }
+        terms: { type: string }
+        discountPercent: { type: number }
+        taxPercent: { type: number }
 
     QuotationUpdate:
       type: object
       properties:
-        clientId:
-          type: integer
-        validUntil:
-          type: string
-        notes:
-          type: string
-        terms:
-          type: string
-        discountPercent:
-          type: number
-        taxPercent:
-          type: number
+        clientId: { type: integer }
+        validUntil: { type: string }
+        notes: { type: string }
+        terms: { type: string }
+        discountPercent: { type: number }
+        taxPercent: { type: number }
 
     QuotationStatusUpdate:
       type: object
       required: [status]
       properties:
-        status:
-          type: string
-          enum: [draft, sent, approved, rejected, expired]
+        status: { type: string, enum: [draft, sent, approved, rejected, expired] }
 
     QuotationItem:
       type: object
       required: [id, quotationId, description, quantity, unitPrice, totalPrice]
       properties:
-        id:
-          type: integer
-        quotationId:
-          type: integer
-        productId:
-          type: ["integer", "null"]
-        productName:
-          type: ["string", "null"]
-        description:
-          type: string
-        widthFt:
-          type: ["number", "null"]
-        heightFt:
-          type: ["number", "null"]
-        areaSqFt:
-          type: ["number", "null"]
-        quantity:
-          type: integer
-        unitPrice:
-          type: number
-        totalPrice:
-          type: number
-        notes:
-          type: ["string", "null"]
+        id: { type: integer }
+        quotationId: { type: integer }
+        productId: { type: ["integer", "null"] }
+        productName: { type: ["string", "null"] }
+        description: { type: string }
+        widthFt: { type: ["number", "null"] }
+        heightFt: { type: ["number", "null"] }
+        areaSqFt: { type: ["number", "null"] }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+        notes: { type: ["string", "null"] }
 
     QuotationItemInput:
       type: object
       required: [description, quantity, unitPrice]
       properties:
-        productId:
-          type: integer
-        description:
-          type: string
-        widthFt:
-          type: number
-        heightFt:
-          type: number
-        quantity:
-          type: integer
-        unitPrice:
-          type: number
-        notes:
-          type: string
+        productId: { type: integer }
+        description: { type: string }
+        widthFt: { type: number }
+        heightFt: { type: number }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        notes: { type: string }
 
     QuotationItemUpdate:
       type: object
       properties:
-        productId:
-          type: integer
-        description:
-          type: string
-        widthFt:
-          type: number
-        heightFt:
-          type: number
-        quantity:
-          type: integer
-        unitPrice:
-          type: number
-        notes:
-          type: string
+        productId: { type: integer }
+        description: { type: string }
+        widthFt: { type: number }
+        heightFt: { type: number }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        notes: { type: string }
 
     QuotationAddon:
       type: object
       required: [id, quotationId, description, quantity, price, totalPrice]
       properties:
-        id:
-          type: integer
-        quotationId:
-          type: integer
-        addonId:
-          type: ["integer", "null"]
-        addonName:
-          type: ["string", "null"]
-        description:
-          type: string
-        quantity:
-          type: integer
-        price:
-          type: number
-        totalPrice:
-          type: number
+        id: { type: integer }
+        quotationId: { type: integer }
+        addonId: { type: ["integer", "null"] }
+        addonName: { type: ["string", "null"] }
+        description: { type: string }
+        quantity: { type: integer }
+        price: { type: number }
+        totalPrice: { type: number }
 
     QuotationAddonInput:
       type: object
       required: [description, quantity, price]
       properties:
-        addonId:
-          type: integer
-        description:
-          type: string
-        quantity:
-          type: integer
-        price:
-          type: number
+        addonId: { type: integer }
+        description: { type: string }
+        quantity: { type: integer }
+        price: { type: number }
 
     # ── Reports ──
     DashboardSummary:
       type: object
-      required: [totalQuotations, totalClients, totalProducts, pipelineValue, approvedValue, conversionRate, thisMonthQuotations, thisMonthValue, recentQuotations]
+      required:
+        [totalQuotations, totalClients, totalProducts, pipelineValue, approvedValue, conversionRate, thisMonthQuotations, thisMonthValue, recentQuotations]
       properties:
-        totalQuotations:
-          type: integer
-        totalClients:
-          type: integer
-        totalProducts:
-          type: integer
-        pipelineValue:
-          type: number
-        approvedValue:
-          type: number
-        conversionRate:
-          type: number
-        thisMonthQuotations:
-          type: integer
-        thisMonthValue:
-          type: number
-        draftCount:
-          type: integer
-        sentCount:
-          type: integer
-        approvedCount:
-          type: integer
-        rejectedCount:
-          type: integer
-        expiredCount:
-          type: integer
+        totalQuotations: { type: integer }
+        totalClients: { type: integer }
+        totalProducts: { type: integer }
+        pipelineValue: { type: number }
+        approvedValue: { type: number }
+        conversionRate: { type: number }
+        thisMonthQuotations: { type: integer }
+        thisMonthValue: { type: number }
+        draftCount: { type: integer }
+        sentCount: { type: integer }
+        approvedCount: { type: integer }
+        rejectedCount: { type: integer }
+        expiredCount: { type: integer }
         recentQuotations:
           type: array
-          items:
-            $ref: "#/components/schemas/Quotation"
+          items: { $ref: "#/components/schemas/Quotation" }
 
     MonthlyStat:
       type: object
       required: [month, year, quotationCount, totalValue, approvedValue, approvedCount]
       properties:
-        month:
-          type: integer
-        year:
-          type: integer
-        label:
-          type: string
-        quotationCount:
-          type: integer
-        totalValue:
-          type: number
-        approvedValue:
-          type: number
-        approvedCount:
-          type: integer
+        month: { type: integer }
+        year: { type: integer }
+        label: { type: string }
+        quotationCount: { type: integer }
+        totalValue: { type: number }
+        approvedValue: { type: number }
+        approvedCount: { type: integer }
 
     TopProduct:
       type: object
       required: [productId, productName, count, totalRevenue]
       properties:
-        productId:
-          type: integer
-        productName:
-          type: string
-        count:
-          type: integer
-        totalRevenue:
-          type: number
+        productId: { type: integer }
+        productName: { type: string }
+        count: { type: integer }
+        totalRevenue: { type: number }
 
     PipelineStat:
       type: object
       required: [status, count, totalValue]
       properties:
-        status:
-          type: string
-        count:
-          type: integer
-        totalValue:
-          type: number
+        status: { type: string }
+        count: { type: integer }
+        totalValue: { type: number }
 
     AuditLog:
       type: object
       required: [id, action, entity, createdAt]
       properties:
-        id:
-          type: integer
-        userId:
-          type: ["integer", "null"]
-        username:
-          type: ["string", "null"]
-        action:
-          type: string
-        entity:
-          type: string
-        entityId:
-          type: ["integer", "null"]
-        details:
-          type: ["string", "null"]
-        ipAddress:
-          type: ["string", "null"]
-        createdAt:
-          type: string
+        id: { type: integer }
+        userId: { type: ["integer", "null"] }
+        userName: { type: ["string", "null"] }
+        action: { type: string }
+        entity: { type: string }
+        entityId: { type: ["integer", "null"] }
+        details: { type: ["string", "null"] }
+        ipAddress: { type: ["string", "null"] }
+        createdAt: { type: string }

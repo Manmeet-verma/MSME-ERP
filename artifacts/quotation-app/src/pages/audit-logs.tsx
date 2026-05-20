@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { Layout } from "@/components/layout";
 import { useListAuditLogs } from "@workspace/api-client-react";
 import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +13,11 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function AuditLogsPage() {
-  const [page] = useState(1);
-  const { data, isLoading } = useListAuditLogs({ page, limit: 50 });
+  const { data, isLoading } = useListAuditLogs({ limit: 50 });
   const logs = data ?? [];
 
   return (
-    <Layout>
+    
       <div className="p-6 max-w-5xl mx-auto space-y-5">
         <div>
           <h1 className="text-xl font-bold">Audit Logs</h1>
@@ -70,8 +67,8 @@ export default function AuditLogsPage() {
                         {log.action}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground capitalize">{log.entityType}{log.entityId ? ` #${log.entityId}` : ""}</td>
-                    <td className="px-5 py-2.5 text-xs text-muted-foreground max-w-xs truncate">{log.description ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground capitalize">{log.entity}{log.entityId ? ` #${log.entityId}` : ""}</td>
+                    <td className="px-5 py-2.5 text-xs text-muted-foreground max-w-xs truncate">{log.details ?? "—"}</td>
                   </tr>
                 ))
               )}
@@ -79,6 +76,6 @@ export default function AuditLogsPage() {
           </table>
         </div>
       </div>
-    </Layout>
+    
   );
 }

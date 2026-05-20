@@ -1,9 +1,13 @@
-import { pgTable, serial, text, boolean, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { organizationsTable } from "./organizations";
 
 export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   category: text("category").notNull(),
   description: text("description"),

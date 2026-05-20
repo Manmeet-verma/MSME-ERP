@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layout } from "@/components/layout";
+
 import { useListClients, useCreateClient, useUpdateClient, useDeleteClient } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,11 @@ export default function ClientsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useListClients(search ? { name: search } : undefined);
-  const clients = data ?? [];
+  const { data, isLoading } = useListClients();
+  const allClients = data ?? [];
+  const clients = search
+    ? allClients.filter((c) => `${c.name} ${c.company ?? ""} ${c.email ?? ""}`.toLowerCase().includes(search.toLowerCase()))
+    : allClients;
 
   const createMutation = useCreateClient({
     mutation: {
@@ -100,7 +103,7 @@ export default function ClientsPage() {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-7xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -228,6 +231,7 @@ export default function ClientsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </Layout>
+    
+    </>
   );
 }

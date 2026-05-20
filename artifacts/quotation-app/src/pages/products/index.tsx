@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layout } from "@/components/layout";
+
 import { useListProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,12 @@ import type { Product } from "@workspace/api-client-react";
 type ProdForm = {
   name: string; description: string; category: string;
   pixelPitch: string; brightness: string; resolution: string;
-  unitPrice: string; unit: string; minOrder: string; isActive: boolean;
+  basePrice: string; unit: string; isActive: boolean;
 };
 const emptyForm: ProdForm = {
   name: "", description: "", category: "indoor",
   pixelPitch: "", brightness: "", resolution: "",
-  unitPrice: "", unit: "sqft", minOrder: "1", isActive: true,
+  basePrice: "", unit: "sqft", isActive: true,
 };
 
 const CATEGORIES = ["indoor", "outdoor", "flexible", "transparent", "rental", "creative"];
@@ -42,8 +42,11 @@ export default function ProductsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useListProducts(search ? { name: search } : undefined);
-  const products = data ?? [];
+  const { data, isLoading } = useListProducts();
+  const allProducts = data ?? [];
+  const products = search
+    ? allProducts.filter((p) => `${p.name} ${p.category}`.toLowerCase().includes(search.toLowerCase()))
+    : allProducts;
 
   const createMutation = useCreateProduct({
     mutation: {
@@ -94,9 +97,8 @@ export default function ProductsPage() {
       pixelPitch: p.pixelPitch ?? "",
       brightness: p.brightness ?? "",
       resolution: p.resolution ?? "",
-      unitPrice: String(p.unitPrice),
+      basePrice: String(p.basePrice),
       unit: p.unit,
-      minOrder: String(p.minOrder ?? 1),
       isActive: p.isActive ?? true,
     });
     setOpen(true);
@@ -106,8 +108,7 @@ export default function ProductsPage() {
     e.preventDefault();
     const payload = {
       ...form,
-      unitPrice: parseFloat(form.unitPrice),
-      minOrder: parseInt(form.minOrder),
+      basePrice: parseFloat(form.basePrice),
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id, data: payload });
@@ -125,7 +126,7 @@ export default function ProductsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-7xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -195,7 +196,7 @@ export default function ProductsPage() {
                       {p.pixelPitch && <span className="mr-2">P{p.pixelPitch}</span>}
                       {p.brightness && <span>{p.brightness} nits</span>}
                     </td>
-                    <td className="px-3 py-3 text-right text-xs font-semibold">{formatCurrency(p.unitPrice)}</td>
+                    <td className="px-3 py-3 text-right text-xs font-semibold">{formatCurrency(p.basePrice)}</td>
                     <td className="px-3 py-3 text-xs text-muted-foreground">/{p.unit}</td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -272,11 +273,10 @@ export default function ProductsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Unit Price (₹) *</Label>
-                <Input type="number" min="0" step="0.01" value={form.unitPrice} onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))} required />
+                <Input type="number" min="0" step="0.01" value={form.basePrice} onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value }))} required />
               </div>
               <div className="space-y-1.5">
                 <Label>Min Order</Label>
-                <Input type="number" min="1" value={form.minOrder} onChange={(e) => setForm((f) => ({ ...f, minOrder: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Pixel Pitch</Label>
@@ -298,6 +298,7 @@ export default function ProductsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </Layout>
+    
+    </>
   );
 }

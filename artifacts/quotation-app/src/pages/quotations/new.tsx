@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layout } from "@/components/layout";
+
 import {
   useListClients, useListProducts, useListAddons,
   useCreateQuotation, useAddQuotationItem, useAddQuotationAddon,
@@ -172,7 +172,7 @@ export default function NewQuotationPage() {
   const isSubmitting = createMutation.isPending || addItemMutation.isPending || addAddonMutation.isPending;
 
   return (
-    <Layout>
+    
       <div className="p-6 max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate("/quotations")} className="text-muted-foreground hover:text-foreground">
@@ -426,6 +426,6 @@ export default function NewQuotationPage() {
           </div>
         </form>
       </div>
-    </Layout>
+    
   );
 }

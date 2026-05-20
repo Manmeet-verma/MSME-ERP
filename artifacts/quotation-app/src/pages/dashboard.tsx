@@ -1,246 +1,126 @@
-import { Layout } from "@/components/layout";
-import { useGetDashboardSummary, useGetMonthlyStats, useGetPipelineStats } from "@workspace/api-client-react";
-import { formatCurrency } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import { useGetDashboardSummary, useListMembers } from "@workspace/api-client-react";
+import { getCurrentOrg } from "@/lib/auth";
+import { getModules, getLimits, MODULE_LABELS, MODULE_DESCRIPTIONS, type ModuleKey } from "@/lib/modules";
+import { formatCurrency } from "@/lib/format";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend
-} from "recharts";
-import {
-  FileText, Users, TrendingUp, IndianRupee, ArrowUpRight,
-  CheckCircle2, Clock, XCircle, Send
+  FileText, Users, TrendingUp, Megaphone, Boxes, ShoppingCart,
+  Briefcase, BookOpen, Share2, ArrowRight, Sparkles
 } from "lucide-react";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "#6b7280",
-  sent: "#3b82f6",
-  approved: "#22c55e",
-  rejected: "#ef4444",
+const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }>> = {
+  sales: FileText,
+  leads: TrendingUp,
+  inventory: Boxes,
+  purchase: ShoppingCart,
+  marketing: Megaphone,
+  hr: Briefcase,
+  accounting: BookOpen,
+  social: Share2,
 };
 
-const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  draft: Clock,
-  sent: Send,
-  approved: CheckCircle2,
-  rejected: XCircle,
+const MODULE_LINKS: Partial<Record<ModuleKey, string>> = {
+  sales: "/quotations",
 };
 
-function StatCard({
-  title, value, icon: Icon, sub, color = "primary",
-}: {
-  title: string; value: string; icon: React.ComponentType<{ className?: string }>;
-  sub?: string; color?: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-          </div>
-          <div className={`h-10 w-10 rounded-xl bg-${color}/15 flex items-center justify-center`}>
-            <Icon className={`h-5 w-5 text-${color}`} />
-          </div>
+interface ModuleCardProps {
+  moduleKey: ModuleKey;
+  enabled: boolean;
+  primary?: string;
+  secondary?: string;
+}
+
+function ModuleCard({ moduleKey, enabled, primary, secondary }: ModuleCardProps) {
+  const Icon = MODULE_ICONS[moduleKey];
+  const link = MODULE_LINKS[moduleKey];
+  const card = (
+    <div className={`bg-card border border-card-border rounded-xl p-5 h-full transition-all ${enabled ? "hover:border-primary/40 hover:shadow-lg" : "opacity-60"}`}>
+      <div className="flex items-start justify-between mb-4">
+        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+          <Icon className="h-5 w-5" />
         </div>
-      </CardContent>
-    </Card>
+        {!enabled && <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">Off</span>}
+      </div>
+      <h3 className="font-semibold text-foreground">{MODULE_LABELS[moduleKey]}</h3>
+      <p className="text-xs text-muted-foreground mt-0.5">{MODULE_DESCRIPTIONS[moduleKey]}</p>
+      {enabled ? (
+        <div className="mt-4 pt-3 border-t border-border">
+          {primary ? (
+            <>
+              <p className="text-xl font-bold text-foreground">{primary}</p>
+              {secondary && <p className="text-[11px] text-muted-foreground">{secondary}</p>}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">No data yet</p>
+          )}
+          {link && (
+            <div className="text-xs text-primary mt-3 flex items-center gap-1">
+              Open <ArrowRight className="h-3 w-3" />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-xs text-muted-foreground">Enable in Settings → Modules</p>
+        </div>
+      )}
+    </div>
   );
+  if (link && enabled) return <Link href={link}>{card}</Link>;
+  return card;
 }
 
 export default function DashboardPage() {
-  const { data: summary, isLoading } = useGetDashboardSummary();
-  const { data: monthly } = useGetMonthlyStats();
-  const { data: pipeline } = useGetPipelineStats();
+  const org = getCurrentOrg();
+  const modules = getModules(org);
+  const limits = getLimits(org);
+  const { data: summary } = useGetDashboardSummary();
+  const { data: members } = useListMembers();
+
+  const moduleOrder: ModuleKey[] = ["sales", "leads", "inventory", "purchase", "marketing", "social", "hr", "accounting"];
 
   return (
-    <Layout>
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Welcome back — here's what's happening</p>
-          </div>
-          <Link href="/quotations/new">
-            <a className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors">
-              <FileText className="h-4 w-4" />
-              New Quotation
-            </a>
-          </Link>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h1 className="text-2xl font-bold">Welcome, {org?.name}</h1>
         </div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>
-            ))
-          ) : (
-            <>
-              <StatCard
-                title="Total Quotations"
-                value={String(summary?.totalQuotations ?? 0)}
-                icon={FileText}
-                sub="All time"
-              />
-              <StatCard
-                title="Total Revenue"
-                value={formatCurrency(summary?.totalRevenue ?? 0)}
-                icon={IndianRupee}
-                sub="Approved"
-                color="accent"
-              />
-              <StatCard
-                title="Total Clients"
-                value={String(summary?.totalClients ?? 0)}
-                icon={Users}
-                sub="Active clients"
-                color="chart-2"
-              />
-              <StatCard
-                title="Conversion Rate"
-                value={`${summary?.conversionRate ?? 0}%`}
-                icon={TrendingUp}
-                sub="Approved / total"
-                color="chart-3"
-              />
-            </>
-          )}
-        </div>
-
-        {/* Charts row */}
-        <div className="grid lg:grid-cols-3 gap-4">
-          {/* Monthly revenue */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Monthly Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={monthly ?? []} barSize={20}>
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#6b7280" }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `₹${Math.round(v / 1000)}k`}
-                  />
-                  <Tooltip
-                    formatter={(v: number) => [formatCurrency(v), "Revenue"]}
-                    contentStyle={{ background: "hsl(222 40% 9%)", border: "1px solid hsl(220 20% 18%)", borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: "#e2e8f0" }}
-                  />
-                  <Bar dataKey="revenue" radius={[4, 4, 0, 0]} fill="hsl(217 91% 60%)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Pipeline */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Quotation Pipeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie
-                    data={pipeline ?? []}
-                    dataKey="count"
-                    nameKey="status"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
-                  >
-                    {(pipeline ?? []).map((entry) => (
-                      <Cell key={entry.status} fill={STATUS_COLORS[entry.status] ?? "#6b7280"} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v, name) => [v, name]}
-                    contentStyle={{ background: "hsl(222 40% 9%)", border: "1px solid hsl(220 20% 18%)", borderRadius: 8, fontSize: 12 }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-2 space-y-1.5">
-                {(pipeline ?? []).map((p) => {
-                  const Icon = STATUS_ICONS[p.status] ?? Clock;
-                  return (
-                    <div key={p.status} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <Icon className="h-3.5 w-3.5" style={{ color: STATUS_COLORS[p.status] }} />
-                        <span className="capitalize text-muted-foreground">{p.status}</span>
-                      </div>
-                      <span className="font-medium">{p.count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent quotations */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold">Recent Quotations</CardTitle>
-              <Link href="/quotations">
-                <a className="text-xs text-primary flex items-center gap-1 hover:underline">
-                  View all <ArrowUpRight className="h-3 w-3" />
-                </a>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left text-xs font-medium text-muted-foreground px-6 py-3">Quote #</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground px-3 py-3">Client</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground px-3 py-3">Status</th>
-                    <th className="text-right text-xs font-medium text-muted-foreground px-6 py-3">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(summary?.recentQuotations ?? []).map((q) => (
-                    <tr key={q.id} className="border-b border-border/50 hover:bg-card/50 transition-colors">
-                      <td className="px-6 py-3">
-                        <Link href={`/quotations/${q.id}`}>
-                          <a className="font-mono text-xs text-primary hover:underline">{q.quotationNumber}</a>
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-muted-foreground">{(q as { clientName?: string }).clientName ?? "—"}</td>
-                      <td className="px-3 py-3">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] capitalize"
-                          style={{ color: STATUS_COLORS[q.status], borderColor: STATUS_COLORS[q.status] + "40" }}
-                        >
-                          {q.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-xs">{formatCurrency(q.total)}</td>
-                    </tr>
-                  ))}
-                  {(summary?.recentQuotations ?? []).length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="text-center text-muted-foreground text-xs py-8">No quotations yet</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <p className="text-sm text-muted-foreground">Your workspace overview</p>
       </div>
-    </Layout>
+
+      {/* Usage badges */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="bg-card border border-card-border rounded-lg p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Team</p>
+          <p className="text-lg font-bold mt-1">{members?.length ?? 0}<span className="text-sm text-muted-foreground"> / {limits.members}</span></p>
+        </div>
+        <div className="bg-card border border-card-border rounded-lg p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Leads / mo</p>
+          <p className="text-lg font-bold mt-1">0<span className="text-sm text-muted-foreground"> / {limits.leadsPerMonth}</span></p>
+        </div>
+        <div className="bg-card border border-card-border rounded-lg p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Emails / mo</p>
+          <p className="text-lg font-bold mt-1">0<span className="text-sm text-muted-foreground"> / {limits.emailsPerMonth}</span></p>
+        </div>
+        <div className="bg-card border border-card-border rounded-lg p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Storage</p>
+          <p className="text-lg font-bold mt-1">0<span className="text-sm text-muted-foreground"> / {limits.storageMB} MB</span></p>
+        </div>
+      </div>
+
+      {/* Module cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {moduleOrder.map((key) => {
+          let primary: string | undefined;
+          let secondary: string | undefined;
+          if (key === "sales" && modules.sales && summary) {
+            primary = formatCurrency(summary.approvedValue ?? 0);
+            secondary = `${summary.totalQuotations ?? 0} quotations`;
+          }
+          return <ModuleCard key={key} moduleKey={key} enabled={modules[key]} primary={primary} secondary={secondary} />;
+        })}
+      </div>
+    </div>
   );
 }

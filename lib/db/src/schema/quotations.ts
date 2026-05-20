@@ -1,12 +1,16 @@
-import { pgTable, serial, text, integer, boolean, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, numeric, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { clientsTable } from "./clients";
+import { organizationsTable } from "./organizations";
 
 export const quotationsTable = pgTable("quotations", {
   id: serial("id").primaryKey(),
-  quotationNumber: text("quotation_number").notNull().unique(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  quotationNumber: text("quotation_number").notNull(),
   clientId: integer("client_id").references(() => clientsTable.id, { onDelete: "set null" }),
   createdById: integer("created_by_id").references(() => usersTable.id, { onDelete: "set null" }),
   status: text("status", { enum: ["draft", "sent", "approved", "rejected", "expired"] }).notNull().default("draft"),

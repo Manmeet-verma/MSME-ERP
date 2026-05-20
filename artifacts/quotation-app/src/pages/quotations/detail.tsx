@@ -1,4 +1,4 @@
-import { Layout } from "@/components/layout";
+
 import { useGetQuotation, useUpdateQuotationStatus, useSendQuotationSms } from "@workspace/api-client-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -255,23 +255,23 @@ export default function QuotationDetailPage() {
 
   if (isLoading) {
     return (
-      <Layout>
+      
         <div className="p-6 max-w-4xl mx-auto space-y-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-64 w-full" />
         </div>
-      </Layout>
+      
     );
   }
 
   if (!quotation) {
     return (
-      <Layout>
+      
         <div className="p-6 max-w-4xl mx-auto text-center py-16">
           <p className="text-muted-foreground">Quotation not found</p>
           <button onClick={() => navigate("/quotations")} className="text-primary text-sm hover:underline mt-2">← Back to quotations</button>
         </div>
-      </Layout>
+      
     );
   }
 
@@ -282,7 +282,7 @@ export default function QuotationDetailPage() {
   };
 
   return (
-    <Layout>
+    
       <div className="p-6 max-w-4xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
@@ -486,6 +486,6 @@ export default function QuotationDetailPage() {
           </div>
         )}
       </div>
-    </Layout>
+    
   );
 }

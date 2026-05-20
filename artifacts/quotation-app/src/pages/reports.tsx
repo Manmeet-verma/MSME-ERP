@@ -1,5 +1,5 @@
-import { Layout } from "@/components/layout";
-import { useGetDashboardSummary, useGetMonthlyStats, useGetTopProducts } from "@workspace/api-client-react";
+
+import { useGetDashboardSummary, useGetMonthlyReport, useGetTopProducts } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,11 +17,11 @@ const tooltipStyle = {
 
 export default function ReportsPage() {
   const { data: summary, isLoading } = useGetDashboardSummary();
-  const { data: monthly } = useGetMonthlyStats();
+  const { data: monthly } = useGetMonthlyReport();
   const { data: topProducts } = useGetTopProducts();
 
   return (
-    <Layout>
+    
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-bold">Reports & Analytics</h1>
@@ -36,7 +36,7 @@ export default function ReportsPage() {
             ))
           ) : (
             [
-              { label: "Total Revenue", value: formatCurrency(summary?.totalRevenue ?? 0), sub: "from approved quotes" },
+              { label: "Approved Revenue", value: formatCurrency(summary?.approvedValue ?? 0), sub: "from approved quotes" },
               { label: "Total Quotations", value: String(summary?.totalQuotations ?? 0), sub: "all time" },
               { label: "Active Clients", value: String(summary?.totalClients ?? 0), sub: "in CRM" },
               { label: "Conversion Rate", value: `${summary?.conversionRate ?? 0}%`, sub: "approved / total" },
@@ -61,10 +61,10 @@ export default function ReportsPage() {
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={monthly ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 18%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${Math.round(v / 1000)}k`} />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Revenue"]} />
-                <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={{ fill: "#3b82f6", r: 4 }} />
+                <Line type="monotone" dataKey="totalValue" stroke="#3b82f6" strokeWidth={2} dot={{ fill: "#3b82f6", r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -79,10 +79,10 @@ export default function ReportsPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthly ?? []} barSize={20}>
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Quotations"]} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="hsl(188 90% 45%)" />
+                  <Bar dataKey="quotationCount" radius={[4, 4, 0, 0]} fill="hsl(188 90% 45%)" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -110,6 +110,6 @@ export default function ReportsPage() {
           </Card>
         </div>
       </div>
-    </Layout>
+    
   );
 }

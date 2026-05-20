@@ -1,137 +1,120 @@
 import { Router } from "express";
 import { db, clientsTable, quotationsTable } from "@workspace/db";
-import { eq, ilike, or, count, sum, sql } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { and, eq, count, sum } from "drizzle-orm";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 
 const clientsRouter = Router();
 
+function formatClient(c: typeof clientsTable.$inferSelect, quotationCount = 0, totalValue = 0) {
+  return {
+    id: c.id,
+    name: c.name,
+    email: c.email ?? null,
+    phone: c.phone ?? null,
+    company: c.company ?? null,
+    address: c.address ?? null,
+    city: c.city ?? null,
+    state: c.state ?? null,
+    gstNumber: c.gstNumber ?? null,
+    notes: c.notes ?? null,
+    quotationCount,
+    totalValue,
+    createdAt: c.createdAt.toISOString(),
+  };
+}
+
 clientsRouter.get("/clients", requireAuth, async (req, res) => {
-  const { search } = req.query;
-  let clients = await db.select().from(clientsTable).orderBy(clientsTable.name);
-  if (search && typeof search === "string") {
-    const s = search.toLowerCase();
-    clients = clients.filter(c =>
-      c.name.toLowerCase().includes(s) ||
-      (c.company ?? "").toLowerCase().includes(s) ||
-      (c.email ?? "").toLowerCase().includes(s)
-    );
-  }
-  const quoteStats = await db
+  const orgId = req.user!.organizationId;
+  const rows = await db
+    .select()
+    .from(clientsTable)
+    .where(eq(clientsTable.organizationId, orgId))
+    .orderBy(clientsTable.name);
+
+  const stats = await db
     .select({
       clientId: quotationsTable.clientId,
-      quotationCount: count(quotationsTable.id),
-      totalValue: sum(quotationsTable.total),
+      count: count(),
+      total: sum(quotationsTable.total),
     })
     .from(quotationsTable)
+    .where(eq(quotationsTable.organizationId, orgId))
     .groupBy(quotationsTable.clientId);
-
-  const statsMap = new Map(quoteStats.map(s => [s.clientId, s]));
-
-  res.json(clients.map(c => {
-    const stats = statsMap.get(c.id);
-    return {
-      id: c.id,
-      name: c.name,
-      email: c.email ?? null,
-      phone: c.phone ?? null,
-      company: c.company ?? null,
-      address: c.address ?? null,
-      city: c.city ?? null,
-      gstNumber: c.gstNumber ?? null,
-      notes: c.notes ?? null,
-      quotationCount: Number(stats?.quotationCount ?? 0),
-      totalValue: Number(stats?.totalValue ?? 0),
-      createdAt: c.createdAt.toISOString(),
-    };
-  }));
-});
-
-clientsRouter.post("/clients", requireAuth, async (req, res) => {
-  const { name, email, phone, company, address, city, gstNumber, notes } = req.body;
-  if (!name) { res.status(400).json({ error: "Name required" }); return; }
-  const existing = await db.select({ id: clientsTable.id }).from(clientsTable).where(ilike(clientsTable.name, name.trim()));
-  if (existing.length > 0) { res.status(409).json({ error: `A client named "${name.trim()}" already exists` }); return; }
-  const [client] = await db.insert(clientsTable).values({
-    name, email, phone, company, address, city, gstNumber, notes,
-    createdById: req.user!.userId,
-  }).returning();
-  await logAction(req, "CREATE", "client", client.id, `Created client ${name}`);
-  res.status(201).json({
-    id: client.id,
-    name: client.name,
-    email: client.email ?? null,
-    phone: client.phone ?? null,
-    company: client.company ?? null,
-    address: client.address ?? null,
-    city: client.city ?? null,
-    gstNumber: client.gstNumber ?? null,
-    notes: client.notes ?? null,
-    quotationCount: 0,
-    totalValue: 0,
-    createdAt: client.createdAt.toISOString(),
-  });
+  const statMap = new Map(stats.map((s) => [s.clientId, s]));
+  res.json(
+    rows.map((c) =>
+      formatClient(
+        c,
+        Number(statMap.get(c.id)?.count ?? 0),
+        Number(statMap.get(c.id)?.total ?? 0),
+      ),
+    ),
+  );
 });
 
 clientsRouter.get("/clients/:id", requireAuth, async (req, res) => {
-  const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, Number(req.params.id)));
-  if (!client) { res.status(404).json({ error: "Client not found" }); return; }
-  const stats = await db
-    .select({ quotationCount: count(), totalValue: sum(quotationsTable.total) })
-    .from(quotationsTable)
-    .where(eq(quotationsTable.clientId, client.id));
-  res.json({
-    id: client.id,
-    name: client.name,
-    email: client.email ?? null,
-    phone: client.phone ?? null,
-    company: client.company ?? null,
-    address: client.address ?? null,
-    city: client.city ?? null,
-    gstNumber: client.gstNumber ?? null,
-    notes: client.notes ?? null,
-    quotationCount: Number(stats[0]?.quotationCount ?? 0),
-    totalValue: Number(stats[0]?.totalValue ?? 0),
-    createdAt: client.createdAt.toISOString(),
-  });
+  const orgId = req.user!.organizationId;
+  const [c] = await db
+    .select()
+    .from(clientsTable)
+    .where(and(eq(clientsTable.id, Number(req.params.id)), eq(clientsTable.organizationId, orgId)));
+  if (!c) {
+    res.status(404).json({ error: "Client not found" });
+    return;
+  }
+  res.json(formatClient(c));
+});
+
+clientsRouter.post("/clients", requireAuth, async (req, res) => {
+  const { name, email, phone, company, address, city, state, gstNumber, notes } = req.body ?? {};
+  if (!name) {
+    res.status(400).json({ error: "name required" });
+    return;
+  }
+  const [c] = await db
+    .insert(clientsTable)
+    .values({
+      organizationId: req.user!.organizationId,
+      name,
+      email,
+      phone,
+      company,
+      address,
+      city,
+      state,
+      gstNumber,
+      notes,
+      createdById: req.user!.userId,
+    })
+    .returning();
+  await logAction(req, "CREATE", "client", c.id, `Created client ${name}`);
+  res.status(201).json(formatClient(c));
 });
 
 clientsRouter.patch("/clients/:id", requireAuth, async (req, res) => {
-  const { name, email, phone, company, address, city, gstNumber, notes } = req.body;
+  const orgId = req.user!.organizationId;
   const updates: Record<string, unknown> = {};
-  if (name !== undefined) updates.name = name;
-  if (email !== undefined) updates.email = email;
-  if (phone !== undefined) updates.phone = phone;
-  if (company !== undefined) updates.company = company;
-  if (address !== undefined) updates.address = address;
-  if (city !== undefined) updates.city = city;
-  if (gstNumber !== undefined) updates.gstNumber = gstNumber;
-  if (notes !== undefined) updates.notes = notes;
-  const [client] = await db.update(clientsTable).set(updates).where(eq(clientsTable.id, Number(req.params.id))).returning();
-  if (!client) { res.status(404).json({ error: "Client not found" }); return; }
-  await logAction(req, "UPDATE", "client", client.id, `Updated client ${client.name}`);
-  const stats = await db
-    .select({ quotationCount: count(), totalValue: sum(quotationsTable.total) })
-    .from(quotationsTable)
-    .where(eq(quotationsTable.clientId, client.id));
-  res.json({
-    id: client.id,
-    name: client.name,
-    email: client.email ?? null,
-    phone: client.phone ?? null,
-    company: client.company ?? null,
-    address: client.address ?? null,
-    city: client.city ?? null,
-    gstNumber: client.gstNumber ?? null,
-    notes: client.notes ?? null,
-    quotationCount: Number(stats[0]?.quotationCount ?? 0),
-    totalValue: Number(stats[0]?.totalValue ?? 0),
-    createdAt: client.createdAt.toISOString(),
-  });
+  const fields = ["name", "email", "phone", "company", "address", "city", "state", "gstNumber", "notes"] as const;
+  for (const f of fields) if (req.body?.[f] !== undefined) updates[f] = req.body[f];
+  const [c] = await db
+    .update(clientsTable)
+    .set(updates)
+    .where(and(eq(clientsTable.id, Number(req.params.id)), eq(clientsTable.organizationId, orgId)))
+    .returning();
+  if (!c) {
+    res.status(404).json({ error: "Client not found" });
+    return;
+  }
+  await logAction(req, "UPDATE", "client", c.id);
+  res.json(formatClient(c));
 });
 
-clientsRouter.delete("/clients/:id", requireAuth, async (req, res) => {
-  await db.delete(clientsTable).where(eq(clientsTable.id, Number(req.params.id)));
+clientsRouter.delete("/clients/:id", requireAuth, requireAdmin, async (req, res) => {
+  const orgId = req.user!.organizationId;
+  await db
+    .delete(clientsTable)
+    .where(and(eq(clientsTable.id, Number(req.params.id)), eq(clientsTable.organizationId, orgId)));
   await logAction(req, "DELETE", "client", Number(req.params.id));
   res.json({ message: "Client deleted" });
 });
