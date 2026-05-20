@@ -153,6 +153,14 @@ salesOrdersRouter.post("/sales-orders", requireAuth, async (req, res) => {
     res.status(400).json({ error: ownErr });
     return;
   }
+  // Force new SOs to start in `draft`. Confirmation (which deducts stock) must
+  // happen via PATCH so the ledger update runs through a single, audited path.
+  if (b.status !== undefined && b.status !== "draft") {
+    res
+      .status(400)
+      .json({ error: "Sales orders must be created in draft. Confirm via PATCH to deduct stock." });
+    return;
+  }
   const [s] = await db
     .insert(salesOrdersTable)
     .values({
@@ -160,7 +168,7 @@ salesOrdersRouter.post("/sales-orders", requireAuth, async (req, res) => {
       orderNumber: genNumber(),
       clientId: b.clientId ?? null,
       warehouseId: b.warehouseId ?? null,
-      status: b.status ?? "draft",
+      status: "draft",
       expectedDeliveryAt: b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt) : null,
       notes: b.notes ?? null,
       createdById: req.user!.userId,
@@ -234,6 +242,19 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     res.status(409).json({ error: "Revert sales order to draft before editing line items" });
     return;
   }
+  // Warehouse changes on active SOs would desync per-warehouse ledger balances
+  // (deduction warehouse ≠ restoration warehouse). Require a draft revert.
+  if (
+    b.warehouseId !== undefined &&
+    b.warehouseId !== prev.warehouseId &&
+    wasActive &&
+    stillActive
+  ) {
+    res
+      .status(409)
+      .json({ error: "Revert sales order to draft before changing warehouse" });
+    return;
+  }
   // Snapshot pre-change lines + warehouse for compensating movements
   const prevLines = (
     await db
@@ -248,17 +269,7 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     if (b[f] !== undefined) updates[f] = b[f];
   }
   if (b.expectedDeliveryAt !== undefined) updates.expectedDeliveryAt = b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt) : null;
-  const [s] = await db
-    .update(salesOrdersTable)
-    .set(updates)
-    .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.organizationId, orgId)))
-    .returning();
-  if (!s) {
-    res.status(404).json({ error: "Sales order not found" });
-    return;
-  }
-  // Item replacement + stock compensation must be atomic so the ledger
-  // never disagrees with the persisted SO lines.
+  // SO header update + item replacement + stock compensation must be atomic.
   const becomingActive =
     b.status !== undefined &&
     !wasActive &&
@@ -267,6 +278,13 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     b.status !== undefined && wasActive && ["cancelled", "draft"].includes(b.status);
   try {
     await db.transaction(async (tx) => {
+      // 1) Apply header updates inside the tx
+      await tx
+        .update(salesOrdersTable)
+        .set(updates)
+        .where(
+          and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.organizationId, orgId)),
+        );
       if (becomingDead) {
         // Reverse against the PRE-CHANGE snapshot (the lines/warehouse the
         // stock was actually deducted from on the prior confirm).
