@@ -136,6 +136,17 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
       return;
     }
   }
+  // Build pending-qty map per PO line so we can block over-receipt.
+  const poLinePending = new Map<number, number>();
+  if (b.purchaseOrderId && poItemIds.length > 0) {
+    const poLines = await db
+      .select()
+      .from(purchaseOrderItemsTable)
+      .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId));
+    for (const p of poLines) {
+      poLinePending.set(p.id, Number(p.quantity) - Number(p.receivedQuantity));
+    }
+  }
   for (const it of incomingItems) {
     if (it.poItemId && !poItemIds.includes(it.poItemId)) {
       res.status(400).json({ error: "Invalid PO line reference" });
@@ -144,6 +155,20 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
     if (!(it.quantity > 0)) {
       res.status(400).json({ error: "Quantity must be positive" });
       return;
+    }
+    if (it.poItemId) {
+      const pending = poLinePending.get(it.poItemId) ?? 0;
+      if (it.quantity > pending) {
+        res.status(409).json({
+          error: "Over-receipt is not allowed",
+          poItemId: it.poItemId,
+          pending,
+          attempted: it.quantity,
+        });
+        return;
+      }
+      // Reserve so two lines targeting the same PO row cannot collectively over-receive.
+      poLinePending.set(it.poItemId, pending - it.quantity);
     }
   }
   // Wrap GRN header + items + stock movements + PO updates in a single

@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { useGetDashboardSummary, useGetDashboardWidgets, useListMembers } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetDashboardWidgets, useListMembers, useGetLowStock } from "@workspace/api-client-react";
 import { getCurrentOrg } from "@/lib/auth";
 import { getModules, getLimits, MODULE_LABELS, MODULE_DESCRIPTIONS, type ModuleKey } from "@/lib/modules";
 import { formatCurrency } from "@/lib/format";
@@ -27,6 +27,40 @@ const MODULE_LINKS: Partial<Record<ModuleKey, string>> = {
   inventory: "/inventory",
   purchase: "/purchase-orders",
 };
+
+function LowStockPanel() {
+  const { data: rows = [] } = useGetLowStock();
+  if (rows.length === 0) return null;
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold flex items-center gap-2">
+          <PackageOpen className="h-4 w-4 text-red-400" /> Low-stock items
+        </h3>
+        <Link href="/inventory">
+          <a className="text-xs text-muted-foreground hover:text-foreground">View all</a>
+        </Link>
+      </div>
+      <ul className="divide-y divide-border text-sm">
+        {rows.slice(0, 6).map((r) => (
+          <li key={r.itemId} className="py-2 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-medium">{r.itemName}</p>
+              <p className="text-xs text-muted-foreground">
+                {r.currentStock} on hand · threshold {r.lowStockThreshold}
+              </p>
+            </div>
+            <Link href={`/purchase-orders?createForItem=${r.itemId}`}>
+              <a className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
+                Create PO →
+              </a>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 interface ModuleCardProps {
   moduleKey: ModuleKey;
@@ -165,6 +199,9 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      {/* Low-stock list with quick "Create PO" links */}
+      {modules.inventory && <LowStockPanel />}
 
       {/* Module cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
