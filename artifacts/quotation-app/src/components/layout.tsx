@@ -8,6 +8,7 @@ import {
   UserPlus, Building2, Check, ChevronsUpDown,
   TrendingUp, CheckSquare, ShoppingCart, Receipt, Megaphone,
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
+  Share2, Mail, Ban,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,6 +34,9 @@ const navItems: NavItem[] = [
   { href: "/sales-orders", label: "Sales Orders", icon: ShoppingCart, module: "sales" },
   { href: "/invoices", label: "Invoices", icon: Receipt, module: "sales" },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone, module: "marketing" },
+  { href: "/marketing/drips", label: "Drip sequences", icon: Mail, module: "marketing" },
+  { href: "/marketing/suppressions", label: "Suppressions", icon: Ban, module: "marketing" },
+  { href: "/social", label: "Social", icon: Share2, module: "social" },
   { href: "/clients", label: "Clients", icon: Users, module: "sales" },
   { href: "/products", label: "Products", icon: Package, module: "sales" },
   { href: "/addons", label: "Add-ons", icon: Puzzle, module: "sales" },

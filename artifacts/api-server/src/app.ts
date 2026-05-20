@@ -29,6 +29,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded social media files publicly so providers (Meta/LinkedIn)
+// can fetch them when publishing.
+app.use("/api/uploads", express.static("uploads", { maxAge: "30d" }));
+
 app.use("/api", router);
 
 export default app;

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -10,6 +10,11 @@ export const campaignsTable = pgTable("campaigns", {
   name: text("name").notNull(),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
+  subjectB: text("subject_b"),
+  bodyB: text("body_b"),
+  abEnabled: boolean("ab_enabled").notNull().default(false),
+  abSplitPercent: integer("ab_split_percent").notNull().default(50),
+  winnerVariant: text("winner_variant", { enum: ["a", "b"] }),
   fromEmail: text("from_email").notNull(),
   segment: jsonb("segment").$type<{ entity: "leads" | "clients"; filters?: Record<string, string> }>().notNull(),
   status: text("status", { enum: ["draft", "scheduled", "sending", "sent", "cancelled"] }).notNull().default("draft"),
@@ -29,7 +34,8 @@ export const campaignRecipientsTable = pgTable("campaign_recipients", {
   name: text("name"),
   leadId: integer("lead_id"),
   clientId: integer("client_id"),
-  status: text("status", { enum: ["pending", "sent", "opened", "clicked", "bounced", "failed"] }).notNull().default("pending"),
+  variant: text("variant", { enum: ["a", "b"] }).notNull().default("a"),
+  status: text("status", { enum: ["pending", "sent", "opened", "clicked", "bounced", "failed", "suppressed"] }).notNull().default("pending"),
   sentAt: timestamp("sent_at"),
   openedAt: timestamp("opened_at"),
   clickedAt: timestamp("clicked_at"),

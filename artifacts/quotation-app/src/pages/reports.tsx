@@ -1,115 +1,142 @@
-
-import { useGetDashboardSummary, useGetMonthlyReport, useGetTopProducts } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useGetReportsCatalog } from "@workspace/api-client-react";
+import { getAuthToken } from "@/lib/auth";
 import { formatCurrency } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, CartesianGrid, Cell
-} from "recharts";
+import { FileText, FileSpreadsheet, BarChart3 } from "lucide-react";
 
-const COLORS = ["#3b82f6", "#06b6d4", "#22c55e", "#f59e0b", "#8b5cf6", "#ef4444", "#ec4899", "#14b8a6"];
+type ReportRow = Record<string, unknown>;
 
-const tooltipStyle = {
-  contentStyle: { background: "hsl(222 40% 9%)", border: "1px solid hsl(220 20% 18%)", borderRadius: 8, fontSize: 12 },
-  labelStyle: { color: "#e2e8f0" },
-};
+const NUM_KEYS = new Set([
+  "subtotal", "cgst", "sgst", "igst", "total", "amountPaid", "balance",
+  "taxAmount", "current", "days30", "days60", "days90", "daysOver90", "revenue",
+]);
+
+function formatCell(key: string, value: unknown): string {
+  if (value == null || value === "") return "—";
+  if (NUM_KEYS.has(key) && typeof value === "number") return formatCurrency(value);
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  return String(value);
+}
 
 export default function ReportsPage() {
-  const { data: summary, isLoading } = useGetDashboardSummary();
-  const { data: monthly } = useGetMonthlyReport();
-  const { data: topProducts } = useGetTopProducts();
+  const { data: catalog = [], isLoading } = useGetReportsCatalog();
+  const [active, setActive] = useState<string | null>(null);
+  const [rows, setRows] = useState<ReportRow[]>([]);
+  const [loadingRows, setLoadingRows] = useState(false);
+
+  async function loadReport(path: string, key: string) {
+    setActive(key);
+    setLoadingRows(true);
+    try {
+      const res = await fetch(`/api${path}`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      const data = (await res.json()) as ReportRow[];
+      setRows(Array.isArray(data) ? data : []);
+    } catch {
+      setRows([]);
+    } finally {
+      setLoadingRows(false);
+    }
+  }
+
+  async function exportFile(path: string, key: string, format: "csv" | "xlsx" | "pdf") {
+    const res = await fetch(`/api${path}?format=${format}`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${key}.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+  const activeReport = catalog.find((c) => c.key === active);
 
   return (
-    
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-bold">Reports & Analytics</h1>
-          <p className="text-sm text-muted-foreground">Business performance overview</p>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-xl font-bold">Reports</h1>
+        <p className="text-sm text-muted-foreground">Sales, purchase, customer ageing, ROI and engagement — exportable as CSV, Excel, or PDF.</p>
+      </div>
 
-        {/* KPI row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}><CardContent className="p-4"><Skeleton className="h-16 w-full" /></CardContent></Card>
             ))
+          : catalog.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => loadReport(r.path, r.key)}
+                className={`text-left bg-card border rounded-xl p-4 transition-all ${active === r.key ? "border-primary/50" : "border-card-border hover:border-primary/30"}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                    <BarChart3 className="h-4 w-4" />
+                  </div>
+                  <h3 className="font-semibold text-sm">{r.label}</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">{r.description}</p>
+              </button>
+            ))}
+      </div>
+
+      {activeReport && (
+        <div className="bg-card border border-card-border rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between print:hidden">
+            <div>
+              <h2 className="font-semibold">{activeReport.label}</h2>
+              <p className="text-xs text-muted-foreground">{activeReport.description}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => exportFile(activeReport.path, activeReport.key, "csv")}>
+                <FileSpreadsheet className="h-3 w-3" />CSV
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => exportFile(activeReport.path, activeReport.key, "xlsx")}>
+                <FileSpreadsheet className="h-3 w-3" />Excel
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => exportFile(activeReport.path, activeReport.key, "pdf")}>
+                <FileText className="h-3 w-3" />PDF
+              </Button>
+            </div>
+          </div>
+          {loadingRows ? (
+            <Skeleton className="h-40 w-full" />
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No data.</p>
           ) : (
-            [
-              { label: "Approved Revenue", value: formatCurrency(summary?.approvedValue ?? 0), sub: "from approved quotes" },
-              { label: "Total Quotations", value: String(summary?.totalQuotations ?? 0), sub: "all time" },
-              { label: "Active Clients", value: String(summary?.totalClients ?? 0), sub: "in CRM" },
-              { label: "Conversion Rate", value: `${summary?.conversionRate ?? 0}%`, sub: "approved / total" },
-            ].map((kpi) => (
-              <Card key={kpi.label}>
-                <CardContent className="p-5">
-                  <p className="text-xs text-muted-foreground">{kpi.label}</p>
-                  <p className="text-2xl font-bold mt-1">{kpi.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{kpi.sub}</p>
-                </CardContent>
-              </Card>
-            ))
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border">
+                    {headers.map((h) => (
+                      <th key={h} className="text-left py-2 px-2 font-medium text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={i} className="border-b border-border last:border-0">
+                      {headers.map((h) => (
+                        <td key={h} className="py-1.5 px-2">{formatCell(h, row[h])}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-
-        {/* Monthly revenue trend */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Monthly Revenue Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={monthly ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 18%)" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${Math.round(v / 1000)}k`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Revenue"]} />
-                <Line type="monotone" dataKey="totalValue" stroke="#3b82f6" strokeWidth={2} dot={{ fill: "#3b82f6", r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Monthly quotation count */}
-        <div className="grid lg:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Quotations Per Month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={monthly ?? []} barSize={20}>
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Quotations"]} />
-                  <Bar dataKey="quotationCount" radius={[4, 4, 0, 0]} fill="hsl(188 90% 45%)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Top products */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Top Products by Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={topProducts ?? []} layout="vertical" barSize={14}>
-                  <XAxis type="number" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${Math.round(v / 1000)}k`} />
-                  <YAxis type="category" dataKey="productName" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Revenue"]} />
-                  <Bar dataKey="totalRevenue" radius={[0, 4, 4, 0]}>
-                    {(topProducts ?? []).map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    
+      )}
+    </div>
   );
 }

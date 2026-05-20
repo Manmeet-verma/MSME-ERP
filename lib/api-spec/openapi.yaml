@@ -2008,6 +2008,463 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/LowStockItem" }
 
+  # ── Round 4: Social ──
+  /social/accounts:
+    get:
+      tags: [Social]
+      operationId: listSocialAccounts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialAccount" } }
+    post:
+      tags: [Social]
+      operationId: connectSocialAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialAccountInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialAccount" }
+  /social/accounts/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Social]
+      operationId: disconnectSocialAccount
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /social/posts:
+    get:
+      tags: [Social]
+      operationId: listSocialPosts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialPost" } }
+    post:
+      tags: [Social]
+      operationId: createSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialPostInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialPost" }
+  /social/posts/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Social]
+      operationId: updateSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialPostInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialPost" }
+    delete:
+      tags: [Social]
+      operationId: deleteSocialPost
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /social/posts/{id}/publish:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Social]
+      operationId: publishSocialPost
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialPost" }
+  /social/posts/draft:
+    post:
+      tags: [Social]
+      operationId: draftSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialDraftRequest" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialDraftResponse" }
+  /social/posts/rewrite:
+    post:
+      tags: [Social]
+      operationId: rewriteSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, tone]
+              properties:
+                text: { type: string }
+                tone: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text]
+                properties:
+                  text: { type: string }
+  /social/calendar:
+    get:
+      tags: [Social]
+      operationId: getSocialCalendar
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialCalendarEntry" } }
+
+  # ── Round 4: Marketing ──
+  /marketing/suppressions:
+    get:
+      tags: [Marketing]
+      operationId: listEmailSuppressions
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/EmailSuppression" } }
+    post:
+      tags: [Marketing]
+      operationId: createEmailSuppression
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string }
+                reason: { type: string }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmailSuppression" }
+  /marketing/suppressions/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Marketing]
+      operationId: deleteEmailSuppression
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /marketing/drips:
+    get:
+      tags: [Marketing]
+      operationId: listDripSequences
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/DripSequence" } }
+    post:
+      tags: [Marketing]
+      operationId: createDripSequence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DripSequenceInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DripSequence" }
+  /marketing/drips/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Marketing]
+      operationId: updateDripSequence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DripSequenceInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DripSequence" }
+  /marketing/drips/{id}/enroll:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Marketing]
+      operationId: enrollDripSequence
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enrolled]
+                properties:
+                  enrolled: { type: integer }
+  /marketing/unsubscribe/{token}:
+    parameters:
+      - in: path
+        name: token
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Marketing]
+      operationId: getUnsubscribe
+      security: []
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, status]
+                properties:
+                  email: { type: string }
+                  status: { type: string }
+    post:
+      tags: [Marketing]
+      operationId: confirmUnsubscribe
+      security: []
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Round 4: AI ──
+  /ai/insights:
+    get:
+      tags: [AI]
+      operationId: getAiInsights
+      parameters:
+        - in: query
+          name: refresh
+          schema: { type: string }
+        - in: query
+          name: date
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiInsightsResponse" }
+  /ai/nl-search:
+    post:
+      tags: [AI]
+      operationId: aiNlSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NlSearchResponse" }
+
+  # ── Round 4: Reports ──
+  /reports/catalog:
+    get:
+      tags: [Reports]
+      operationId: getReportsCatalog
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ReportCatalogEntry" } }
+  /reports/sales-register:
+    get:
+      tags: [Reports]
+      operationId: getSalesRegister
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SalesRegisterRow" } }
+  /reports/purchase-register:
+    get:
+      tags: [Reports]
+      operationId: getPurchaseRegister
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PurchaseRegisterRow" } }
+  /reports/customer-ageing:
+    get:
+      tags: [Reports]
+      operationId: getCustomerAgeing
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/CustomerAgeingRow" } }
+  /reports/top-items:
+    get:
+      tags: [Reports]
+      operationId: getTopItemsReport
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TopItemRow" } }
+  /reports/lead-source-roi:
+    get:
+      tags: [Reports]
+      operationId: getLeadSourceRoi
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LeadSourceRoiRow" } }
+  /reports/social-engagement:
+    get:
+      tags: [Reports]
+      operationId: getSocialEngagementReport
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialEngagementRow" } }
+  /reports/email-performance:
+    get:
+      tags: [Reports]
+      operationId: getEmailPerformanceReport
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/EmailPerformanceRow" } }
 components:
   securitySchemes:
     bearerAuth:
@@ -2801,6 +3258,11 @@ components:
             sent: { type: integer }
             opened: { type: integer }
             clicked: { type: integer }
+        subjectB: { type: ["string", "null"] }
+        bodyB: { type: ["string", "null"] }
+        abEnabled: { type: boolean }
+        abSplitPercent: { type: integer }
+        winnerVariant: { type: ["string", "null"] }
         createdAt: { type: string }
         updatedAt: { type: string }
 
@@ -2821,6 +3283,10 @@ components:
               type: object
               additionalProperties: { type: string }
         scheduledAt: { type: ["string", "null"] }
+        subjectB: { type: ["string", "null"] }
+        bodyB: { type: ["string", "null"] }
+        abEnabled: { type: boolean }
+        abSplitPercent: { type: integer }
 
     CampaignRecipient:
       type: object
@@ -3389,3 +3855,259 @@ components:
         unit: { type: ["string", "null"] }
         currentStock: { type: number }
         lowStockThreshold: { type: number }
+
+    SocialAccount:
+      type: object
+      required: [id, platform, externalId, accountName, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        platform: { type: string, enum: [facebook, instagram, linkedin] }
+        externalId: { type: string }
+        accountName: { type: string }
+        status: { type: string }
+        expiresAt: { type: ["string", "null"] }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    SocialAccountInput:
+      type: object
+      required: [platform, externalId, accountName, accessToken]
+      properties:
+        platform: { type: string, enum: [facebook, instagram, linkedin] }
+        externalId: { type: string }
+        accountName: { type: string }
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresAt: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    SocialPostResultItem:
+      type: object
+      required: [id, platform, status]
+      properties:
+        id: { type: integer }
+        platform: { type: string }
+        status: { type: string }
+        externalId: { type: ["string", "null"] }
+        externalUrl: { type: ["string", "null"] }
+        error: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"] }
+        metrics: { type: object, additionalProperties: true }
+    SocialPost:
+      type: object
+      required: [id, content, platforms, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        content: { type: string }
+        mediaUrls: { type: array, items: { type: string } }
+        platforms: { type: array, items: { type: string } }
+        variants: { type: object, additionalProperties: { type: string } }
+        status: { type: string }
+        scheduledAt: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"] }
+        context: { type: object, additionalProperties: true }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/SocialPostResultItem" }
+    SocialPostInput:
+      type: object
+      properties:
+        content: { type: string }
+        platforms: { type: array, items: { type: string } }
+        variants: { type: object, additionalProperties: { type: string } }
+        mediaUrls: { type: array, items: { type: string } }
+        scheduledAt: { type: ["string", "null"] }
+        context: { type: object, additionalProperties: true }
+        status: { type: string }
+    SocialDraftRequest:
+      type: object
+      required: [prompt, platforms]
+      properties:
+        prompt: { type: string }
+        platforms: { type: array, items: { type: string } }
+        tone: { type: string }
+        context: { type: string }
+    SocialDraftResponse:
+      type: object
+      required: [base, variants]
+      properties:
+        base: { type: string }
+        variants: { type: object, additionalProperties: { type: string } }
+    SocialCalendarEntry:
+      type: object
+      required: [id, content, platforms, status]
+      properties:
+        id: { type: integer }
+        content: { type: string }
+        platforms: { type: array, items: { type: string } }
+        status: { type: string }
+        scheduledAt: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"] }
+
+    EmailSuppression:
+      type: object
+      required: [id, email, reason, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        reason: { type: string }
+        createdAt: { type: string }
+    DripStep:
+      type: object
+      required: [stepOrder, delayDays, subject, body]
+      properties:
+        id: { type: integer }
+        stepOrder: { type: integer }
+        delayDays: { type: integer }
+        subject: { type: string }
+        body: { type: string }
+    DripSequenceTrigger:
+      type: object
+      required: [entity]
+      properties:
+        entity: { type: string, enum: [leads, clients] }
+        filters: { type: object, additionalProperties: { type: string } }
+    DripSequence:
+      type: object
+      required: [id, name, trigger, fromEmail, status, steps, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        trigger: { $ref: "#/components/schemas/DripSequenceTrigger" }
+        fromEmail: { type: string }
+        status: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        steps: { type: array, items: { $ref: "#/components/schemas/DripStep" } }
+    DripSequenceInput:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        trigger: { $ref: "#/components/schemas/DripSequenceTrigger" }
+        fromEmail: { type: string }
+        status: { type: string }
+        steps: { type: array, items: { $ref: "#/components/schemas/DripStep" } }
+
+    AiInsightsBundle:
+      type: object
+      required: [headline, bullets, suggestions]
+      properties:
+        headline: { type: string }
+        bullets: { type: array, items: { type: string } }
+        suggestions: { type: array, items: { type: string } }
+    AiInsightsResponse:
+      type: object
+      required: [forDate, insights, metricsSnapshot, cached]
+      properties:
+        forDate: { type: string }
+        insights: { $ref: "#/components/schemas/AiInsightsBundle" }
+        metricsSnapshot: { type: object, additionalProperties: true }
+        cached: { type: boolean }
+    NlSearchPlan:
+      type: object
+      required: [intent, entity, filters, explanation]
+      properties:
+        intent: { type: string }
+        entity: { type: string }
+        filters: { type: object, additionalProperties: true }
+        explanation: { type: string }
+    NlSearchResponse:
+      type: object
+      required: [plan, results]
+      properties:
+        plan: { $ref: "#/components/schemas/NlSearchPlan" }
+        results:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    ReportCatalogEntry:
+      type: object
+      required: [key, label, description, path]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        description: { type: string }
+        path: { type: string }
+    SalesRegisterRow:
+      type: object
+      required: [invoiceNumber, issueDate, status, subtotal, cgst, sgst, igst, total, amountPaid, balance]
+      properties:
+        invoiceNumber: { type: string }
+        issueDate: { type: string }
+        clientName: { type: string }
+        status: { type: string }
+        subtotal: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
+        total: { type: number }
+        amountPaid: { type: number }
+        balance: { type: number }
+    PurchaseRegisterRow:
+      type: object
+      required: [poNumber, date, status, subtotal, taxAmount, total]
+      properties:
+        poNumber: { type: string }
+        date: { type: string }
+        vendorName: { type: string }
+        status: { type: string }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+    CustomerAgeingRow:
+      type: object
+      required: [clientId, clientName, current, days30, days60, days90, daysOver90, total]
+      properties:
+        clientId: { type: integer }
+        clientName: { type: string }
+        current: { type: number }
+        days30: { type: number }
+        days60: { type: number }
+        days90: { type: number }
+        daysOver90: { type: number }
+        total: { type: number }
+    TopItemRow:
+      type: object
+      required: [name, quantity, revenue]
+      properties:
+        name: { type: string }
+        quantity: { type: number }
+        revenue: { type: number }
+    LeadSourceRoiRow:
+      type: object
+      required: [source, total, won, lost, conversionPct, revenue]
+      properties:
+        source: { type: string }
+        total: { type: integer }
+        won: { type: integer }
+        lost: { type: integer }
+        conversionPct: { type: integer }
+        revenue: { type: number }
+    SocialEngagementRow:
+      type: object
+      required: [id, content, platforms, likes, comments, shares, impressions]
+      properties:
+        id: { type: integer }
+        content: { type: string }
+        platforms: { type: string }
+        publishedAt: { type: ["string", "null"] }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: integer }
+        impressions: { type: integer }
+    EmailPerformanceRow:
+      type: object
+      required: [campaignId, name, subject, sent, opened, clicked, openRate, clickRate]
+      properties:
+        campaignId: { type: integer }
+        name: { type: string }
+        subject: { type: string }
+        sentAt: { type: ["string", "null"] }
+        sent: { type: integer }
+        opened: { type: integer }
+        clicked: { type: integer }
+        openRate: { type: integer }
+        clickRate: { type: integer }

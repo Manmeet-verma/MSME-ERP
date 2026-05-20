@@ -25,6 +25,11 @@ import purchaseOrdersRouter from "./purchase-orders";
 import grnRouter from "./grn";
 import vendorBillsRouter from "./vendor-bills";
 import inventoryRouter from "./inventory";
+import socialRouter from "./social";
+import marketingRouter from "./marketing";
+import aiRouter from "./ai";
+import reportsR4Router from "./reports-r4";
+import uploadsRouter from "./uploads";
 
 const router: IRouter = Router();
 
@@ -54,5 +59,10 @@ router.use(purchaseOrdersRouter);
 router.use(grnRouter);
 router.use(vendorBillsRouter);
 router.use(inventoryRouter);
+router.use(socialRouter);
+router.use(marketingRouter);
+router.use(aiRouter);
+router.use(reportsR4Router);
+router.use(uploadsRouter);
 
 export default router;

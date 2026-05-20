@@ -1439,6 +1439,11 @@ export const ListCampaignsResponseItem = zod.object({
   "opened": zod.number().optional(),
   "clicked": zod.number().optional()
 }).optional(),
+  "subjectB": zod.string().nullish(),
+  "bodyB": zod.string().nullish(),
+  "abEnabled": zod.boolean().optional(),
+  "abSplitPercent": zod.number().optional(),
+  "winnerVariant": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -1454,7 +1459,11 @@ export const CreateCampaignBody = zod.object({
   "entity": zod.enum(['leads', 'clients']),
   "filters": zod.record(zod.string(), zod.string()).optional()
 }),
-  "scheduledAt": zod.string().nullish()
+  "scheduledAt": zod.string().nullish(),
+  "subjectB": zod.string().nullish(),
+  "bodyB": zod.string().nullish(),
+  "abEnabled": zod.boolean().optional(),
+  "abSplitPercent": zod.number().optional()
 })
 
 
@@ -1481,6 +1490,11 @@ export const GetCampaignResponse = zod.object({
   "opened": zod.number().optional(),
   "clicked": zod.number().optional()
 }).optional(),
+  "subjectB": zod.string().nullish(),
+  "bodyB": zod.string().nullish(),
+  "abEnabled": zod.boolean().optional(),
+  "abSplitPercent": zod.number().optional(),
+  "winnerVariant": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 }).and(zod.object({
@@ -1511,7 +1525,11 @@ export const UpdateCampaignBody = zod.object({
   "entity": zod.enum(['leads', 'clients']),
   "filters": zod.record(zod.string(), zod.string()).optional()
 }),
-  "scheduledAt": zod.string().nullish()
+  "scheduledAt": zod.string().nullish(),
+  "subjectB": zod.string().nullish(),
+  "bodyB": zod.string().nullish(),
+  "abEnabled": zod.boolean().optional(),
+  "abSplitPercent": zod.number().optional()
 })
 
 export const UpdateCampaignResponse = zod.object({
@@ -1533,6 +1551,11 @@ export const UpdateCampaignResponse = zod.object({
   "opened": zod.number().optional(),
   "clicked": zod.number().optional()
 }).optional(),
+  "subjectB": zod.string().nullish(),
+  "bodyB": zod.string().nullish(),
+  "abEnabled": zod.boolean().optional(),
+  "abSplitPercent": zod.number().optional(),
+  "winnerVariant": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -1564,6 +1587,11 @@ export const SendCampaignResponse = zod.object({
   "opened": zod.number().optional(),
   "clicked": zod.number().optional()
 }).optional(),
+  "subjectB": zod.string().nullish(),
+  "bodyB": zod.string().nullish(),
+  "abEnabled": zod.boolean().optional(),
+  "abSplitPercent": zod.number().optional(),
+  "winnerVariant": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -2586,5 +2614,485 @@ export const GetLowStockResponseItem = zod.object({
   "lowStockThreshold": zod.number()
 })
 export const GetLowStockResponse = zod.array(GetLowStockResponseItem)
+
+
+export const ListSocialAccountsResponseItem = zod.object({
+  "id": zod.number(),
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin']),
+  "externalId": zod.string(),
+  "accountName": zod.string(),
+  "status": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "metadata": zod.record(zod.string(), zod.unknown()).optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListSocialAccountsResponse = zod.array(ListSocialAccountsResponseItem)
+
+
+export const ConnectSocialAccountBody = zod.object({
+  "platform": zod.enum(['facebook', 'instagram', 'linkedin']),
+  "externalId": zod.string(),
+  "accountName": zod.string(),
+  "accessToken": zod.string(),
+  "refreshToken": zod.string().optional(),
+  "expiresAt": zod.string().optional(),
+  "metadata": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+
+export const DisconnectSocialAccountParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DisconnectSocialAccountResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const ListSocialPostsResponseItem = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "platforms": zod.array(zod.string()),
+  "variants": zod.record(zod.string(), zod.string()).optional(),
+  "status": zod.string(),
+  "scheduledAt": zod.string().nullish(),
+  "publishedAt": zod.string().nullish(),
+  "context": zod.record(zod.string(), zod.unknown()).optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "platform": zod.string(),
+  "status": zod.string(),
+  "externalId": zod.string().nullish(),
+  "externalUrl": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "publishedAt": zod.string().nullish(),
+  "metrics": zod.record(zod.string(), zod.unknown()).optional()
+})).optional()
+})
+export const ListSocialPostsResponse = zod.array(ListSocialPostsResponseItem)
+
+
+export const CreateSocialPostBody = zod.object({
+  "content": zod.string().optional(),
+  "platforms": zod.array(zod.string()).optional(),
+  "variants": zod.record(zod.string(), zod.string()).optional(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "scheduledAt": zod.string().nullish(),
+  "context": zod.record(zod.string(), zod.unknown()).optional(),
+  "status": zod.string().optional()
+})
+
+
+export const UpdateSocialPostParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSocialPostBody = zod.object({
+  "content": zod.string().optional(),
+  "platforms": zod.array(zod.string()).optional(),
+  "variants": zod.record(zod.string(), zod.string()).optional(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "scheduledAt": zod.string().nullish(),
+  "context": zod.record(zod.string(), zod.unknown()).optional(),
+  "status": zod.string().optional()
+})
+
+export const UpdateSocialPostResponse = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "platforms": zod.array(zod.string()),
+  "variants": zod.record(zod.string(), zod.string()).optional(),
+  "status": zod.string(),
+  "scheduledAt": zod.string().nullish(),
+  "publishedAt": zod.string().nullish(),
+  "context": zod.record(zod.string(), zod.unknown()).optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "platform": zod.string(),
+  "status": zod.string(),
+  "externalId": zod.string().nullish(),
+  "externalUrl": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "publishedAt": zod.string().nullish(),
+  "metrics": zod.record(zod.string(), zod.unknown()).optional()
+})).optional()
+})
+
+
+export const DeleteSocialPostParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSocialPostResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const PublishSocialPostParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PublishSocialPostResponse = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "platforms": zod.array(zod.string()),
+  "variants": zod.record(zod.string(), zod.string()).optional(),
+  "status": zod.string(),
+  "scheduledAt": zod.string().nullish(),
+  "publishedAt": zod.string().nullish(),
+  "context": zod.record(zod.string(), zod.unknown()).optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "platform": zod.string(),
+  "status": zod.string(),
+  "externalId": zod.string().nullish(),
+  "externalUrl": zod.string().nullish(),
+  "error": zod.string().nullish(),
+  "publishedAt": zod.string().nullish(),
+  "metrics": zod.record(zod.string(), zod.unknown()).optional()
+})).optional()
+})
+
+
+export const DraftSocialPostBody = zod.object({
+  "prompt": zod.string(),
+  "platforms": zod.array(zod.string()),
+  "tone": zod.string().optional(),
+  "context": zod.string().optional()
+})
+
+export const DraftSocialPostResponse = zod.object({
+  "base": zod.string(),
+  "variants": zod.record(zod.string(), zod.string())
+})
+
+
+export const RewriteSocialPostBody = zod.object({
+  "text": zod.string(),
+  "tone": zod.string()
+})
+
+export const RewriteSocialPostResponse = zod.object({
+  "text": zod.string()
+})
+
+
+export const GetSocialCalendarResponseItem = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "platforms": zod.array(zod.string()),
+  "status": zod.string(),
+  "scheduledAt": zod.string().nullish(),
+  "publishedAt": zod.string().nullish()
+})
+export const GetSocialCalendarResponse = zod.array(GetSocialCalendarResponseItem)
+
+
+export const ListEmailSuppressionsResponseItem = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListEmailSuppressionsResponse = zod.array(ListEmailSuppressionsResponseItem)
+
+
+export const CreateEmailSuppressionBody = zod.object({
+  "email": zod.string(),
+  "reason": zod.string().optional()
+})
+
+
+export const DeleteEmailSuppressionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteEmailSuppressionResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const ListDripSequencesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "trigger": zod.object({
+  "entity": zod.enum(['leads', 'clients']),
+  "filters": zod.record(zod.string(), zod.string()).optional()
+}),
+  "fromEmail": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "steps": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "stepOrder": zod.number(),
+  "delayDays": zod.number(),
+  "subject": zod.string(),
+  "body": zod.string()
+}))
+})
+export const ListDripSequencesResponse = zod.array(ListDripSequencesResponseItem)
+
+
+export const CreateDripSequenceBody = zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "trigger": zod.object({
+  "entity": zod.enum(['leads', 'clients']),
+  "filters": zod.record(zod.string(), zod.string()).optional()
+}).optional(),
+  "fromEmail": zod.string().optional(),
+  "status": zod.string().optional(),
+  "steps": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "stepOrder": zod.number(),
+  "delayDays": zod.number(),
+  "subject": zod.string(),
+  "body": zod.string()
+})).optional()
+})
+
+
+export const UpdateDripSequenceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateDripSequenceBody = zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "trigger": zod.object({
+  "entity": zod.enum(['leads', 'clients']),
+  "filters": zod.record(zod.string(), zod.string()).optional()
+}).optional(),
+  "fromEmail": zod.string().optional(),
+  "status": zod.string().optional(),
+  "steps": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "stepOrder": zod.number(),
+  "delayDays": zod.number(),
+  "subject": zod.string(),
+  "body": zod.string()
+})).optional()
+})
+
+export const UpdateDripSequenceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "trigger": zod.object({
+  "entity": zod.enum(['leads', 'clients']),
+  "filters": zod.record(zod.string(), zod.string()).optional()
+}),
+  "fromEmail": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "steps": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "stepOrder": zod.number(),
+  "delayDays": zod.number(),
+  "subject": zod.string(),
+  "body": zod.string()
+}))
+})
+
+
+export const EnrollDripSequenceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const EnrollDripSequenceResponse = zod.object({
+  "enrolled": zod.number()
+})
+
+
+export const GetUnsubscribeParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetUnsubscribeResponse = zod.object({
+  "email": zod.string(),
+  "status": zod.string()
+})
+
+
+export const ConfirmUnsubscribeParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ConfirmUnsubscribeResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const GetAiInsightsQueryParams = zod.object({
+  "refresh": zod.coerce.string().optional(),
+  "date": zod.coerce.string().optional()
+})
+
+export const GetAiInsightsResponse = zod.object({
+  "forDate": zod.string(),
+  "insights": zod.object({
+  "headline": zod.string(),
+  "bullets": zod.array(zod.string()),
+  "suggestions": zod.array(zod.string())
+}),
+  "metricsSnapshot": zod.record(zod.string(), zod.unknown()),
+  "cached": zod.boolean()
+})
+
+
+export const AiNlSearchBody = zod.object({
+  "query": zod.string()
+})
+
+export const AiNlSearchResponse = zod.object({
+  "plan": zod.object({
+  "intent": zod.string(),
+  "entity": zod.string(),
+  "filters": zod.record(zod.string(), zod.unknown()),
+  "explanation": zod.string()
+}),
+  "results": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+
+export const GetReportsCatalogResponseItem = zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "path": zod.string()
+})
+export const GetReportsCatalogResponse = zod.array(GetReportsCatalogResponseItem)
+
+
+export const GetSalesRegisterQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "format": zod.coerce.string().optional()
+})
+
+export const GetSalesRegisterResponseItem = zod.object({
+  "invoiceNumber": zod.string(),
+  "issueDate": zod.string(),
+  "clientName": zod.string().optional(),
+  "status": zod.string(),
+  "subtotal": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "total": zod.number(),
+  "amountPaid": zod.number(),
+  "balance": zod.number()
+})
+export const GetSalesRegisterResponse = zod.array(GetSalesRegisterResponseItem)
+
+
+export const GetPurchaseRegisterQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "format": zod.coerce.string().optional()
+})
+
+export const GetPurchaseRegisterResponseItem = zod.object({
+  "poNumber": zod.string(),
+  "date": zod.string(),
+  "vendorName": zod.string().optional(),
+  "status": zod.string(),
+  "subtotal": zod.number(),
+  "taxAmount": zod.number(),
+  "total": zod.number()
+})
+export const GetPurchaseRegisterResponse = zod.array(GetPurchaseRegisterResponseItem)
+
+
+export const GetCustomerAgeingQueryParams = zod.object({
+  "format": zod.coerce.string().optional()
+})
+
+export const GetCustomerAgeingResponseItem = zod.object({
+  "clientId": zod.number(),
+  "clientName": zod.string(),
+  "current": zod.number(),
+  "days30": zod.number(),
+  "days60": zod.number(),
+  "days90": zod.number(),
+  "daysOver90": zod.number(),
+  "total": zod.number()
+})
+export const GetCustomerAgeingResponse = zod.array(GetCustomerAgeingResponseItem)
+
+
+export const GetTopItemsReportQueryParams = zod.object({
+  "format": zod.coerce.string().optional()
+})
+
+export const GetTopItemsReportResponseItem = zod.object({
+  "name": zod.string(),
+  "quantity": zod.number(),
+  "revenue": zod.number()
+})
+export const GetTopItemsReportResponse = zod.array(GetTopItemsReportResponseItem)
+
+
+export const GetLeadSourceRoiQueryParams = zod.object({
+  "format": zod.coerce.string().optional()
+})
+
+export const GetLeadSourceRoiResponseItem = zod.object({
+  "source": zod.string(),
+  "total": zod.number(),
+  "won": zod.number(),
+  "lost": zod.number(),
+  "conversionPct": zod.number(),
+  "revenue": zod.number()
+})
+export const GetLeadSourceRoiResponse = zod.array(GetLeadSourceRoiResponseItem)
+
+
+export const GetSocialEngagementReportQueryParams = zod.object({
+  "format": zod.coerce.string().optional()
+})
+
+export const GetSocialEngagementReportResponseItem = zod.object({
+  "id": zod.number(),
+  "content": zod.string(),
+  "platforms": zod.string(),
+  "publishedAt": zod.string().nullish(),
+  "likes": zod.number(),
+  "comments": zod.number(),
+  "shares": zod.number(),
+  "impressions": zod.number()
+})
+export const GetSocialEngagementReportResponse = zod.array(GetSocialEngagementReportResponseItem)
+
+
+export const GetEmailPerformanceReportQueryParams = zod.object({
+  "format": zod.coerce.string().optional()
+})
+
+export const GetEmailPerformanceReportResponseItem = zod.object({
+  "campaignId": zod.number(),
+  "name": zod.string(),
+  "subject": zod.string(),
+  "sentAt": zod.string().nullish(),
+  "sent": zod.number(),
+  "opened": zod.number(),
+  "clicked": zod.number(),
+  "openRate": zod.number(),
+  "clickRate": zod.number()
+})
+export const GetEmailPerformanceReportResponse = zod.array(GetEmailPerformanceReportResponseItem)
 
 

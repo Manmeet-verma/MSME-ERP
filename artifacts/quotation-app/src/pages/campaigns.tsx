@@ -15,6 +15,10 @@ const empty = {
   entity: "leads" as "leads" | "clients",
   segPriority: "" as "" | "hot" | "warm" | "cold",
   segStatus: "" as string,
+  abEnabled: false,
+  subjectB: "",
+  bodyB: "",
+  abSplitPercent: 50,
 };
 
 export default function CampaignsPage() {
@@ -48,6 +52,10 @@ export default function CampaignsPage() {
       body: form.body,
       fromEmail: form.fromEmail,
       segment: { entity: form.entity, filters } as CampaignInput["segment"],
+      abEnabled: form.abEnabled,
+      subjectB: form.abEnabled ? form.subjectB : null,
+      bodyB: form.abEnabled ? form.bodyB || form.body : null,
+      abSplitPercent: form.abSplitPercent,
     };
     createMut.mutate({ data: payload });
   }
@@ -75,7 +83,9 @@ export default function CampaignsPage() {
                 <div className="flex-1">
                   <p className="font-semibold">{c.name}</p>
                   <p className="text-xs text-muted-foreground">{c.subject}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">From: {c.fromEmail} · Status: {c.status}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    From: {c.fromEmail} · Status: {c.status}{c.abEnabled ? " · A/B" : ""}
+                  </p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
                   <p>Total: {c.stats?.total ?? 0}</p>
@@ -101,6 +111,30 @@ export default function CampaignsPage() {
             <div><Label>From email *</Label><Input required type="email" value={form.fromEmail} onChange={(e) => setForm({ ...form, fromEmail: e.target.value })} /></div>
             <div><Label>Subject *</Label><Input required value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
             <div><Label>Body *</Label><Textarea required rows={8} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></div>
+
+            <div className="border border-border rounded-md p-3 space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.abEnabled} onChange={(e) => setForm({ ...form, abEnabled: e.target.checked })} />
+                A/B test subject line
+              </label>
+              {form.abEnabled && (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Variant B subject</Label>
+                    <Input value={form.subjectB} onChange={(e) => setForm({ ...form, subjectB: e.target.value })} placeholder="Alternative subject line" />
+                  </div>
+                  <div>
+                    <Label>Variant B body (optional — defaults to A)</Label>
+                    <Textarea rows={4} value={form.bodyB} onChange={(e) => setForm({ ...form, bodyB: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Variant A split % (rest goes to B)</Label>
+                    <Input type="number" min={1} max={99} value={form.abSplitPercent}
+                      onChange={(e) => setForm({ ...form, abSplitPercent: Number(e.target.value) })} />
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <Label>Send to</Label>

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, campaignsTable, campaignRecipientsTable, leadsTable, clientsTable, emailsTable } from "@workspace/db";
+import { db, campaignsTable, campaignRecipientsTable, leadsTable, clientsTable, emailsTable, emailSuppressionsTable } from "@workspace/db";
 import { and, eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
@@ -18,6 +18,11 @@ function fmt(c: typeof campaignsTable.$inferSelect) {
     scheduledAt: c.scheduledAt?.toISOString() ?? null,
     sentAt: c.sentAt?.toISOString() ?? null,
     stats: c.stats ?? { total: 0, sent: 0, opened: 0, clicked: 0 },
+    subjectB: c.subjectB ?? null,
+    bodyB: c.bodyB ?? null,
+    abEnabled: Boolean(c.abEnabled),
+    abSplitPercent: Number(c.abSplitPercent ?? 50),
+    winnerVariant: c.winnerVariant ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -51,6 +56,10 @@ campaignsRouter.post("/campaigns", requireAuth, async (req, res) => {
       segment: b.segment,
       status: b.scheduledAt ? "scheduled" : "draft",
       scheduledAt: b.scheduledAt ? new Date(b.scheduledAt) : null,
+      subjectB: b.subjectB ?? null,
+      bodyB: b.bodyB ?? null,
+      abEnabled: Boolean(b.abEnabled),
+      abSplitPercent: b.abSplitPercent != null ? Number(b.abSplitPercent) : 50,
       createdById: req.user!.userId,
     })
     .returning();
@@ -94,7 +103,7 @@ campaignsRouter.patch("/campaigns/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const id = Number(req.params.id);
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  for (const f of ["name", "subject", "body", "fromEmail", "segment"] as const) {
+  for (const f of ["name", "subject", "body", "fromEmail", "segment", "subjectB", "bodyB", "abEnabled", "abSplitPercent", "winnerVariant"] as const) {
     if (req.body?.[f] !== undefined) updates[f] = req.body[f];
   }
   if (req.body?.scheduledAt !== undefined) updates.scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt) : null;
@@ -138,8 +147,23 @@ campaignsRouter.post("/campaigns/:id/send", requireAuth, async (req, res) => {
       .filter((r) => !!r.email)
       .map((r) => ({ email: r.email!, name: r.name, leadId: null, clientId: r.id }));
   }
+  // Filter out suppressed emails
+  const supp = await db
+    .select({ email: emailSuppressionsTable.email })
+    .from(emailSuppressionsTable)
+    .where(eq(emailSuppressionsTable.organizationId, orgId));
+  const suppressedSet = new Set(supp.map((s) => s.email.toLowerCase()));
+  recipients = recipients.filter((r) => !suppressedSet.has(r.email.toLowerCase()));
+
+  // A/B split if enabled
+  const abEnabled = Boolean(c.abEnabled) && c.subjectB;
+  const splitPct = Math.max(0, Math.min(100, Number(c.abSplitPercent ?? 50)));
   // Insert recipients + outbound email rows (status: sent in MVP)
-  for (const r of recipients) {
+  for (let i = 0; i < recipients.length; i++) {
+    const r = recipients[i];
+    const variant: "a" | "b" = abEnabled && (i * 100) / Math.max(1, recipients.length) >= splitPct ? "b" : "a";
+    const useSubject = variant === "b" && c.subjectB ? c.subjectB : c.subject;
+    const useBody = variant === "b" && c.bodyB ? c.bodyB : c.body;
     const [rec] = await db
       .insert(campaignRecipientsTable)
       .values({
@@ -150,6 +174,7 @@ campaignsRouter.post("/campaigns/:id/send", requireAuth, async (req, res) => {
         leadId: r.leadId,
         clientId: r.clientId,
         status: "sent",
+        variant: abEnabled ? variant : undefined,
         sentAt: new Date(),
       })
       .returning();
@@ -161,8 +186,8 @@ campaignsRouter.post("/campaigns/:id/send", requireAuth, async (req, res) => {
       direction: "outbound",
       fromEmail: c.fromEmail,
       toEmail: r.email,
-      subject: c.subject,
-      body: c.body,
+      subject: useSubject,
+      body: useBody,
       status: "sent",
       sentAt: new Date(),
       messageId: `<campaign-${id}-rec-${rec.id}@msme-pro>`,

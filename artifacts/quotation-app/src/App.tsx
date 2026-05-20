@@ -36,6 +36,10 @@ import PurchaseOrderDetailPage from "@/pages/purchase-orders/detail";
 import VendorBillsPage from "@/pages/vendor-bills";
 import VendorBillDetailPage from "@/pages/vendor-bills/detail";
 import InventoryPage from "@/pages/inventory";
+import SocialPage from "@/pages/social";
+import DripsPage from "@/pages/marketing/drips";
+import SuppressionsPage from "@/pages/marketing/suppressions";
+import UnsubscribePage from "@/pages/unsubscribe";
 import { Layout } from "@/components/layout";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
 import "@/lib/auth";
@@ -63,6 +67,7 @@ function Router() {
       <Route path="/signup" component={SignupPage} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/accept-invite/:token" component={AcceptInvitePage} />
+      <Route path="/unsubscribe/:token" component={UnsubscribePage} />
       <Route path="/" component={() => <Guard component={DashboardPage} />} />
       <Route path="/quotations" component={() => <Guard component={QuotationsPage} />} />
       <Route path="/quotations/new" component={() => <Guard component={NewQuotationPage} />} />
@@ -92,6 +97,9 @@ function Router() {
       <Route path="/vendor-bills" component={() => <Guard component={VendorBillsPage} />} />
       <Route path="/vendor-bills/:id" component={() => <Guard component={VendorBillDetailPage} />} />
       <Route path="/inventory" component={() => <Guard component={InventoryPage} />} />
+      <Route path="/social" component={() => <Guard component={SocialPage} />} />
+      <Route path="/marketing/drips" component={() => <Guard component={DripsPage} />} />
+      <Route path="/marketing/suppressions" component={() => <Guard component={SuppressionsPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

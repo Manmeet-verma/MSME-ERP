@@ -1,12 +1,18 @@
 import { Link } from "wouter";
-import { useGetDashboardSummary, useGetDashboardWidgets, useListMembers, useGetLowStock } from "@workspace/api-client-react";
+import { useState } from "react";
+import {
+  useGetDashboardSummary, useGetDashboardWidgets, useListMembers, useGetLowStock,
+  useGetAiInsights, useAiNlSearch,
+} from "@workspace/api-client-react";
 import { getCurrentOrg } from "@/lib/auth";
 import { getModules, getLimits, MODULE_LABELS, MODULE_DESCRIPTIONS, type ModuleKey } from "@/lib/modules";
 import { formatCurrency } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   FileText, Users, TrendingUp, Megaphone, Boxes, ShoppingCart,
   Briefcase, BookOpen, Share2, ArrowRight, Sparkles, Flame, Phone, Mail,
-  Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse,
+  Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse, Search, Lightbulb,
 } from "lucide-react";
 
 const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }>> = {
@@ -143,6 +149,9 @@ export default function DashboardPage() {
   const { data: summary } = useGetDashboardSummary();
   const { data: widgets } = useGetDashboardWidgets();
   const { data: members } = useListMembers();
+  const { data: insights } = useGetAiInsights();
+  const [query, setQuery] = useState("");
+  const nlSearch = useAiNlSearch();
 
   const moduleOrder: ModuleKey[] = ["sales", "leads", "inventory", "purchase", "marketing", "social", "hr", "accounting"];
 
@@ -154,6 +163,56 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">Welcome, {org?.name}</h1>
         </div>
         <p className="text-sm text-muted-foreground">Your workspace overview</p>
+      </div>
+
+      {/* AI insights + NL search */}
+      <div className="grid lg:grid-cols-3 gap-3 mb-6">
+        <div className="lg:col-span-2 bg-card border border-card-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb className="h-4 w-4 text-yellow-400" />
+            <h2 className="font-semibold text-sm">Today's AI insights</h2>
+            {insights?.cached && <span className="text-[10px] text-muted-foreground">cached</span>}
+          </div>
+          {insights ? (
+            <>
+              <p className="text-sm font-medium mb-2">{insights.insights.headline}</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 mb-3">
+                {insights.insights.bullets.map((b, i) => <li key={i}>{b}</li>)}
+              </ul>
+              {insights.insights.suggestions?.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {insights.insights.suggestions.map((s, i) => (
+                    <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary">{s}</span>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">Insights will appear here once you have activity.</p>
+          )}
+        </div>
+        <div className="bg-card border border-card-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Search className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold text-sm">Ask anything</h2>
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); if (query) nlSearch.mutate({ data: { query } }); }} className="flex gap-2">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="show me unpaid invoices over ₹50,000" />
+            <Button type="submit" size="sm" disabled={!query || nlSearch.isPending}>Go</Button>
+          </form>
+          {nlSearch.data && (
+            <div className="mt-3 text-xs space-y-1">
+              <p className="text-muted-foreground italic">{nlSearch.data.plan.explanation}</p>
+              <p className="text-[11px] text-muted-foreground">{nlSearch.data.results.length} result{nlSearch.data.results.length === 1 ? "" : "s"}</p>
+              <ul className="space-y-0.5 max-h-40 overflow-y-auto">
+                {nlSearch.data.results.slice(0, 6).map((r, i) => {
+                  const row = r as Record<string, unknown>;
+                  return <li key={i} className="truncate">• {Object.entries(row).slice(0, 4).map(([k, v]) => `${k}: ${String(v)}`).join(" · ")}</li>;
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Usage badges */}

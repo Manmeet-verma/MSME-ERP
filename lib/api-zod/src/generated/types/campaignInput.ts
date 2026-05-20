@@ -15,4 +15,10 @@ export interface CampaignInput {
   segment: CampaignInputSegment;
   /** @nullable */
   scheduledAt?: string | null;
+  /** @nullable */
+  subjectB?: string | null;
+  /** @nullable */
+  bodyB?: string | null;
+  abEnabled?: boolean;
+  abSplitPercent?: number;
 }

@@ -21,6 +21,14 @@ export interface Campaign {
   /** @nullable */
   sentAt?: string | null;
   stats?: CampaignStats;
+  /** @nullable */
+  subjectB?: string | null;
+  /** @nullable */
+  bodyB?: string | null;
+  abEnabled?: boolean;
+  abSplitPercent?: number;
+  /** @nullable */
+  winnerVariant?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

@@ -966,6 +966,14 @@ export interface Campaign {
   /** @nullable */
   sentAt?: string | null;
   stats?: CampaignStats;
+  /** @nullable */
+  subjectB?: string | null;
+  /** @nullable */
+  bodyB?: string | null;
+  abEnabled?: boolean;
+  abSplitPercent?: number;
+  /** @nullable */
+  winnerVariant?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -993,6 +1001,12 @@ export interface CampaignInput {
   segment: CampaignInputSegment;
   /** @nullable */
   scheduledAt?: string | null;
+  /** @nullable */
+  subjectB?: string | null;
+  /** @nullable */
+  bodyB?: string | null;
+  abEnabled?: boolean;
+  abSplitPercent?: number;
 }
 
 export interface CampaignRecipient {
@@ -1674,6 +1688,295 @@ export interface LowStockItem {
   lowStockThreshold: number;
 }
 
+export type SocialAccountPlatform = typeof SocialAccountPlatform[keyof typeof SocialAccountPlatform];
+
+
+export const SocialAccountPlatform = {
+  facebook: 'facebook',
+  instagram: 'instagram',
+  linkedin: 'linkedin',
+} as const;
+
+export type SocialAccountMetadata = { [key: string]: unknown };
+
+export interface SocialAccount {
+  id: number;
+  platform: SocialAccountPlatform;
+  externalId: string;
+  accountName: string;
+  status: string;
+  /** @nullable */
+  expiresAt?: string | null;
+  metadata?: SocialAccountMetadata;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SocialAccountInputPlatform = typeof SocialAccountInputPlatform[keyof typeof SocialAccountInputPlatform];
+
+
+export const SocialAccountInputPlatform = {
+  facebook: 'facebook',
+  instagram: 'instagram',
+  linkedin: 'linkedin',
+} as const;
+
+export type SocialAccountInputMetadata = { [key: string]: unknown };
+
+export interface SocialAccountInput {
+  platform: SocialAccountInputPlatform;
+  externalId: string;
+  accountName: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: string;
+  metadata?: SocialAccountInputMetadata;
+}
+
+export type SocialPostResultItemMetrics = { [key: string]: unknown };
+
+export interface SocialPostResultItem {
+  id: number;
+  platform: string;
+  status: string;
+  /** @nullable */
+  externalId?: string | null;
+  /** @nullable */
+  externalUrl?: string | null;
+  /** @nullable */
+  error?: string | null;
+  /** @nullable */
+  publishedAt?: string | null;
+  metrics?: SocialPostResultItemMetrics;
+}
+
+export type SocialPostVariants = {[key: string]: string};
+
+export type SocialPostContext = { [key: string]: unknown };
+
+export interface SocialPost {
+  id: number;
+  content: string;
+  mediaUrls?: string[];
+  platforms: string[];
+  variants?: SocialPostVariants;
+  status: string;
+  /** @nullable */
+  scheduledAt?: string | null;
+  /** @nullable */
+  publishedAt?: string | null;
+  context?: SocialPostContext;
+  createdAt: string;
+  updatedAt: string;
+  results?: SocialPostResultItem[];
+}
+
+export type SocialPostInputVariants = {[key: string]: string};
+
+export type SocialPostInputContext = { [key: string]: unknown };
+
+export interface SocialPostInput {
+  content?: string;
+  platforms?: string[];
+  variants?: SocialPostInputVariants;
+  mediaUrls?: string[];
+  /** @nullable */
+  scheduledAt?: string | null;
+  context?: SocialPostInputContext;
+  status?: string;
+}
+
+export interface SocialDraftRequest {
+  prompt: string;
+  platforms: string[];
+  tone?: string;
+  context?: string;
+}
+
+export type SocialDraftResponseVariants = {[key: string]: string};
+
+export interface SocialDraftResponse {
+  base: string;
+  variants: SocialDraftResponseVariants;
+}
+
+export interface SocialCalendarEntry {
+  id: number;
+  content: string;
+  platforms: string[];
+  status: string;
+  /** @nullable */
+  scheduledAt?: string | null;
+  /** @nullable */
+  publishedAt?: string | null;
+}
+
+export interface EmailSuppression {
+  id: number;
+  email: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface DripStep {
+  id?: number;
+  stepOrder: number;
+  delayDays: number;
+  subject: string;
+  body: string;
+}
+
+export type DripSequenceTriggerEntity = typeof DripSequenceTriggerEntity[keyof typeof DripSequenceTriggerEntity];
+
+
+export const DripSequenceTriggerEntity = {
+  leads: 'leads',
+  clients: 'clients',
+} as const;
+
+export type DripSequenceTriggerFilters = {[key: string]: string};
+
+export interface DripSequenceTrigger {
+  entity: DripSequenceTriggerEntity;
+  filters?: DripSequenceTriggerFilters;
+}
+
+export interface DripSequence {
+  id: number;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  trigger: DripSequenceTrigger;
+  fromEmail: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  steps: DripStep[];
+}
+
+export interface DripSequenceInput {
+  name?: string;
+  /** @nullable */
+  description?: string | null;
+  trigger?: DripSequenceTrigger;
+  fromEmail?: string;
+  status?: string;
+  steps?: DripStep[];
+}
+
+export interface AiInsightsBundle {
+  headline: string;
+  bullets: string[];
+  suggestions: string[];
+}
+
+export type AiInsightsResponseMetricsSnapshot = { [key: string]: unknown };
+
+export interface AiInsightsResponse {
+  forDate: string;
+  insights: AiInsightsBundle;
+  metricsSnapshot: AiInsightsResponseMetricsSnapshot;
+  cached: boolean;
+}
+
+export type NlSearchPlanFilters = { [key: string]: unknown };
+
+export interface NlSearchPlan {
+  intent: string;
+  entity: string;
+  filters: NlSearchPlanFilters;
+  explanation: string;
+}
+
+export type NlSearchResponseResultsItem = { [key: string]: unknown };
+
+export interface NlSearchResponse {
+  plan: NlSearchPlan;
+  results: NlSearchResponseResultsItem[];
+}
+
+export interface ReportCatalogEntry {
+  key: string;
+  label: string;
+  description: string;
+  path: string;
+}
+
+export interface SalesRegisterRow {
+  invoiceNumber: string;
+  issueDate: string;
+  clientName?: string;
+  status: string;
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  total: number;
+  amountPaid: number;
+  balance: number;
+}
+
+export interface PurchaseRegisterRow {
+  poNumber: string;
+  date: string;
+  vendorName?: string;
+  status: string;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+}
+
+export interface CustomerAgeingRow {
+  clientId: number;
+  clientName: string;
+  current: number;
+  days30: number;
+  days60: number;
+  days90: number;
+  daysOver90: number;
+  total: number;
+}
+
+export interface TopItemRow {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface LeadSourceRoiRow {
+  source: string;
+  total: number;
+  won: number;
+  lost: number;
+  conversionPct: number;
+  revenue: number;
+}
+
+export interface SocialEngagementRow {
+  id: number;
+  content: string;
+  platforms: string;
+  /** @nullable */
+  publishedAt?: string | null;
+  likes: number;
+  comments: number;
+  shares: number;
+  impressions: number;
+}
+
+export interface EmailPerformanceRow {
+  campaignId: number;
+  name: string;
+  subject: string;
+  /** @nullable */
+  sentAt?: string | null;
+  sent: number;
+  opened: number;
+  clicked: number;
+  openRate: number;
+  clickRate: number;
+}
+
 export type SwitchOrgBody = {
   organizationId: number;
 };
@@ -1748,5 +2051,69 @@ itemId?: number;
 export type ListStockMovementsParams = {
 itemId?: number;
 warehouseId?: number;
+};
+
+export type RewriteSocialPostBody = {
+  text: string;
+  tone: string;
+};
+
+export type RewriteSocialPost200 = {
+  text: string;
+};
+
+export type CreateEmailSuppressionBody = {
+  email: string;
+  reason?: string;
+};
+
+export type EnrollDripSequence200 = {
+  enrolled: number;
+};
+
+export type GetUnsubscribe200 = {
+  email: string;
+  status: string;
+};
+
+export type GetAiInsightsParams = {
+refresh?: string;
+date?: string;
+};
+
+export type AiNlSearchBody = {
+  query: string;
+};
+
+export type GetSalesRegisterParams = {
+from?: string;
+to?: string;
+format?: string;
+};
+
+export type GetPurchaseRegisterParams = {
+from?: string;
+to?: string;
+format?: string;
+};
+
+export type GetCustomerAgeingParams = {
+format?: string;
+};
+
+export type GetTopItemsReportParams = {
+format?: string;
+};
+
+export type GetLeadSourceRoiParams = {
+format?: string;
+};
+
+export type GetSocialEngagementReportParams = {
+format?: string;
+};
+
+export type GetEmailPerformanceReportParams = {
+format?: string;
 };
 

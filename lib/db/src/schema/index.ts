@@ -23,3 +23,6 @@ export * from "./vendors";
 export * from "./purchase_orders";
 export * from "./grn";
 export * from "./vendor_bills";
+export * from "./social";
+export * from "./marketing";
+export * from "./ai_insights";

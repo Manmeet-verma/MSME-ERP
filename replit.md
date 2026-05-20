@@ -141,6 +141,40 @@ Live in addition to Rounds 1–2:
 - Receiving a GRN line requires the PO item to be linked (`itemId`); unlinked lines are shown as "(not linked)" in the receive dialog.
 - All Round 3 nav/dashboard cards are gated by `org.modules.inventory` and `org.modules.purchase` — toggle them in Settings → Modules.
 
+## Round 4 — Social, Marketing & AI Reports
+
+Live in addition to Rounds 1–3:
+
+- **Social composer** (`/social`) — Compose posts for Facebook Page, Instagram Business, LinkedIn Page. AI drafts a base post + per-platform variants (LinkedIn long-form, IG/FB shorter) and supports tone rewrites (professional, casual, festive, urgent, playful). Schedule or post immediately; drafts/scheduled/published tabs and a chronological calendar of upcoming + recent posts.
+- **Social accounts** — Configured in Settings → Integrations. Each org stores `accessToken` + `externalId` per platform. The scheduler tick (every 60s in `lib/scheduler.ts`) publishes due posts to Meta Graph API (FB Pages `/feed`, IG `/media`+`/media_publish`) and LinkedIn (`/ugcPosts`). Failures captured per platform in `social_post_results`.
+- **Drip sequences** (`/marketing/drips`) — Multi-step email automations targeting leads (with optional priority filter) or clients. Each step has a `delayDays` offset; the scheduler tick (`tickDrips`) sends due steps respecting the suppression list. Pause/resume per sequence; enroll button bulk-adds matching contacts.
+- **Suppression list** (`/marketing/suppressions`) — Per-org list of emails that will never receive campaigns or drips. Auto-populated when a recipient confirms unsubscribe.
+- **Unsubscribe page** (`/unsubscribe/:token`) — Public, no auth. One-time HMAC-derived token per recipient; confirming adds the email to suppressions.
+- **Campaigns A/B** — `campaigns.subjectB`/`bodyB`/`abEnabled`/`abSplitPercent` extend Round-2 campaigns. Send-time splits the recipient list deterministically into variant `a`/`b`. UI toggle in the New Campaign dialog.
+- **AI dashboard** — `GET /api/ai/insights` returns cached daily insights (headline + bullets + suggestions) per org per day (`ai_insights` table). The dashboard shows them in a "Today's AI insights" panel.
+- **Natural-language search** — `POST /api/ai/nl-search` accepts a query, plans an entity + filter set against a whitelist (`invoices`, `leads`, `clients`, `quotations`, `purchase_orders`), and returns matching rows. Inline in the dashboard "Ask anything" box.
+- **Reports area** (`/reports`) — Catalog-driven (`GET /api/reports/catalog`). Reports: sales register, purchase register, customer ageing, top items, lead-source ROI, social engagement, email performance. CSV export via `?format=csv`; PDF via browser print.
+- **AI provider** — Anthropic Claude `claude-haiku-4-5` via `@workspace/integrations-anthropic-ai`, wrapped in `lib/ai.ts` (drafting, per-platform variants, tone rewrites, daily insights, NL-search planner).
+
+### New API routes
+- `/api/social/accounts` (list / connect / disconnect — provider-side revoke on disconnect), `/api/social/oauth/config|start|callback` (Meta + LinkedIn OAuth; Meta short→long-lived token exchange; LinkedIn Pages resolved via `/v2/organizationAcls`, falls back to personal `urn:li:person:`), `/api/social/posts` (list / create / delete), `/api/social/posts/:id/publish`, `/api/social/posts/:id/refresh-metrics` (pulls FB likes/comments/shares/reactions, IG like_count/comments_count + impressions/reach insights, LinkedIn `/v2/socialActions` likes+comments), `/api/social/draft`, `/api/social/rewrite`, `/api/uploads` (multipart image upload → served from `/api/uploads/*` static)
+- `/api/marketing/suppressions` (list / create / delete)
+- `/api/marketing/drips` (list / create / patch), `/api/marketing/drips/:id/enroll`
+- `/api/unsubscribe/:token` (public GET + POST)
+- `/api/ai/insights`, `/api/ai/nl-search`
+- `/api/reports/catalog`, `/api/reports/{sales-register,purchase-register,customer-ageing,top-items,lead-source-roi,social-engagement,email-performance}` (each supports `?format=csv`)
+
+### New DB tables
+`social_accounts, social_posts, social_post_results, email_suppressions, drip_sequences, drip_steps, drip_enrollments, ai_insights`. `campaigns` extended with `subject_b, body_b, ab_enabled, ab_split_percent, winner_variant`; `campaign_recipients` extended with `variant`.
+
+### Round-4 gotchas
+- Scheduler runs every 60s from `artifacts/api-server/src/index.ts`. It publishes due social posts and ticks drip enrollments; suppressed emails are skipped.
+- Social access tokens are stored per-org. Connecting a Page/Business account currently uses a long-lived token entered by the owner — full OAuth handshake is deferred.
+- NL-search is whitelist-only: queries against tables/columns outside the whitelist return an empty plan with an explanation. Treat it as a search aid, not a SQL console.
+- Daily insights are cached per `(organizationId, date)`; the first request of the day computes them, subsequent ones return `cached: true`.
+- Sidebar entries for Social and Drips/Suppressions are gated by `org.modules.social` and `org.modules.marketing` — toggle them in Settings → Modules.
+- The CampaignRecipient `variant` enum is lowercase (`a`/`b`) at the DB level.
+
 ## User preferences
 
 - Currency: Indian Rupees (₹) with Indian comma system
