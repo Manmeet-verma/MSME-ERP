@@ -50,10 +50,10 @@ export default function VendorBillDetailPage() {
       </div>
 
       <div className="grid sm:grid-cols-4 gap-3 text-sm">
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Subtotal</p><p className="font-semibold">{formatCurrency(bill.subtotal)}</p></div>
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Tax</p><p className="font-semibold">{formatCurrency(bill.taxAmount)}</p></div>
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Total</p><p className="font-semibold">{formatCurrency(bill.total)}</p></div>
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Paid</p><p className="font-semibold">{formatCurrency(bill.amountPaid)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Subtotal</p><p className="font-semibold">{formatCurrency(bill.subtotal ?? 0)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Tax</p><p className="font-semibold">{formatCurrency(bill.taxAmount ?? 0)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Total</p><p className="font-semibold">{formatCurrency(bill.total ?? 0)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Paid</p><p className="font-semibold">{formatCurrency(bill.amountPaid ?? 0)}</p></div>
       </div>
 
       <div className="rounded-xl border border-border overflow-hidden">
@@ -71,8 +71,8 @@ export default function VendorBillDetailPage() {
               <tr key={i.id} className="border-t border-border">
                 <td className="p-3">{i.description}</td>
                 <td className="p-3 text-right">{i.quantity}</td>
-                <td className="p-3 text-right">{formatCurrency(i.unitPrice)}</td>
-                <td className="p-3 text-right">{formatCurrency(i.totalPrice)}</td>
+                <td className="p-3 text-right">{formatCurrency(i.unitPrice ?? 0)}</td>
+                <td className="p-3 text-right">{formatCurrency(i.totalPrice ?? 0)}</td>
               </tr>
             ))}
           </tbody>
@@ -86,7 +86,7 @@ export default function VendorBillDetailPage() {
             <Input type="number" placeholder="Amount ₹" value={paidAmt} onChange={(e) => setPaidAmt(e.target.value)} className="max-w-xs" />
             <Button size="sm" onClick={recordPayment} disabled={updateMut.isPending}>Add Payment</Button>
           </div>
-          <p className="text-xs text-muted-foreground">Outstanding: {formatCurrency(bill.total - bill.amountPaid)}</p>
+          <p className="text-xs text-muted-foreground">Outstanding: {formatCurrency((bill.total ?? 0) - (bill.amountPaid ?? 0))}</p>
         </div>
       )}
     </div>

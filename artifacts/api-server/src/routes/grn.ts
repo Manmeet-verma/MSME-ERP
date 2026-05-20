@@ -84,6 +84,68 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
     res.status(400).json({ error: "warehouseId and items required" });
     return;
   }
+  // Validate warehouse belongs to org
+  const [wh] = await db
+    .select()
+    .from(warehousesTable)
+    .where(and(eq(warehousesTable.id, b.warehouseId), eq(warehousesTable.organizationId, orgId)));
+  if (!wh) {
+    res.status(400).json({ error: "Invalid warehouse" });
+    return;
+  }
+  // Validate PO belongs to org (if provided)
+  let poItemIds: number[] = [];
+  if (b.purchaseOrderId) {
+    const [po] = await db
+      .select()
+      .from(purchaseOrdersTable)
+      .where(
+        and(
+          eq(purchaseOrdersTable.id, b.purchaseOrderId),
+          eq(purchaseOrdersTable.organizationId, orgId),
+        ),
+      );
+    if (!po) {
+      res.status(400).json({ error: "Invalid purchase order" });
+      return;
+    }
+    poItemIds = (
+      await db
+        .select({ id: purchaseOrderItemsTable.id })
+        .from(purchaseOrderItemsTable)
+        .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId))
+    ).map((p) => p.id);
+  }
+  // Validate all itemIds belong to org and any provided poItemIds belong to the given PO
+  const incomingItems = b.items as Array<{
+    poItemId?: number;
+    itemId: number;
+    quantity: number;
+    unitCost: number;
+  }>;
+  const itemIdsToCheck = Array.from(new Set(incomingItems.map((i) => i.itemId)));
+  if (itemIdsToCheck.length > 0) {
+    const ownedItems = await db
+      .select({ id: itemsTable.id })
+      .from(itemsTable)
+      .where(
+        and(eq(itemsTable.organizationId, orgId), inArray(itemsTable.id, itemIdsToCheck)),
+      );
+    if (ownedItems.length !== itemIdsToCheck.length) {
+      res.status(400).json({ error: "One or more items not found in this organization" });
+      return;
+    }
+  }
+  for (const it of incomingItems) {
+    if (it.poItemId && !poItemIds.includes(it.poItemId)) {
+      res.status(400).json({ error: "Invalid PO line reference" });
+      return;
+    }
+    if (!(it.quantity > 0)) {
+      res.status(400).json({ error: "Quantity must be positive" });
+      return;
+    }
+  }
   const [g] = await db
     .insert(grnTable)
     .values({

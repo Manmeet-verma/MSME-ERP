@@ -196,7 +196,23 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-  // Stock dispatch on status transitions
+  // Replace items first so stock dispatch reflects the latest lines
+  if (Array.isArray(b.items)) {
+    await db.delete(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
+    if (b.items.length > 0) {
+      await db.insert(salesOrderItemsTable).values(
+        b.items.map((it: { description: string; quantity: number; unitPrice: number }) => ({
+          salesOrderId: id,
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: String(it.unitPrice),
+          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+        })),
+      );
+    }
+    await recalc(id);
+  }
+  // Stock dispatch on status transitions (after item replacement)
   if (prev && b.status !== undefined && b.status !== prev.status) {
     const becomingActive = ["confirmed", "in_production", "delivered"].includes(b.status);
     const wasActive = ["confirmed", "in_production", "delivered"].includes(prev.status);
@@ -214,21 +230,6 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
         req.log.error({ err: e }, "stock reversal failed for SO");
       }
     }
-  }
-  if (Array.isArray(b.items)) {
-    await db.delete(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
-    if (b.items.length > 0) {
-      await db.insert(salesOrderItemsTable).values(
-        b.items.map((it: { description: string; quantity: number; unitPrice: number }) => ({
-          salesOrderId: id,
-          description: it.description,
-          quantity: it.quantity,
-          unitPrice: String(it.unitPrice),
-          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-        })),
-      );
-    }
-    await recalc(id);
   }
   const [updated] = await db.select().from(salesOrdersTable).where(eq(salesOrdersTable.id, id));
   res.json(await fmt(updated));

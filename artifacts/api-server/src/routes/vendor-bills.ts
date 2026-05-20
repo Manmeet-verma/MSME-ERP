@@ -23,8 +23,8 @@ type BillStatus = "draft" | "open" | "partial" | "paid" | "overdue" | "cancelled
 function deriveStatus(total: number, paid: number, dueDate: Date | null, current: string): BillStatus {
   if (current === "draft" || current === "cancelled") return current;
   if (paid >= total && total > 0) return "paid";
-  if (paid > 0 && paid < total) return "partial";
   if (dueDate && dueDate < new Date() && paid < total) return "overdue";
+  if (paid > 0 && paid < total) return "partial";
   return "open";
 }
 
@@ -117,7 +117,34 @@ vendorBillsRouter.post("/vendor-bills", requireAuth, async (req, res) => {
   let items: Array<{ itemId?: number; description: string; quantity: number; unitPrice: number }> =
     Array.isArray(b.items) ? b.items : [];
 
-  // Auto-populate from PO if provided and no items given
+  // Validate vendor belongs to this org
+  if (b.vendorId) {
+    const [v] = await db
+      .select()
+      .from(vendorsTable)
+      .where(and(eq(vendorsTable.id, b.vendorId), eq(vendorsTable.organizationId, orgId)));
+    if (!v) {
+      res.status(400).json({ error: "Invalid vendor" });
+      return;
+    }
+  }
+
+  // Auto-populate from PO if provided and no items given (also validates PO ownership)
+  if (b.purchaseOrderId) {
+    const [po] = await db
+      .select()
+      .from(purchaseOrdersTable)
+      .where(
+        and(
+          eq(purchaseOrdersTable.id, b.purchaseOrderId),
+          eq(purchaseOrdersTable.organizationId, orgId),
+        ),
+      );
+    if (!po) {
+      res.status(400).json({ error: "Invalid purchase order" });
+      return;
+    }
+  }
   if (b.purchaseOrderId && items.length === 0) {
     const poItems = await db
       .select()

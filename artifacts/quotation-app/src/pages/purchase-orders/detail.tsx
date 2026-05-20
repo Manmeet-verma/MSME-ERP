@@ -113,9 +113,9 @@ export default function PurchaseOrderDetailPage() {
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3 text-sm">
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Subtotal</p><p className="font-semibold">{formatCurrency(po.subtotal)}</p></div>
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Tax</p><p className="font-semibold">{formatCurrency(po.taxAmount)}</p></div>
-        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Total</p><p className="font-semibold">{formatCurrency(po.total)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Subtotal</p><p className="font-semibold">{formatCurrency(po.subtotal ?? 0)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Tax</p><p className="font-semibold">{formatCurrency(po.taxAmount ?? 0)}</p></div>
+        <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Total</p><p className="font-semibold">{formatCurrency(po.total ?? 0)}</p></div>
       </div>
 
       <div className="rounded-xl border border-border overflow-hidden">
@@ -138,8 +138,8 @@ export default function PurchaseOrderDetailPage() {
                 </td>
                 <td className="p-3 text-right">{i.quantity}</td>
                 <td className="p-3 text-right">{i.receivedQuantity}</td>
-                <td className="p-3 text-right">{formatCurrency(i.unitPrice)}</td>
-                <td className="p-3 text-right">{formatCurrency(i.totalPrice)}</td>
+                <td className="p-3 text-right">{formatCurrency(i.unitPrice ?? 0)}</td>
+                <td className="p-3 text-right">{formatCurrency(i.totalPrice ?? 0)}</td>
               </tr>
             ))}
           </tbody>

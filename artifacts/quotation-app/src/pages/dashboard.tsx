@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/format";
 import {
   FileText, Users, TrendingUp, Megaphone, Boxes, ShoppingCart,
   Briefcase, BookOpen, Share2, ArrowRight, Sparkles, Flame, Phone, Mail,
-  Receipt, AlertTriangle, CheckSquare,
+  Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse,
 } from "lucide-react";
 
 const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }>> = {
@@ -24,6 +24,8 @@ const MODULE_LINKS: Partial<Record<ModuleKey, string>> = {
   sales: "/quotations",
   leads: "/leads",
   marketing: "/campaigns",
+  inventory: "/inventory",
+  purchase: "/purchase-orders",
 };
 
 interface ModuleCardProps {
@@ -152,6 +154,15 @@ export default function DashboardPage() {
           <KpiCard icon={FileText} label="Quotes sent (wk)" value={String(widgets.quotationsSentThisWeek)} tint="blue" href="/quotations" />
           <KpiCard icon={AlertTriangle} label="Overdue ₹" value={formatCurrency(widgets.overdueAmount)} tint="red" href="/invoices" />
           <KpiCard icon={CheckSquare} label="Open tasks" value={String(widgets.openTasks)} tint="cyan" href="/tasks" />
+          {modules.inventory && (
+            <KpiCard icon={PackageOpen} label="Low stock" value={String(widgets.lowStockItems ?? 0)} tint="red" href="/inventory" />
+          )}
+          {modules.purchase && (
+            <KpiCard icon={ShoppingCart} label="Open POs" value={String(widgets.openPurchaseOrders ?? 0)} tint="blue" href="/purchase-orders" />
+          )}
+          {modules.inventory && (
+            <KpiCard icon={Warehouse} label="Stock value" value={formatCurrency(widgets.stockValue ?? 0)} tint="emerald" href="/inventory" />
+          )}
         </div>
       )}
 
@@ -167,6 +178,14 @@ export default function DashboardPage() {
           if (key === "leads" && modules.leads && widgets) {
             primary = String(widgets.hotLeads);
             secondary = `${widgets.newLeadsToday} new today`;
+          }
+          if (key === "inventory" && modules.inventory && widgets) {
+            primary = formatCurrency(widgets.stockValue ?? 0);
+            secondary = `${widgets.lowStockItems ?? 0} low-stock items`;
+          }
+          if (key === "purchase" && modules.purchase && widgets) {
+            primary = String(widgets.openPurchaseOrders ?? 0);
+            secondary = "open purchase orders";
           }
           if (key === "marketing" && modules.marketing && widgets) {
             primary = String(widgets.emailsSentThisWeek);

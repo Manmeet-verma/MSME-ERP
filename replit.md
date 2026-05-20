@@ -105,6 +105,39 @@ Live in addition to Round 1:
 ### New DB tables
 `leads, lead_activities, tasks, calls, emails, campaigns, campaign_recipients, sales_orders, sales_order_items, invoices, invoice_items, payments, integrations`.
 
+## Round 3 — Inventory & Purchase
+
+Live in addition to Rounds 1–2:
+
+- **Items** (`/items`) — SKU, name, category, unit, HSN, GST rate, sale/purchase price, opening stock, low-stock threshold. Tracks `currentStock` (sum across warehouses) and `avgCost` (moving average; updated on every IN movement).
+- **Warehouses** (`/warehouses`) — multi-location stock; one default warehouse auto-created via `ensureDefaultWarehouse`.
+- **Vendors** (`/vendors`) — GST, contact, address, `paymentTermsDays`.
+- **Purchase Orders** (`/purchase-orders`, `/purchase-orders/:id`) — draft → sent → partial → received → cancelled. Line items optionally link to inventory items (`itemId`). PO totals computed from items × GST.
+- **GRN (Goods Receipt Note)** — created from a PO; receiving N units triggers a stock-IN movement (reason `purchase`) at the GRN's unit cost, updates the PO item's `receivedQuantity`, and rolls the PO status to `partial` or `received`. Refreshes item `avgCost` via moving average.
+- **Vendor Bills** (`/vendor-bills`, `/vendor-bills/:id`) — record vendor invoices against a PO (auto-fills items) or standalone. Status (`open` / `partial` / `paid` / `overdue`) derives from `amountPaid` vs `total` and due date; payments recorded by patching `amountPaid`.
+- **Inventory** (`/inventory`) — four tabs: **Levels** (qty + value per item/warehouse), **Movements** (full ledger), **Valuation** (total + by-warehouse + by-category breakdown), **Low-Stock** (current ≤ threshold). New-movement dialog supports adjustment / opening / purchase / sale / transfer / return.
+- **Sales-Order stock integration** — when an SO is patched to `confirmed | in_production | delivered`, `dispatchStockForSO` writes OUT movements (reason `sale`) for each line by matching `description` to `item.name` against the SO's warehouse. Reversing to `draft | cancelled` deletes those movements. SO items without a matching inventory item are skipped with a server warning.
+- **Stock-movement engine** (`stockEngine.ts`) — `recordMovement` is the single entry-point (also updates `avgCost` on IN); `getStockLevel`, `dispatchStockForSO`, `reverseStockForSO`, `ensureDefaultWarehouse`.
+- **Dashboard** — extra KPIs: `lowStockItems`, `openPurchaseOrders`, `stockValue` (`GET /api/dashboard/widgets`). Inventory + Purchase module cards now show live data.
+
+### New API routes
+- `/api/items` (CRUD)
+- `/api/warehouses` (CRUD)
+- `/api/vendors` (CRUD)
+- `/api/purchase-orders` (list/create/get/update — no delete)
+- `/api/grn` (list with `?purchaseOrderId=`, create — auto stock-IN + PO update)
+- `/api/vendor-bills` (list/create/get/update — no delete; auto-status from payments)
+- `/api/inventory/stock-levels`, `/stock-movements` (GET + POST with `transfer_out` paired to `transfer_in`), `/valuation`, `/low-stock`
+
+### New DB tables
+`items, warehouses, stock_movements, vendors, purchase_orders, po_items, grn, grn_items, vendor_bills, vendor_bill_items`. Item `avgCost` is global (not per-warehouse); stock levels computed via `SUM(IN - OUT)` per (item, warehouse).
+
+### Round-3 gotchas
+- `sales_order_items` has no `itemId` column — SO→stock matching falls back to `description === item.name` in the SO's warehouse. Linking SO lines to items is a future improvement.
+- `Item.currentStock` returned by the API is denormalized (sum of all warehouses); the authoritative ledger is `stock_movements`.
+- Receiving a GRN line requires the PO item to be linked (`itemId`); unlinked lines are shown as "(not linked)" in the receive dialog.
+- All Round 3 nav/dashboard cards are gated by `org.modules.inventory` and `org.modules.purchase` — toggle them in Settings → Modules.
+
 ## User preferences
 
 - Currency: Indian Rupees (₹) with Indian comma system

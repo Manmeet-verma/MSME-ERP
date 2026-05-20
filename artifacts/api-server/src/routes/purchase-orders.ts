@@ -9,8 +9,40 @@ import {
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
+import { warehousesTable } from "@workspace/db";
 
 const purchaseOrdersRouter = Router();
+
+async function validateOwnership(
+  orgId: number,
+  b: { vendorId?: number; warehouseId?: number; items?: Array<{ itemId?: number }> },
+): Promise<string | null> {
+  if (b.vendorId) {
+    const [v] = await db
+      .select()
+      .from(vendorsTable)
+      .where(and(eq(vendorsTable.id, b.vendorId), eq(vendorsTable.organizationId, orgId)));
+    if (!v) return "Invalid vendor";
+  }
+  if (b.warehouseId) {
+    const [w] = await db
+      .select()
+      .from(warehousesTable)
+      .where(and(eq(warehousesTable.id, b.warehouseId), eq(warehousesTable.organizationId, orgId)));
+    if (!w) return "Invalid warehouse";
+  }
+  if (Array.isArray(b.items)) {
+    const ids = Array.from(new Set(b.items.map((i) => i.itemId).filter((x): x is number => x != null)));
+    if (ids.length > 0) {
+      const owned = await db
+        .select({ id: itemsTable.id })
+        .from(itemsTable)
+        .where(and(eq(itemsTable.organizationId, orgId), inArray(itemsTable.id, ids)));
+      if (owned.length !== ids.length) return "One or more items not found in this organization";
+    }
+  }
+  return null;
+}
 
 function genNumber() {
   const d = new Date();
@@ -112,6 +144,11 @@ purchaseOrdersRouter.get("/purchase-orders/:id", requireAuth, async (req, res) =
 purchaseOrdersRouter.post("/purchase-orders", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const b = req.body ?? {};
+  const ownershipErr = await validateOwnership(orgId, b);
+  if (ownershipErr) {
+    res.status(400).json({ error: ownershipErr });
+    return;
+  }
   const [p] = await db
     .insert(purchaseOrdersTable)
     .values({
@@ -150,6 +187,11 @@ purchaseOrdersRouter.patch("/purchase-orders/:id", requireAuth, async (req, res)
   const orgId = req.user!.organizationId;
   const id = Number(req.params.id);
   const b = req.body ?? {};
+  const ownershipErr = await validateOwnership(orgId, b);
+  if (ownershipErr) {
+    res.status(400).json({ error: ownershipErr });
+    return;
+  }
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const f of ["vendorId", "warehouseId", "status", "notes"] as const) {
     if (b[f] !== undefined) updates[f] = b[f];
