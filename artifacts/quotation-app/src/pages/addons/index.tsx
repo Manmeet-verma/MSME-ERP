@@ -192,7 +192,7 @@ export default function AddonsPage() {
               <div className="space-y-1.5">
                 <Label>Unit *</Label>
                 <select value={form.priceType} onChange={(e) => setForm((f) => ({ ...f, priceType: e.target.value as PriceType }))} className="w-full h-9 rounded-md border border-input bg-input px-3 text-sm">
-                  {["fixed", "sqft", "unit", "day", "month"].map((u) => <option key={u} value={u}>{u}</option>)}
+                  {["fixed", "percentage"].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5 col-span-2">

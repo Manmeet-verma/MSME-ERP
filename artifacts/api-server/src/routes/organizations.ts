@@ -192,20 +192,32 @@ orgRouter.patch(
       res.status(403).json({ error: "Only the owner can promote to owner" });
       return;
     }
-    const [member] = await db
-      .update(organizationMembersTable)
-      .set({ role })
+    if (targetUserId === req.user!.userId && req.user!.role === "owner" && role !== "owner") {
+      res.status(403).json({ error: "Owner cannot self-demote. Transfer ownership first." });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(organizationMembersTable)
       .where(
         and(
           eq(organizationMembersTable.organizationId, req.user!.organizationId),
           eq(organizationMembersTable.userId, targetUserId),
         ),
-      )
-      .returning();
-    if (!member) {
+      );
+    if (!existing) {
       res.status(404).json({ error: "Member not found" });
       return;
     }
+    if (existing.role === "owner" && req.user!.role !== "owner") {
+      res.status(403).json({ error: "Only the owner can change the owner's role" });
+      return;
+    }
+    const [member] = await db
+      .update(organizationMembersTable)
+      .set({ role })
+      .where(eq(organizationMembersTable.id, existing.id))
+      .returning();
     await logAction(req, "UPDATE", "member", targetUserId, `Role changed to ${role}`);
     res.json({ id: member.id, userId: member.userId, role: member.role });
   },
