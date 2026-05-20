@@ -12,60 +12,54 @@ import {
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
-import { recordMovement, ensureDefaultWarehouse } from "../lib/stockEngine";
+import { recordMovement, ensureDefaultWarehouse, type DbOrTx } from "../lib/stockEngine";
 
 async function resolveSOWarehouse(organizationId: number, soWarehouseId: number | null): Promise<number> {
   if (soWarehouseId) return soWarehouseId;
   return ensureDefaultWarehouse(organizationId);
 }
 
-async function dispatchStockForSO(
-  organizationId: number,
-  salesOrderId: number,
-  direction: "in" | "out",
-  reason: "sale" | "return",
-  userId: number,
-) {
-  const [so] = await db
-    .select()
-    .from(salesOrdersTable)
-    .where(eq(salesOrdersTable.id, salesOrderId));
-  if (!so) return;
-  const items = await db
-    .select()
-    .from(salesOrderItemsTable)
-    .where(eq(salesOrderItemsTable.salesOrderId, salesOrderId));
-  if (items.length === 0) return;
-  const warehouseId = await resolveSOWarehouse(organizationId, so.warehouseId ?? null);
-
-  // Fetch linked items in one query for cost lookup
-  const linkedIds = items.map((i) => i.itemId).filter((x): x is number => x != null);
-  const linkedMap = linkedIds.length
-    ? new Map(
-        (
-          await db
-            .select()
-            .from(itemsTable)
-            .where(and(eq(itemsTable.organizationId, organizationId), inArray(itemsTable.id, linkedIds)))
-        ).map((it) => [it.id, it]),
-      )
-    : new Map<number, typeof itemsTable.$inferSelect>();
-
-  for (const it of items) {
+/**
+ * Post stock movements for an explicit snapshot of SO lines, in an explicit warehouse,
+ * optionally under a transaction. Reversal callers pass the PRE-CHANGE snapshot (lines +
+ * warehouse the stock was originally deducted from) so the ledger is symmetric.
+ */
+async function postSOMovements(opts: {
+  organizationId: number;
+  salesOrderId: number;
+  lines: Array<{ itemId: number | null; quantity: number }>;
+  warehouseId: number;
+  direction: "in" | "out";
+  reason: "sale" | "return";
+  userId: number;
+  executor: DbOrTx;
+}) {
+  const linkedIds = opts.lines.map((i) => i.itemId).filter((x): x is number => x != null);
+  if (linkedIds.length === 0) return;
+  const linkedMap = new Map(
+    (
+      await (opts.executor as typeof db)
+        .select()
+        .from(itemsTable)
+        .where(and(eq(itemsTable.organizationId, opts.organizationId), inArray(itemsTable.id, linkedIds)))
+    ).map((it) => [it.id, it]),
+  );
+  for (const it of opts.lines) {
     if (!it.itemId) continue;
     const linked = linkedMap.get(it.itemId);
     if (!linked) continue;
     await recordMovement({
-      organizationId,
+      organizationId: opts.organizationId,
       itemId: it.itemId,
-      warehouseId,
-      direction,
+      warehouseId: opts.warehouseId,
+      direction: opts.direction,
       quantity: it.quantity,
       unitCost: Number(linked.avgCost),
-      reason,
+      reason: opts.reason,
       referenceType: "sales_order",
-      referenceId: salesOrderId,
-      createdById: userId,
+      referenceId: opts.salesOrderId,
+      createdById: opts.userId,
+      executor: opts.executor,
     });
   }
 }
@@ -228,6 +222,27 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     .select()
     .from(salesOrdersTable)
     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.organizationId, orgId)));
+  if (!prev) {
+    res.status(404).json({ error: "Sales order not found" });
+    return;
+  }
+  // Conflict-check BEFORE any writes
+  const wasActive = ["confirmed", "in_production", "delivered"].includes(prev.status);
+  const stillActive =
+    b.status === undefined || ["confirmed", "in_production", "delivered"].includes(b.status);
+  if (Array.isArray(b.items) && wasActive && stillActive) {
+    res.status(409).json({ error: "Revert sales order to draft before editing line items" });
+    return;
+  }
+  // Snapshot pre-change lines + warehouse for compensating movements
+  const prevLines = (
+    await db
+      .select()
+      .from(salesOrderItemsTable)
+      .where(eq(salesOrderItemsTable.salesOrderId, id))
+  ).map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
+  const prevWarehouseId = await resolveSOWarehouse(orgId, prev.warehouseId ?? null);
+
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const f of ["clientId", "warehouseId", "status", "notes"] as const) {
     if (b[f] !== undefined) updates[f] = b[f];
@@ -242,59 +257,87 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-  // Refuse line-item edits while the SO is active to keep the stock ledger
-  // consistent with line quantities. Revert to draft, then edit, then re-confirm.
-  if (Array.isArray(b.items) && prev) {
-    const wasActive = ["confirmed", "in_production", "delivered"].includes(prev.status);
-    const stillActive =
-      b.status === undefined || ["confirmed", "in_production", "delivered"].includes(b.status);
-    if (wasActive && stillActive) {
-      res
-        .status(409)
-        .json({ error: "Revert sales order to draft before editing line items" });
-      return;
-    }
-  }
-  // Replace items first so stock dispatch reflects the latest lines
-  if (Array.isArray(b.items)) {
-    await db.delete(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
-    if (b.items.length > 0) {
-      await db.insert(salesOrderItemsTable).values(
-        b.items.map((it: { itemId?: number | null; description: string; quantity: number; unitPrice: number }) => ({
+  // Item replacement + stock compensation must be atomic so the ledger
+  // never disagrees with the persisted SO lines.
+  const becomingActive =
+    b.status !== undefined &&
+    !wasActive &&
+    ["confirmed", "in_production", "delivered"].includes(b.status);
+  const becomingDead =
+    b.status !== undefined && wasActive && ["cancelled", "draft"].includes(b.status);
+  try {
+    await db.transaction(async (tx) => {
+      if (becomingDead) {
+        // Reverse against the PRE-CHANGE snapshot (the lines/warehouse the
+        // stock was actually deducted from on the prior confirm).
+        await postSOMovements({
+          organizationId: orgId,
           salesOrderId: id,
-          itemId: it.itemId ?? null,
-          description: it.description,
-          quantity: it.quantity,
-          unitPrice: String(it.unitPrice),
-          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-        })),
-      );
-    }
-    await recalc(id);
-  }
-  // Stock dispatch on status transitions (after item replacement)
-  // Failures must bubble up so we don't leave an SO confirmed without stock movement.
-  if (prev && b.status !== undefined && b.status !== prev.status) {
-    const becomingActive = ["confirmed", "in_production", "delivered"].includes(b.status);
-    const wasActive = ["confirmed", "in_production", "delivered"].includes(prev.status);
-    const becomingDead = ["cancelled", "draft"].includes(b.status);
-    try {
-      if (becomingActive && !wasActive) {
-        await dispatchStockForSO(orgId, id, "out", "sale", req.user!.userId);
-      } else if (becomingDead && wasActive) {
-        // Compensating IN movements preserve the ledger (reason=return)
-        await dispatchStockForSO(orgId, id, "in", "return", req.user!.userId);
+          lines: prevLines,
+          warehouseId: prevWarehouseId,
+          direction: "in",
+          reason: "return",
+          userId: req.user!.userId,
+          executor: tx,
+        });
       }
-    } catch (e) {
-      // Roll back the status change so SO + stock stay consistent
-      await db
-        .update(salesOrdersTable)
-        .set({ status: prev.status, updatedAt: new Date() })
-        .where(eq(salesOrdersTable.id, id));
-      req.log.error({ err: e }, "stock dispatch failed; SO status reverted");
-      res.status(500).json({ error: "Stock movement failed; sales order status was reverted" });
-      return;
-    }
+      if (Array.isArray(b.items)) {
+        await tx.delete(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
+        if (b.items.length > 0) {
+          await tx.insert(salesOrderItemsTable).values(
+            b.items.map(
+              (it: { itemId?: number | null; description: string; quantity: number; unitPrice: number }) => ({
+                salesOrderId: id,
+                itemId: it.itemId ?? null,
+                description: it.description,
+                quantity: it.quantity,
+                unitPrice: String(it.unitPrice),
+                totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+              }),
+            ),
+          );
+        }
+        // Recompute totals inline within the same tx
+        const lines = await tx
+          .select()
+          .from(salesOrderItemsTable)
+          .where(eq(salesOrderItemsTable.salesOrderId, id));
+        const subtotal = lines.reduce((acc, l) => acc + Number(l.totalPrice), 0);
+        const total = subtotal; // no discount/tax on SO directly
+        await tx
+          .update(salesOrdersTable)
+          .set({ subtotal: subtotal.toFixed(2), total: total.toFixed(2), updatedAt: new Date() })
+          .where(eq(salesOrdersTable.id, id));
+      }
+      if (becomingActive) {
+        // Forward dispatch uses CURRENT lines + (possibly new) warehouse
+        const currentLines = (
+          await tx
+            .select()
+            .from(salesOrderItemsTable)
+            .where(eq(salesOrderItemsTable.salesOrderId, id))
+        ).map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
+        const [refreshed] = await tx
+          .select()
+          .from(salesOrdersTable)
+          .where(eq(salesOrdersTable.id, id));
+        const whId = await resolveSOWarehouse(orgId, refreshed.warehouseId ?? null);
+        await postSOMovements({
+          organizationId: orgId,
+          salesOrderId: id,
+          lines: currentLines,
+          warehouseId: whId,
+          direction: "out",
+          reason: "sale",
+          userId: req.user!.userId,
+          executor: tx,
+        });
+      }
+    });
+  } catch (e) {
+    req.log.error({ err: e }, "SO patch transaction failed; nothing committed");
+    res.status(500).json({ error: "Sales order update failed; no changes applied" });
+    return;
   }
   const [updated] = await db.select().from(salesOrdersTable).where(eq(salesOrdersTable.id, id));
   res.json(await fmt(updated));
