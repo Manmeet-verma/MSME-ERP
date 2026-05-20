@@ -8,6 +8,16 @@ import addonsRouter from "./addons";
 import quotationsRouter from "./quotations";
 import reportsRouter from "./reports";
 import smsRouter from "./sms";
+import leadsRouter from "./leads";
+import tasksRouter from "./tasks";
+import callsRouter from "./calls";
+import emailsRouter from "./emails";
+import campaignsRouter from "./campaigns";
+import salesOrdersRouter from "./sales-orders";
+import invoicesRouter from "./invoices";
+import paymentsRouter from "./payments";
+import integrationsRouter from "./integrations";
+import dashboardWidgetsRouter from "./dashboard-widgets";
 
 const router: IRouter = Router();
 
@@ -20,5 +30,15 @@ router.use(addonsRouter);
 router.use(quotationsRouter);
 router.use(reportsRouter);
 router.use(smsRouter);
+router.use(leadsRouter);
+router.use(tasksRouter);
+router.use(callsRouter);
+router.use(emailsRouter);
+router.use(campaignsRouter);
+router.use(salesOrdersRouter);
+router.use(invoicesRouter);
+router.use(paymentsRouter);
+router.use(integrationsRouter);
+router.use(dashboardWidgetsRouter);
 
 export default router;

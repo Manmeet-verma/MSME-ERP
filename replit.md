@@ -74,6 +74,37 @@ A multi-tenant SaaS ERP foundation for Indian MSMEs. Round 1 of 6 ships tenancy,
 - `sw.js` registered from `main.tsx` in production only
 - Network-first for `/api/*` (offline → 503 JSON), cache-first with network update for shell
 
+## Round 2 — Sales, Leads & Communication
+
+Live in addition to Round 1:
+
+- **Leads** (`/leads`) — manual entry + IndiaMart sync via Settings → Integrations. Rule-based + AI scoring (hot/warm/cold + `nextAction`). Convert lead → client + draft quotation.
+- **Lead detail** (`/leads/:id`) — timeline (activities + calls + emails), click-to-call (Twilio dials agent first, then lead), AI-drafted email send, quick notes, status workflow.
+- **Tasks** (`/tasks`) — generic to-do list (linkable to leads/clients in future); open/done filter, priority, due dates.
+- **Sales orders** (`/sales-orders`) — promoted from quotations; `/sales-orders/:id` can be promoted to invoice.
+- **Invoices** (`/invoices`) — GST split based on seller state (org.state) vs buyer state: same-state ⇒ CGST + SGST (rate/2 each); different/missing ⇒ IGST (full rate). Status auto-derives from payments. Print view.
+- **Payments** — record partial/full payments on invoices; invoice status auto-updates (`paid` / `partial` / `overdue` based on amount + due date).
+- **Campaigns** (`/campaigns`) — bulk email to a segment (leads filtered by priority/status, or all clients).
+- **Integrations** (`/settings/integrations`) — per-org IndiaMart API key; Twilio + Anthropic noted as workspace-level.
+- **AI**: Anthropic Claude (`claude-haiku-4-5`) via `@workspace/integrations-anthropic-ai` for lead scoring, email drafting, call summaries.
+- **Dashboard** — Live KPI strip: new leads today, hot leads, calls this week, emails sent, unpaid invoices, revenue, quotes sent, overdue ₹, open tasks (`GET /api/dashboard/widgets`).
+
+### New API routes
+- `/api/leads` + `/:id/activities`, `/convert`, `/score`
+- `/api/tasks`
+- `/api/calls`, `/calls/initiate`, `/calls/webhook` (Twilio status callback)
+- `/api/emails`, `/emails/draft` (AI)
+- `/api/campaigns`, `/campaigns/:id/send`
+- `/api/sales-orders`, `/sales-orders/from-quotation/:quotationId`
+- `/api/invoices`, `/invoices/from-sales-order/:salesOrderId`, `/invoices/:id/status`
+- `/api/payments`
+- `/api/integrations`
+- `/api/integrations/indiamart/sync`
+- `/api/dashboard/widgets`
+
+### New DB tables
+`leads, lead_activities, tasks, calls, emails, campaigns, campaign_recipients, sales_orders, sales_order_items, invoices, invoice_items, payments, integrations`.
+
 ## User preferences
 
 - Currency: Indian Rupees (₹) with Indian comma system

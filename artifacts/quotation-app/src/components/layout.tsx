@@ -5,7 +5,8 @@ import { getModules, type ModuleKey } from "@/lib/modules";
 import {
   LayoutDashboard, FileText, Users, Package, Puzzle,
   BarChart3, ShieldCheck, LogOut, Sparkles, Menu, X, Settings,
-  UserPlus, Building2, Check, ChevronsUpDown
+  UserPlus, Building2, Check, ChevronsUpDown,
+  TrendingUp, CheckSquare, ShoppingCart, Receipt, Megaphone,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,7 +26,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/leads", label: "Leads", icon: TrendingUp, module: "leads" },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/quotations", label: "Quotations", icon: FileText, module: "sales" },
+  { href: "/sales-orders", label: "Sales Orders", icon: ShoppingCart, module: "sales" },
+  { href: "/invoices", label: "Invoices", icon: Receipt, module: "sales" },
+  { href: "/campaigns", label: "Campaigns", icon: Megaphone, module: "marketing" },
   { href: "/clients", label: "Clients", icon: Users, module: "sales" },
   { href: "/products", label: "Products", icon: Package, module: "sales" },
   { href: "/addons", label: "Add-ons", icon: Puzzle, module: "sales" },
@@ -181,6 +187,9 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
             {role === "owner" && (
               <NavLink href="/settings/modules" label="Modules" icon={Puzzle} onClick={() => setSidebarOpen(false)} />
+            )}
+            {(role === "owner" || role === "admin") && (
+              <NavLink href="/settings/integrations" label="Integrations" icon={Sparkles} onClick={() => setSidebarOpen(false)} />
             )}
           </div>
         </nav>

@@ -1,11 +1,12 @@
 import { Link } from "wouter";
-import { useGetDashboardSummary, useListMembers } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetDashboardWidgets, useListMembers } from "@workspace/api-client-react";
 import { getCurrentOrg } from "@/lib/auth";
 import { getModules, getLimits, MODULE_LABELS, MODULE_DESCRIPTIONS, type ModuleKey } from "@/lib/modules";
 import { formatCurrency } from "@/lib/format";
 import {
   FileText, Users, TrendingUp, Megaphone, Boxes, ShoppingCart,
-  Briefcase, BookOpen, Share2, ArrowRight, Sparkles
+  Briefcase, BookOpen, Share2, ArrowRight, Sparkles, Flame, Phone, Mail,
+  Receipt, AlertTriangle, CheckSquare,
 } from "lucide-react";
 
 const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }>> = {
@@ -21,6 +22,8 @@ const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }
 
 const MODULE_LINKS: Partial<Record<ModuleKey, string>> = {
   sales: "/quotations",
+  leads: "/leads",
+  marketing: "/campaigns",
 };
 
 interface ModuleCardProps {
@@ -70,11 +73,39 @@ function ModuleCard({ moduleKey, enabled, primary, secondary }: ModuleCardProps)
   return card;
 }
 
+const TINT_CLASSES: Record<string, string> = {
+  cyan: "bg-cyan-500/15 text-cyan-400",
+  red: "bg-red-500/15 text-red-400",
+  blue: "bg-blue-500/15 text-blue-400",
+  emerald: "bg-emerald-500/15 text-emerald-400",
+  yellow: "bg-yellow-500/15 text-yellow-400",
+  primary: "bg-primary/15 text-primary",
+};
+
+function KpiCard({ icon: Icon, label, value, tint, href }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string; value: string; tint: string; href?: string;
+}) {
+  const card = (
+    <div className="bg-card border border-card-border rounded-xl p-3 hover:border-primary/40 transition-colors">
+      <div className="flex items-center gap-2">
+        <div className={`h-7 w-7 rounded-md flex items-center justify-center ${TINT_CLASSES[tint] ?? TINT_CLASSES.primary}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      </div>
+      <p className="text-lg font-bold mt-1.5">{value}</p>
+    </div>
+  );
+  return href ? <Link href={href}><a>{card}</a></Link> : card;
+}
+
 export default function DashboardPage() {
   const org = getCurrentOrg();
   const modules = getModules(org);
   const limits = getLimits(org);
   const { data: summary } = useGetDashboardSummary();
+  const { data: widgets } = useGetDashboardWidgets();
   const { data: members } = useListMembers();
 
   const moduleOrder: ModuleKey[] = ["sales", "leads", "inventory", "purchase", "marketing", "social", "hr", "accounting"];
@@ -109,6 +140,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Live KPI widgets */}
+      {widgets && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <KpiCard icon={TrendingUp} label="New leads today" value={String(widgets.newLeadsToday)} tint="cyan" href="/leads" />
+          <KpiCard icon={Flame} label="Hot leads" value={String(widgets.hotLeads)} tint="red" href="/leads" />
+          <KpiCard icon={Phone} label="Calls this week" value={String(widgets.callsThisWeek)} tint="blue" />
+          <KpiCard icon={Mail} label="Emails sent (wk)" value={String(widgets.emailsSentThisWeek)} tint="emerald" />
+          <KpiCard icon={Receipt} label="Unpaid invoices" value={String(widgets.invoicesUnpaid)} tint="yellow" href="/invoices" />
+          <KpiCard icon={Sparkles} label="Revenue this month" value={formatCurrency(widgets.revenueThisMonth)} tint="primary" />
+          <KpiCard icon={FileText} label="Quotes sent (wk)" value={String(widgets.quotationsSentThisWeek)} tint="blue" href="/quotations" />
+          <KpiCard icon={AlertTriangle} label="Overdue ₹" value={formatCurrency(widgets.overdueAmount)} tint="red" href="/invoices" />
+          <KpiCard icon={CheckSquare} label="Open tasks" value={String(widgets.openTasks)} tint="cyan" href="/tasks" />
+        </div>
+      )}
+
       {/* Module cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {moduleOrder.map((key) => {
@@ -117,6 +163,14 @@ export default function DashboardPage() {
           if (key === "sales" && modules.sales && summary) {
             primary = formatCurrency(summary.approvedValue ?? 0);
             secondary = `${summary.totalQuotations ?? 0} quotations`;
+          }
+          if (key === "leads" && modules.leads && widgets) {
+            primary = String(widgets.hotLeads);
+            secondary = `${widgets.newLeadsToday} new today`;
+          }
+          if (key === "marketing" && modules.marketing && widgets) {
+            primary = String(widgets.emailsSentThisWeek);
+            secondary = "emails sent this week";
           }
           return <ModuleCard key={key} moduleKey={key} enabled={modules[key]} primary={primary} secondary={secondary} />;
         })}

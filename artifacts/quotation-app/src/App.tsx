@@ -19,6 +19,15 @@ import AuditLogsPage from "@/pages/audit-logs";
 import OrganizationSettingsPage from "@/pages/settings/organization";
 import MembersPage from "@/pages/settings/members";
 import ModulesPage from "@/pages/settings/modules";
+import IntegrationsSettingsPage from "@/pages/settings/integrations";
+import LeadsPage from "@/pages/leads";
+import LeadDetailPage from "@/pages/leads/detail";
+import TasksPage from "@/pages/tasks";
+import SalesOrdersPage from "@/pages/sales-orders";
+import SalesOrderDetailPage from "@/pages/sales-orders/detail";
+import InvoicesPage from "@/pages/invoices";
+import InvoiceDetailPage from "@/pages/invoices/detail";
+import CampaignsPage from "@/pages/campaigns";
 import { Layout } from "@/components/layout";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
 import "@/lib/auth";
@@ -58,6 +67,15 @@ function Router() {
       <Route path="/settings/organization" component={() => <Guard component={OrganizationSettingsPage} />} />
       <Route path="/settings/members" component={() => <Guard component={MembersPage} />} />
       <Route path="/settings/modules" component={() => <Guard component={ModulesPage} />} />
+      <Route path="/settings/integrations" component={() => <Guard component={IntegrationsSettingsPage} />} />
+      <Route path="/leads" component={() => <Guard component={LeadsPage} />} />
+      <Route path="/leads/:id" component={() => <Guard component={LeadDetailPage} />} />
+      <Route path="/tasks" component={() => <Guard component={TasksPage} />} />
+      <Route path="/sales-orders" component={() => <Guard component={SalesOrdersPage} />} />
+      <Route path="/sales-orders/:id" component={() => <Guard component={SalesOrderDetailPage} />} />
+      <Route path="/invoices" component={() => <Guard component={InvoicesPage} />} />
+      <Route path="/invoices/:id" component={() => <Guard component={InvoiceDetailPage} />} />
+      <Route path="/campaigns" component={() => <Guard component={CampaignsPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

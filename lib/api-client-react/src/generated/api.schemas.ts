@@ -620,6 +620,621 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface Lead {
+  id: number;
+  name: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  company?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  source: string;
+  /** @nullable */
+  externalId?: string | null;
+  status: string;
+  priority: string;
+  score: number;
+  /** @nullable */
+  budget?: number | null;
+  /** @nullable */
+  product?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  nextAction?: string | null;
+  /** @nullable */
+  assignedToId?: number | null;
+  /** @nullable */
+  convertedClientId?: number | null;
+  /** @nullable */
+  lastContactedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type LeadInputSource = typeof LeadInputSource[keyof typeof LeadInputSource];
+
+
+export const LeadInputSource = {
+  manual: 'manual',
+  indiamart: 'indiamart',
+  website: 'website',
+  other: 'other',
+} as const;
+
+export type LeadInputStatus = typeof LeadInputStatus[keyof typeof LeadInputStatus];
+
+
+export const LeadInputStatus = {
+  new: 'new',
+  contacted: 'contacted',
+  qualified: 'qualified',
+  won: 'won',
+  lost: 'lost',
+} as const;
+
+export type LeadInputPriority = typeof LeadInputPriority[keyof typeof LeadInputPriority];
+
+
+export const LeadInputPriority = {
+  hot: 'hot',
+  warm: 'warm',
+  cold: 'cold',
+} as const;
+
+export interface LeadInput {
+  name: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  company?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  source?: LeadInputSource;
+  status?: LeadInputStatus;
+  priority?: LeadInputPriority;
+  /** @nullable */
+  budget?: number | null;
+  /** @nullable */
+  product?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  nextAction?: string | null;
+  /** @nullable */
+  assignedToId?: number | null;
+}
+
+export interface LeadActivity {
+  id: number;
+  leadId: number;
+  type: string;
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export type LeadDetail = Lead & {
+  activities?: LeadActivity[];
+};
+
+export type LeadActivityInputType = typeof LeadActivityInputType[keyof typeof LeadActivityInputType];
+
+
+export const LeadActivityInputType = {
+  note: 'note',
+  call: 'call',
+  email: 'email',
+  status_change: 'status_change',
+  task: 'task',
+  conversion: 'conversion',
+} as const;
+
+export interface LeadActivityInput {
+  type: LeadActivityInputType;
+  title: string;
+  /** @nullable */
+  body?: string | null;
+}
+
+export interface ConvertLeadInput {
+  createQuotation?: boolean;
+}
+
+export interface ConvertLeadResponse {
+  clientId: number;
+  /** @nullable */
+  quotationId?: number | null;
+}
+
+export interface Task {
+  id: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  status: string;
+  priority: string;
+  /** @nullable */
+  dueAt?: string | null;
+  relatedType?: string;
+  /** @nullable */
+  relatedId?: number | null;
+  /** @nullable */
+  assignedToId?: number | null;
+  /** @nullable */
+  assignedToName?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type TaskInputStatus = typeof TaskInputStatus[keyof typeof TaskInputStatus];
+
+
+export const TaskInputStatus = {
+  open: 'open',
+  done: 'done',
+  cancelled: 'cancelled',
+} as const;
+
+export type TaskInputPriority = typeof TaskInputPriority[keyof typeof TaskInputPriority];
+
+
+export const TaskInputPriority = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type TaskInputRelatedType = typeof TaskInputRelatedType[keyof typeof TaskInputRelatedType];
+
+
+export const TaskInputRelatedType = {
+  lead: 'lead',
+  client: 'client',
+  quotation: 'quotation',
+  invoice: 'invoice',
+  none: 'none',
+} as const;
+
+export interface TaskInput {
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  status?: TaskInputStatus;
+  priority?: TaskInputPriority;
+  /** @nullable */
+  dueAt?: string | null;
+  relatedType?: TaskInputRelatedType;
+  /** @nullable */
+  relatedId?: number | null;
+  /** @nullable */
+  assignedToId?: number | null;
+}
+
+export interface Call {
+  id: number;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  leadName?: string | null;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  userName?: string | null;
+  direction: string;
+  /** @nullable */
+  fromNumber?: string | null;
+  toNumber: string;
+  status: string;
+  /** @nullable */
+  twilioSid?: string | null;
+  /** @nullable */
+  durationSec?: number | null;
+  /** @nullable */
+  recordingUrl?: string | null;
+  /** @nullable */
+  transcript?: string | null;
+  /** @nullable */
+  aiSummary?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  createdAt: string;
+}
+
+export interface InitiateCallInput {
+  toNumber: string;
+  agentNumber: string;
+  /** @nullable */
+  leadId?: number | null;
+}
+
+export interface CallUpdateInput {
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  transcript?: string | null;
+  /** @nullable */
+  durationSec?: number | null;
+  /** @nullable */
+  status?: string | null;
+}
+
+export interface Email {
+  id: number;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  clientId?: number | null;
+  direction?: string;
+  fromEmail: string;
+  toEmail: string;
+  subject: string;
+  body?: string;
+  status: string;
+  /** @nullable */
+  threadId?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
+  /** @nullable */
+  clickedAt?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  createdAt: string;
+}
+
+export interface SendEmailInput {
+  toEmail: string;
+  subject: string;
+  body: string;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  clientId?: number | null;
+  /** @nullable */
+  threadId?: string | null;
+}
+
+export type DraftEmailInputTone = typeof DraftEmailInputTone[keyof typeof DraftEmailInputTone];
+
+
+export const DraftEmailInputTone = {
+  friendly: 'friendly',
+  formal: 'formal',
+  persuasive: 'persuasive',
+  follow_up: 'follow_up',
+} as const;
+
+export interface DraftEmailInput {
+  /** Short prompt describing what to write */
+  purpose: string;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  clientId?: number | null;
+  tone?: DraftEmailInputTone;
+}
+
+export interface DraftEmailResponse {
+  subject: string;
+  body: string;
+}
+
+export type CampaignSegmentFilters = {[key: string]: string};
+
+export type CampaignSegment = {
+  entity?: string;
+  filters?: CampaignSegmentFilters;
+};
+
+export type CampaignStats = {
+  total?: number;
+  sent?: number;
+  opened?: number;
+  clicked?: number;
+};
+
+export interface Campaign {
+  id: number;
+  name: string;
+  subject: string;
+  body?: string;
+  fromEmail?: string;
+  segment?: CampaignSegment;
+  status: string;
+  /** @nullable */
+  scheduledAt?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  stats?: CampaignStats;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type CampaignInputSegmentEntity = typeof CampaignInputSegmentEntity[keyof typeof CampaignInputSegmentEntity];
+
+
+export const CampaignInputSegmentEntity = {
+  leads: 'leads',
+  clients: 'clients',
+} as const;
+
+export type CampaignInputSegmentFilters = {[key: string]: string};
+
+export type CampaignInputSegment = {
+  entity: CampaignInputSegmentEntity;
+  filters?: CampaignInputSegmentFilters;
+};
+
+export interface CampaignInput {
+  name: string;
+  subject: string;
+  body: string;
+  fromEmail: string;
+  segment: CampaignInputSegment;
+  /** @nullable */
+  scheduledAt?: string | null;
+}
+
+export interface CampaignRecipient {
+  id: number;
+  email: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  clientId?: number | null;
+  status: string;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
+  /** @nullable */
+  clickedAt?: string | null;
+}
+
+export type CampaignDetail = Campaign & {
+  recipients?: CampaignRecipient[];
+};
+
+export interface SalesOrder {
+  id: number;
+  orderNumber: string;
+  /** @nullable */
+  clientId?: number | null;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  quotationId?: number | null;
+  status: string;
+  subtotal: number;
+  discountAmount?: number;
+  taxAmount?: number;
+  total: number;
+  /** @nullable */
+  expectedDeliveryAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SalesOrderItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export type SalesOrderDetail = SalesOrder & {
+  items?: SalesOrderItem[];
+};
+
+export type SalesOrderInputStatus = typeof SalesOrderInputStatus[keyof typeof SalesOrderInputStatus];
+
+
+export const SalesOrderInputStatus = {
+  draft: 'draft',
+  confirmed: 'confirmed',
+  in_production: 'in_production',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+} as const;
+
+export type SalesOrderInputItemsItem = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export interface SalesOrderInput {
+  /** @nullable */
+  clientId?: number | null;
+  status?: SalesOrderInputStatus;
+  /** @nullable */
+  expectedDeliveryAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  items?: SalesOrderInputItemsItem[];
+}
+
+export interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  /** @nullable */
+  clientId?: number | null;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  salesOrderId?: number | null;
+  status: string;
+  issueDate?: string;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  sellerState?: string | null;
+  /** @nullable */
+  buyerState?: string | null;
+  subtotal?: number;
+  discountAmount?: number;
+  taxableAmount?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  taxRate?: number;
+  total: number;
+  amountPaid?: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  terms?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface InvoiceItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+/**
+ * @nullable
+ */
+export type InvoiceDetailClient = { [key: string]: unknown } | null;
+
+export interface Payment {
+  id: number;
+  invoiceId: number;
+  amount: number;
+  method: string;
+  /** @nullable */
+  reference?: string | null;
+  paidAt: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  recordedByName?: string | null;
+  createdAt: string;
+}
+
+export type InvoiceDetail = Invoice & {
+  items?: InvoiceItem[];
+  payments?: Payment[];
+  /** @nullable */
+  client?: InvoiceDetailClient;
+};
+
+export type InvoiceInputItemsItem = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export interface InvoiceInput {
+  /** @nullable */
+  clientId?: number | null;
+  /** @nullable */
+  salesOrderId?: number | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  taxRate?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  terms?: string | null;
+  items?: InvoiceInputItemsItem[];
+}
+
+export type PaymentInputMethod = typeof PaymentInputMethod[keyof typeof PaymentInputMethod];
+
+
+export const PaymentInputMethod = {
+  cash: 'cash',
+  upi: 'upi',
+  bank_transfer: 'bank_transfer',
+  cheque: 'cheque',
+  card: 'card',
+  other: 'other',
+} as const;
+
+export interface PaymentInput {
+  invoiceId: number;
+  amount: number;
+  method?: PaymentInputMethod;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type IntegrationConfig = {[key: string]: string};
+
+export interface Integration {
+  id: number;
+  provider: string;
+  enabled: boolean;
+  config: IntegrationConfig;
+  /** @nullable */
+  lastSyncedAt?: string | null;
+  /** @nullable */
+  lastSyncStatus?: string | null;
+  /** @nullable */
+  lastSyncMessage?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type IntegrationInputConfig = {[key: string]: string};
+
+export interface IntegrationInput {
+  enabled: boolean;
+  config: IntegrationInputConfig;
+}
+
+export interface IndiamartSyncResponse {
+  imported: number;
+  message: string;
+}
+
+export interface DashboardWidgets {
+  newLeadsToday: number;
+  hotLeads: number;
+  callsThisWeek: number;
+  emailsSentThisWeek: number;
+  quotationsSentThisWeek: number;
+  invoicesUnpaid: number;
+  revenueThisMonth: number;
+  overdueAmount: number;
+  openTasks: number;
+}
+
 export type SwitchOrgBody = {
   organizationId: number;
 };
@@ -647,5 +1262,38 @@ export type SendQuotationSmsBody = {
 export type ListAuditLogsParams = {
 limit?: number;
 offset?: number;
+};
+
+export type ListLeadsParams = {
+status?: string;
+priority?: string;
+source?: string;
+search?: string;
+};
+
+export type ListTasksParams = {
+status?: string;
+dueWithinDays?: number;
+};
+
+export type ListCallsParams = {
+leadId?: number;
+};
+
+export type ListEmailsParams = {
+leadId?: number;
+clientId?: number;
+};
+
+export type ListInvoicesParams = {
+status?: string;
+};
+
+export type SetInvoiceStatusBody = {
+  status: string;
+};
+
+export type ListPaymentsParams = {
+invoiceId?: number;
 };
 
