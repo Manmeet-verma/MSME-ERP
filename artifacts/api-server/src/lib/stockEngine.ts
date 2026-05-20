@@ -37,7 +37,9 @@ export async function getStockLevel(
   organizationId: number,
   itemId: number,
   warehouseId?: number,
+  executor?: DbOrTx,
 ): Promise<number> {
+  const exec = (executor ?? db) as typeof db;
   const where = warehouseId
     ? and(
         eq(stockMovementsTable.organizationId, organizationId),
@@ -48,7 +50,7 @@ export async function getStockLevel(
         eq(stockMovementsTable.organizationId, organizationId),
         eq(stockMovementsTable.itemId, itemId),
       );
-  const [row] = await db
+  const [row] = await exec
     .select({
       qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
     })

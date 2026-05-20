@@ -12,7 +12,7 @@ import {
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
-import { recordMovement, ensureDefaultWarehouse, type DbOrTx } from "../lib/stockEngine";
+import { recordMovement, ensureDefaultWarehouse, getStockLevel, type DbOrTx } from "../lib/stockEngine";
 
 async function resolveSOWarehouse(organizationId: number, soWarehouseId: number | null): Promise<number> {
   if (soWarehouseId) return soWarehouseId;
@@ -340,6 +340,26 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
           .from(salesOrdersTable)
           .where(eq(salesOrdersTable.id, id));
         const whId = await resolveSOWarehouse(orgId, refreshed.warehouseId ?? null);
+        // Stock-availability invariant: prevent overselling. Aggregate
+        // requested qty per linked item and compare to current stock in the
+        // dispatching warehouse. Lines without `itemId` are not tracked
+        // (logged as a server warning by existing dispatch path).
+        const need = new Map<number, number>();
+        for (const l of currentLines) {
+          if (!l.itemId) continue;
+          need.set(l.itemId, (need.get(l.itemId) ?? 0) + l.quantity);
+        }
+        const shortages: Array<{ itemId: number; needed: number; available: number }> = [];
+        for (const [itemId, needed] of need) {
+          const have = await getStockLevel(orgId, itemId, whId, tx);
+          if (have < needed) shortages.push({ itemId, needed, available: have });
+        }
+        if (shortages.length > 0) {
+          // Aborts the transaction and surfaces a structured 409 below.
+          const err = new Error("INSUFFICIENT_STOCK");
+          (err as unknown as { shortages: typeof shortages }).shortages = shortages;
+          throw err;
+        }
         await postSOMovements({
           organizationId: orgId,
           salesOrderId: id,
@@ -353,6 +373,12 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
       }
     });
   } catch (e) {
+    const shortages = (e as { message?: string; shortages?: unknown }).shortages;
+    if ((e as Error).message === "INSUFFICIENT_STOCK" && Array.isArray(shortages)) {
+      req.log.warn({ shortages }, "SO confirmation blocked by insufficient stock");
+      res.status(409).json({ error: "Insufficient stock to confirm sales order", shortages });
+      return;
+    }
     req.log.error({ err: e }, "SO patch transaction failed; nothing committed");
     res.status(500).json({ error: "Sales order update failed; no changes applied" });
     return;
@@ -373,6 +399,14 @@ salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth,
     return;
   }
   const items = await db.select().from(quotationItemsTable).where(eq(quotationItemsTable.quotationId, qid));
+  // Best-effort: map each quotation line to an inventory item by name match
+  // within the same org. Lines without a match remain unlinked (itemId=null)
+  // and will be flagged at SO confirm time.
+  const allItems = await db
+    .select()
+    .from(itemsTable)
+    .where(eq(itemsTable.organizationId, orgId));
+  const byName = new Map(allItems.map((it) => [it.name.trim().toLowerCase(), it.id]));
   const [s] = await db
     .insert(salesOrdersTable)
     .values({
@@ -394,8 +428,7 @@ salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth,
     await db.insert(salesOrderItemsTable).values(
       items.map((i) => ({
         salesOrderId: s.id,
-        // Quotation items don't link to inventory items yet — carried as null.
-        itemId: null,
+        itemId: byName.get(i.description.trim().toLowerCase()) ?? null,
         description: i.description,
         quantity: i.quantity,
         unitPrice: i.unitPrice,
