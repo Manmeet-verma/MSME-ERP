@@ -174,13 +174,16 @@ export default function InventoryPage() {
         ) : (
           <div className="rounded-xl border border-border overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-secondary text-muted-foreground"><tr><th className="text-left p-3">Item</th><th className="text-right p-3">Current</th><th className="text-right p-3">Threshold</th></tr></thead>
+              <thead className="bg-secondary text-muted-foreground"><tr><th className="text-left p-3">Item</th><th className="text-right p-3">Current</th><th className="text-right p-3">Threshold</th><th className="text-right p-3 w-28">Action</th></tr></thead>
               <tbody>
                 {low.map((l) => (
                   <tr key={l.itemId} className="border-t border-border">
                     <td className="p-3"><p className="flex items-center gap-2"><AlertTriangle className="h-3 w-3 text-amber-500" />{l.itemName}</p><p className="text-xs text-muted-foreground font-mono">{l.itemSku}</p></td>
                     <td className="p-3 text-right text-amber-500 font-semibold">{l.currentStock} {l.unit}</td>
                     <td className="p-3 text-right text-muted-foreground">{l.lowStockThreshold}</td>
+                    <td className="p-3 text-right">
+                      <a href={`/purchase-orders?createForItem=${l.itemId}`} className="text-xs text-primary hover:underline">Create PO</a>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -146,67 +146,77 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
       return;
     }
   }
-  const [g] = await db
-    .insert(grnTable)
-    .values({
-      organizationId: orgId,
-      grnNumber: genNumber(),
-      purchaseOrderId: b.purchaseOrderId ?? null,
-      warehouseId: b.warehouseId,
-      receivedAt: b.receivedAt ? new Date(b.receivedAt) : new Date(),
-      notes: b.notes ?? null,
-      createdById: req.user!.userId,
-    })
-    .returning();
+  // Wrap GRN header + items + stock movements + PO updates in a single
+  // transaction so partial failures cannot leave the ledger inconsistent.
+  let g: typeof grnTable.$inferSelect;
+  try {
+    g = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(grnTable)
+        .values({
+          organizationId: orgId,
+          grnNumber: genNumber(),
+          purchaseOrderId: b.purchaseOrderId ?? null,
+          warehouseId: b.warehouseId,
+          receivedAt: b.receivedAt ? new Date(b.receivedAt) : new Date(),
+          notes: b.notes ?? null,
+          createdById: req.user!.userId,
+        })
+        .returning();
 
-  for (const it of b.items as Array<{
-    poItemId?: number;
-    itemId: number;
-    quantity: number;
-    unitCost: number;
-  }>) {
-    await db.insert(grnItemsTable).values({
-      grnId: g.id,
-      poItemId: it.poItemId ?? null,
-      itemId: it.itemId,
-      quantity: String(it.quantity),
-      unitCost: String(it.unitCost),
-    });
-    // Stock movement (also updates moving average cost)
-    await recordMovement({
-      organizationId: orgId,
-      itemId: it.itemId,
-      warehouseId: b.warehouseId,
-      direction: "in",
-      quantity: it.quantity,
-      unitCost: it.unitCost,
-      reason: "purchase",
-      referenceType: "grn",
-      referenceId: g.id,
-      createdById: req.user!.userId,
-    });
-    // Update PO item receivedQuantity
-    if (it.poItemId) {
-      await db
-        .update(purchaseOrderItemsTable)
-        .set({ receivedQuantity: sql`${purchaseOrderItemsTable.receivedQuantity} + ${it.quantity}` })
-        .where(eq(purchaseOrderItemsTable.id, it.poItemId));
-    }
-  }
+      for (const it of incomingItems) {
+        await tx.insert(grnItemsTable).values({
+          grnId: created.id,
+          poItemId: it.poItemId ?? null,
+          itemId: it.itemId,
+          quantity: String(it.quantity),
+          unitCost: String(it.unitCost),
+        });
+        await recordMovement({
+          organizationId: orgId,
+          itemId: it.itemId,
+          warehouseId: b.warehouseId,
+          direction: "in",
+          quantity: it.quantity,
+          unitCost: it.unitCost,
+          reason: "purchase",
+          referenceType: "grn",
+          referenceId: created.id,
+          createdById: req.user!.userId,
+          executor: tx,
+        });
+        if (it.poItemId) {
+          await tx
+            .update(purchaseOrderItemsTable)
+            .set({
+              receivedQuantity: sql`${purchaseOrderItemsTable.receivedQuantity} + ${it.quantity}`,
+            })
+            .where(eq(purchaseOrderItemsTable.id, it.poItemId));
+        }
+      }
 
-  // Update PO status based on items
-  if (b.purchaseOrderId) {
-    const poItems = await db
-      .select()
-      .from(purchaseOrderItemsTable)
-      .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId));
-    const allReceived = poItems.every((p) => Number(p.receivedQuantity) >= Number(p.quantity));
-    const anyReceived = poItems.some((p) => Number(p.receivedQuantity) > 0);
-    const newStatus = allReceived ? "received" : anyReceived ? "partial" : "sent";
-    await db
-      .update(purchaseOrdersTable)
-      .set({ status: newStatus, updatedAt: new Date() })
-      .where(eq(purchaseOrdersTable.id, b.purchaseOrderId));
+      if (b.purchaseOrderId) {
+        const poItems = await tx
+          .select()
+          .from(purchaseOrderItemsTable)
+          .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId));
+        const allReceived = poItems.every(
+          (p) => Number(p.receivedQuantity) >= Number(p.quantity),
+        );
+        const anyReceived = poItems.some((p) => Number(p.receivedQuantity) > 0);
+        const newStatus = allReceived ? "received" : anyReceived ? "partial" : "sent";
+        await tx
+          .update(purchaseOrdersTable)
+          .set({ status: newStatus, updatedAt: new Date() })
+          .where(eq(purchaseOrdersTable.id, b.purchaseOrderId));
+      }
+
+      return created;
+    });
+  } catch (e) {
+    req.log.error({ err: e }, "GRN transaction failed");
+    res.status(500).json({ error: "Failed to record goods receipt" });
+    return;
   }
   await logAction(req, "CREATE", "grn", g.id, `Received ${b.items.length} items`);
   res.status(201).json(await fmt(g));

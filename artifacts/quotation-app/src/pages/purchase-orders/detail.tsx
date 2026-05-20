@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ArrowLeft, Truck } from "lucide-react";
+import { ArrowLeft, Truck, Printer } from "lucide-react";
 
 export default function PurchaseOrderDetailPage() {
   const [, params] = useRoute("/purchase-orders/:id");
@@ -103,11 +103,12 @@ export default function PurchaseOrderDetailPage() {
           <h1 className="text-xl font-bold">{po.poNumber}</h1>
           <p className="text-sm text-muted-foreground">{po.vendorName ?? "—"} · <span className="capitalize">{po.status}</span></p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           {po.status === "draft" && <Button size="sm" onClick={() => setStatus("sent")}>Send</Button>}
           {(po.status === "sent" || po.status === "partial" || po.status === "draft") && (
             <Button size="sm" className="gap-2" onClick={openGrn}><Truck className="h-4 w-4" />Receive Goods</Button>
           )}
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => window.print()}><Printer className="h-4 w-4" />Print</Button>
           {po.status !== "cancelled" && po.status !== "received" && <Button size="sm" variant="outline" onClick={() => setStatus("cancelled")}>Cancel</Button>}
         </div>
       </div>

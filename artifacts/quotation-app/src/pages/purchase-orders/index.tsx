@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useListPurchaseOrders, useCreatePurchaseOrder, useListVendors, useListWarehouses, useListItems } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -71,11 +71,32 @@ export default function PurchaseOrdersPage() {
     });
   }
 
-  function openCreate() {
+  function openCreate(prefilledItemId?: number) {
     setVendorId(""); setWarehouseId(""); setExpectedDate(""); setNotes("");
-    setLines([{ description: "", quantity: 1, unitPrice: 0 }]);
+    const item = prefilledItemId ? items.find((i) => i.id === prefilledItemId) : undefined;
+    setLines([
+      item
+        ? { itemId: item.id, description: item.name, quantity: 1, unitPrice: item.purchasePrice ?? 0 }
+        : { description: "", quantity: 1, unitPrice: 0 },
+    ]);
     setOpen(true);
   }
+
+  // Open create dialog prefilled from low-stock "Create PO" shortcut.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const raw = sp.get("createForItem");
+    if (!raw) return;
+    if (items.length === 0) return; // wait for items to load
+    const itemId = Number(raw);
+    if (!Number.isFinite(itemId)) return;
+    openCreate(itemId);
+    sp.delete("createForItem");
+    const qs = sp.toString();
+    window.history.replaceState({}, "", `/purchase-orders${qs ? `?${qs}` : ""}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5">
@@ -84,7 +105,7 @@ export default function PurchaseOrdersPage() {
           <h1 className="text-xl font-bold">Purchase Orders</h1>
           <p className="text-sm text-muted-foreground">{pos.length} orders</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />New PO</Button>
+        <Button size="sm" className="gap-2" onClick={() => openCreate()}><Plus className="h-4 w-4" />New PO</Button>
       </div>
       {pos.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">

@@ -242,6 +242,19 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
+  // Refuse line-item edits while the SO is active to keep the stock ledger
+  // consistent with line quantities. Revert to draft, then edit, then re-confirm.
+  if (Array.isArray(b.items) && prev) {
+    const wasActive = ["confirmed", "in_production", "delivered"].includes(prev.status);
+    const stillActive =
+      b.status === undefined || ["confirmed", "in_production", "delivered"].includes(b.status);
+    if (wasActive && stillActive) {
+      res
+        .status(409)
+        .json({ error: "Revert sales order to draft before editing line items" });
+      return;
+    }
+  }
   // Replace items first so stock dispatch reflects the latest lines
   if (Array.isArray(b.items)) {
     await db.delete(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));

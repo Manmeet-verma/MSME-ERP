@@ -15,6 +15,8 @@ export type MovementReason =
   | "transfer_out"
   | "return";
 
+export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export interface RecordMovementInput {
   organizationId: number;
   itemId: number;
@@ -27,6 +29,8 @@ export interface RecordMovementInput {
   referenceId?: number;
   notes?: string;
   createdById?: number | null;
+  /** Optional transaction handle. Defaults to top-level db. */
+  executor?: DbOrTx;
 }
 
 export async function getStockLevel(
@@ -54,13 +58,14 @@ export async function getStockLevel(
 }
 
 export async function recordMovement(input: RecordMovementInput) {
-  const [item] = await db
+  const exec = (input.executor ?? db) as typeof db;
+  const [item] = await exec
     .select()
     .from(itemsTable)
     .where(and(eq(itemsTable.id, input.itemId), eq(itemsTable.organizationId, input.organizationId)));
   if (!item) throw new Error("Item not found");
 
-  const [warehouse] = await db
+  const [warehouse] = await exec
     .select()
     .from(warehousesTable)
     .where(
@@ -73,7 +78,7 @@ export async function recordMovement(input: RecordMovementInput) {
 
   const unitCost = input.unitCost ?? Number(item.avgCost);
 
-  const [m] = await db
+  const [m] = await exec
     .insert(stockMovementsTable)
     .values({
       organizationId: input.organizationId,
@@ -92,40 +97,32 @@ export async function recordMovement(input: RecordMovementInput) {
 
   // Update moving average cost on IN movements with positive unitCost
   if (input.direction === "in" && unitCost > 0) {
-    const currentQty = await getStockLevelExcluding(input.organizationId, input.itemId, m.id);
+    const [row] = await exec
+      .select({
+        qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
+      })
+      .from(stockMovementsTable)
+      .where(
+        and(
+          eq(stockMovementsTable.organizationId, input.organizationId),
+          eq(stockMovementsTable.itemId, input.itemId),
+          sql`${stockMovementsTable.id} <> ${m.id}`,
+        ),
+      );
+    const currentQty = Number(row?.qty ?? 0);
     const currentAvg = Number(item.avgCost);
     const newQty = currentQty + input.quantity;
     const newAvg =
       newQty > 0
         ? (currentQty * currentAvg + input.quantity * unitCost) / newQty
         : unitCost;
-    await db
+    await exec
       .update(itemsTable)
       .set({ avgCost: newAvg.toFixed(4), updatedAt: new Date() })
       .where(eq(itemsTable.id, input.itemId));
   }
 
   return m;
-}
-
-async function getStockLevelExcluding(
-  organizationId: number,
-  itemId: number,
-  excludeMovementId: number,
-): Promise<number> {
-  const [row] = await db
-    .select({
-      qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
-    })
-    .from(stockMovementsTable)
-    .where(
-      and(
-        eq(stockMovementsTable.organizationId, organizationId),
-        eq(stockMovementsTable.itemId, itemId),
-        sql`${stockMovementsTable.id} <> ${excludeMovementId}`,
-      ),
-    );
-  return Number(row?.qty ?? 0);
 }
 
 export async function ensureDefaultWarehouse(organizationId: number): Promise<number> {

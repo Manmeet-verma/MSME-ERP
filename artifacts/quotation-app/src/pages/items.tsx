@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Boxes, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Boxes, Pencil, Trash2, AlertTriangle, Upload } from "lucide-react";
+import { useRef } from "react";
 import { formatCurrency } from "@/lib/format";
 
 type Form = {
@@ -18,6 +19,18 @@ type Form = {
 };
 const empty: Form = { sku: "", name: "", category: "", unit: "pcs", hsnCode: "", gstRate: 18, salePrice: 0, purchasePrice: 0, openingStock: 0, lowStockThreshold: 0 };
 
+function parseCsv(text: string): Array<Record<string, string>> {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  return lines.slice(1).map((line) => {
+    const cells = line.split(",").map((c) => c.trim());
+    const row: Record<string, string> = {};
+    header.forEach((h, i) => { row[h] = cells[i] ?? ""; });
+    return row;
+  });
+}
+
 export default function ItemsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -25,6 +38,8 @@ export default function ItemsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
   const [form, setForm] = useState<Form>(empty);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["/api/items"] });
@@ -43,6 +58,49 @@ export default function ItemsPage() {
       openingStock: 0, lowStockThreshold: i.lowStockThreshold ?? 0,
     });
     setOpen(true);
+  }
+
+  async function handleCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length === 0) {
+        toast({ title: "CSV is empty", variant: "destructive" });
+        return;
+      }
+      let ok = 0;
+      let fail = 0;
+      for (const r of rows) {
+        if (!r.sku || !r.name) { fail++; continue; }
+        try {
+          await createMut.mutateAsync({
+            data: {
+              sku: r.sku,
+              name: r.name,
+              category: r.category || undefined,
+              unit: r.unit || "pcs",
+              hsnCode: r["hsn"] || r["hsncode"] || undefined,
+              gstRate: Number(r["gst"] ?? r["gstrate"] ?? 18),
+              salePrice: Number(r["saleprice"] ?? r["sale"] ?? 0),
+              purchasePrice: Number(r["purchaseprice"] ?? r["purchase"] ?? 0),
+              openingStock: Number(r["openingstock"] ?? r["opening"] ?? 0),
+              lowStockThreshold: Number(r["lowstockthreshold"] ?? r["threshold"] ?? 0),
+            },
+          });
+          ok++;
+        } catch {
+          fail++;
+        }
+      }
+      toast({ title: `Imported ${ok} items` + (fail ? `, ${fail} failed` : "") });
+      invalidate();
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   function submit(e: React.FormEvent) {
@@ -66,7 +124,13 @@ export default function ItemsPage() {
           <h1 className="text-xl font-bold">Inventory Items</h1>
           <p className="text-sm text-muted-foreground">{items.length} items</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />Add Item</Button>
+        <div className="flex gap-2">
+          <input ref={fileRef} type="file" accept=".csv" onChange={handleCsv} className="hidden" />
+          <Button size="sm" variant="outline" className="gap-2" disabled={importing} onClick={() => fileRef.current?.click()}>
+            <Upload className="h-4 w-4" />{importing ? "Importing..." : "Import CSV"}
+          </Button>
+          <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />Add Item</Button>
+        </div>
       </div>
 
       {items.length === 0 ? (
