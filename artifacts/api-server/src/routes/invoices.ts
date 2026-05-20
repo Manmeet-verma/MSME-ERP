@@ -13,6 +13,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { calcGst, round2 } from "../lib/gst";
+import { reverseAndRepost } from "../lib/accounting";
 
 const invoicesRouter = Router();
 
@@ -84,6 +85,24 @@ async function recalc(invoiceId: number) {
       updatedAt: new Date(),
     })
     .where(eq(invoicesTable.id, invoiceId));
+  // Auto-post journal: Dr AR, Cr Sales Revenue, Cr GST Output (skip if cancelled/draft)
+  const isPostable = status !== "draft" && status !== "cancelled";
+  await reverseAndRepost(
+    inv.organizationId,
+    "invoice",
+    invoiceId,
+    async () => {
+      if (!isPostable || total <= 0) return null;
+      const taxTotal = round2(gst.cgst + gst.sgst + gst.igst);
+      const lines = [
+        { accountCode: "1100", debit: total, description: `Invoice ${inv.invoiceNumber}` },
+        { accountCode: "4000", credit: taxable, description: "Sales revenue" },
+      ];
+      if (taxTotal > 0) lines.push({ accountCode: "2100", credit: taxTotal, description: "GST output" });
+      return lines;
+    },
+    { entryDate: inv.issueDate, memo: `Invoice ${inv.invoiceNumber}` },
+  );
 }
 
 invoicesRouter.get("/invoices", requireAuth, async (req, res) => {

@@ -1977,6 +1977,471 @@ export interface EmailPerformanceRow {
   clickRate: number;
 }
 
+export type EmployeeStatus = typeof EmployeeStatus[keyof typeof EmployeeStatus];
+
+
+export const EmployeeStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  terminated: 'terminated',
+} as const;
+
+export type EmployeeLeaveBalances = {[key: string]: number};
+
+export interface Employee {
+  id: number;
+  employeeCode: string;
+  name: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  department?: string | null;
+  /** @nullable */
+  dateOfJoining?: string | null;
+  status: EmployeeStatus;
+  basic: number;
+  hra: number;
+  allowances: number;
+  otherDeductions: number;
+  pfEnabled: boolean;
+  esiEnabled: boolean;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  bankAccount?: string | null;
+  /** @nullable */
+  ifsc?: string | null;
+  /** @nullable */
+  panNumber?: string | null;
+  leaveBalances: EmployeeLeaveBalances;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type EmployeeInputStatus = typeof EmployeeInputStatus[keyof typeof EmployeeInputStatus] | null;
+
+
+export const EmployeeInputStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  terminated: 'terminated',
+} as const;
+
+/**
+ * @nullable
+ */
+export type EmployeeInputLeaveBalances = {[key: string]: number} | null;
+
+export interface EmployeeInput {
+  /** @nullable */
+  employeeCode?: string | null;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  department?: string | null;
+  /** @nullable */
+  dateOfJoining?: string | null;
+  /** @nullable */
+  status?: EmployeeInputStatus;
+  /** @nullable */
+  basic?: number | null;
+  /** @nullable */
+  hra?: number | null;
+  /** @nullable */
+  allowances?: number | null;
+  /** @nullable */
+  otherDeductions?: number | null;
+  /** @nullable */
+  pfEnabled?: boolean | null;
+  /** @nullable */
+  esiEnabled?: boolean | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  bankAccount?: string | null;
+  /** @nullable */
+  ifsc?: string | null;
+  /** @nullable */
+  panNumber?: string | null;
+  /** @nullable */
+  leaveBalances?: EmployeeInputLeaveBalances;
+}
+
+export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
+
+
+export const AttendanceStatus = {
+  present: 'present',
+  absent: 'absent',
+  half: 'half',
+  leave: 'leave',
+  holiday: 'holiday',
+  weekoff: 'weekoff',
+} as const;
+
+export interface Attendance {
+  id: number;
+  employeeId: number;
+  date: string;
+  status: AttendanceStatus;
+  /** @nullable */
+  leaveType?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type AttendanceInputStatus = typeof AttendanceInputStatus[keyof typeof AttendanceInputStatus];
+
+
+export const AttendanceInputStatus = {
+  present: 'present',
+  absent: 'absent',
+  half: 'half',
+  leave: 'leave',
+  holiday: 'holiday',
+  weekoff: 'weekoff',
+} as const;
+
+export interface AttendanceInput {
+  employeeId: number;
+  /** @nullable */
+  date?: string | null;
+  status: AttendanceInputStatus;
+  /** @nullable */
+  leaveType?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type LeaveBalanceBalances = {[key: string]: number};
+
+export type LeaveBalanceUsed = {[key: string]: number};
+
+export interface LeaveBalance {
+  employeeId: number;
+  employeeName: string;
+  balances: LeaveBalanceBalances;
+  used: LeaveBalanceUsed;
+}
+
+export type PayrollRunStatus = typeof PayrollRunStatus[keyof typeof PayrollRunStatus];
+
+
+export const PayrollRunStatus = {
+  draft: 'draft',
+  computed: 'computed',
+  paid: 'paid',
+} as const;
+
+export interface PayrollRun {
+  id: number;
+  periodMonth: number;
+  periodYear: number;
+  status: PayrollRunStatus;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  createdAt: string;
+}
+
+export type PayslipStatus = typeof PayslipStatus[keyof typeof PayslipStatus];
+
+
+export const PayslipStatus = {
+  pending: 'pending',
+  paid: 'paid',
+} as const;
+
+export interface Payslip {
+  id: number;
+  payrollRunId: number;
+  employeeId: number;
+  /** @nullable */
+  employeeName?: string | null;
+  /** @nullable */
+  employeeCode?: string | null;
+  basic: number;
+  hra: number;
+  allowances: number;
+  daysWorked: number;
+  daysInMonth: number;
+  lopAmount: number;
+  pfAmount: number;
+  esiAmount: number;
+  otherDeductions: number;
+  gross: number;
+  deductions: number;
+  net: number;
+  status: PayslipStatus;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
+export type PayrollRunDetail = PayrollRun & {
+  payslips?: Payslip[];
+};
+
+export interface ExpenseCategory {
+  id: number;
+  name: string;
+  /** @nullable */
+  accountCode?: string | null;
+  isSystem: boolean;
+  createdAt: string;
+}
+
+export type ExpensePaymentMethod = typeof ExpensePaymentMethod[keyof typeof ExpensePaymentMethod];
+
+
+export const ExpensePaymentMethod = {
+  cash: 'cash',
+  bank: 'bank',
+  upi: 'upi',
+  card: 'card',
+  cheque: 'cheque',
+  other: 'other',
+} as const;
+
+export interface Expense {
+  id: number;
+  expenseDate: string;
+  /** @nullable */
+  categoryId?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  description?: string | null;
+  amount: number;
+  gstRate: number;
+  gstAmount: number;
+  total: number;
+  paymentMethod: ExpensePaymentMethod;
+  /** @nullable */
+  receiptUrl?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type ExpenseInputPaymentMethod = typeof ExpenseInputPaymentMethod[keyof typeof ExpenseInputPaymentMethod] | null;
+
+
+export const ExpenseInputPaymentMethod = {
+  cash: 'cash',
+  bank: 'bank',
+  upi: 'upi',
+  card: 'card',
+  cheque: 'cheque',
+  other: 'other',
+} as const;
+
+export interface ExpenseInput {
+  expenseDate: string;
+  /** @nullable */
+  categoryId?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  description?: string | null;
+  amount: number;
+  /** @nullable */
+  gstRate?: number | null;
+  /** @nullable */
+  paymentMethod?: ExpenseInputPaymentMethod;
+  /** @nullable */
+  receiptUrl?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type AccountType = typeof AccountType[keyof typeof AccountType];
+
+
+export const AccountType = {
+  asset: 'asset',
+  liability: 'liability',
+  equity: 'equity',
+  income: 'income',
+  expense: 'expense',
+} as const;
+
+export interface Account {
+  id: number;
+  code: string;
+  name: string;
+  type: AccountType;
+  /** @nullable */
+  subtype?: string | null;
+  isSystem: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface JournalLine {
+  id: number;
+  accountId: number;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface JournalEntry {
+  id: number;
+  entryDate: string;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  sourceType?: string | null;
+  /** @nullable */
+  sourceId?: number | null;
+  createdAt: string;
+  lines: JournalLine[];
+}
+
+export interface LedgerLine {
+  lineId: number;
+  entryId: number;
+  entryDate: string;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  sourceType?: string | null;
+  /** @nullable */
+  sourceId?: number | null;
+  /** @nullable */
+  description?: string | null;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export type LedgerAccount = {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
+};
+
+export interface Ledger {
+  account: LedgerAccount;
+  lines: LedgerLine[];
+  closingBalance: number;
+}
+
+export type PnlSectionIncomeItem = {
+  code: string;
+  name: string;
+  amount: number;
+};
+
+export type PnlSectionExpenseItem = {
+  code: string;
+  name: string;
+  amount: number;
+};
+
+export interface PnlSection {
+  from: string;
+  to: string;
+  income: PnlSectionIncomeItem[];
+  expense: PnlSectionExpenseItem[];
+  totalIncome: number;
+  totalExpense: number;
+  netProfit: number;
+}
+
+export interface PnlResponse {
+  current: PnlSection;
+  previous?: PnlSection | null;
+}
+
+export interface Gstr1Row {
+  invoiceNumber: string;
+  invoiceDate: string;
+  clientName: string;
+  gstin?: string;
+  placeOfSupply?: string;
+  taxableValue: number;
+  rate: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  invoiceTotal: number;
+}
+
+export type Gstr1ResponseSummary = {
+  invoices: number;
+  taxableValue: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  totalTax: number;
+};
+
+export interface Gstr1Response {
+  from: string;
+  to: string;
+  b2b: Gstr1Row[];
+  b2c: Gstr1Row[];
+  summary: Gstr1ResponseSummary;
+}
+
+export type Gstr3bResponseOutwardSupplies = {
+  taxable: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+};
+
+export type Gstr3bResponseItc = {
+  cgstSgstInputs: number;
+  igstInputs: number;
+  total: number;
+};
+
+export interface Gstr3bResponse {
+  from: string;
+  to: string;
+  outwardSupplies: Gstr3bResponseOutwardSupplies;
+  itc: Gstr3bResponseItc;
+  netTaxPayable: number;
+}
+
+export interface VendorAgeingRow {
+  vendorId: number;
+  vendorName: string;
+  current: number;
+  days30: number;
+  days60: number;
+  days90: number;
+  daysOver90: number;
+  total: number;
+}
+
 export type SwitchOrgBody = {
   organizationId: number;
 };
@@ -2114,6 +2579,104 @@ format?: string;
 };
 
 export type GetEmailPerformanceReportParams = {
+format?: string;
+};
+
+export type ListAttendanceParams = {
+from?: string;
+to?: string;
+employeeId?: number;
+};
+
+export type BulkAttendanceBody = {
+  date: string;
+  entries: AttendanceInput[];
+};
+
+export type CreatePayrollRunBody = {
+  periodMonth: number;
+  periodYear: number;
+  /** @nullable */
+  notes?: string | null;
+};
+
+export type CreateExpenseCategoryBody = {
+  name: string;
+  /** @nullable */
+  accountCode?: string | null;
+};
+
+export type ListExpensesParams = {
+from?: string;
+to?: string;
+};
+
+export type CreateAccountBodyType = typeof CreateAccountBodyType[keyof typeof CreateAccountBodyType];
+
+
+export const CreateAccountBodyType = {
+  asset: 'asset',
+  liability: 'liability',
+  equity: 'equity',
+  income: 'income',
+  expense: 'expense',
+} as const;
+
+export type CreateAccountBody = {
+  code: string;
+  name: string;
+  type: CreateAccountBodyType;
+  /** @nullable */
+  subtype?: string | null;
+};
+
+export type ListJournalEntriesParams = {
+from?: string;
+to?: string;
+};
+
+export type CreateJournalEntryBodyLinesItem = {
+  accountCode: string;
+  /** @nullable */
+  debit?: number | null;
+  /** @nullable */
+  credit?: number | null;
+  /** @nullable */
+  description?: string | null;
+};
+
+export type CreateJournalEntryBody = {
+  entryDate: string;
+  /** @nullable */
+  memo?: string | null;
+  lines: CreateJournalEntryBodyLinesItem[];
+};
+
+export type CreateJournalEntry201 = {
+  id: number;
+};
+
+export type GetLedgerParams = {
+accountId: number;
+from?: string;
+to?: string;
+};
+
+export type GetPnlParams = {
+from?: string;
+to?: string;
+compare?: string;
+};
+
+export type GetGstr1Params = {
+from?: string;
+to?: string;
+format?: string;
+};
+
+export type GetGstr3bParams = {
+from?: string;
+to?: string;
 format?: string;
 };
 

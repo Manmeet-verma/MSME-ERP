@@ -175,6 +175,47 @@ Live in addition to Rounds 1–3:
 - Sidebar entries for Social and Drips/Suppressions are gated by `org.modules.social` and `org.modules.marketing` — toggle them in Settings → Modules.
 - The CampaignRecipient `variant` enum is lowercase (`a`/`b`) at the DB level.
 
+## Round 5 — HR, Payroll & Accounting
+
+Live in addition to Rounds 1–4:
+
+- **Employees** (`/employees`) — CRUD with salary structure (basic, HRA, allowances, otherDeductions), PF/ESI flags, bank/PAN, status (active/inactive/terminated), per-employee leave balances JSONB.
+- **Attendance** (`/attendance`) — Mobile-first daily marking grid. Statuses: present, half, leave, absent, holiday, weekoff. `POST /api/attendance/bulk` upserts an entire day. Leaves consume `employee.leaveBalances`. `GET /api/leaves/balances` returns per-employee used totals.
+- **Payroll** (`/payroll`, `/payroll/:id`) — `POST /api/payroll-runs` with `{periodMonth, periodYear}` computes payslips: gross = basic + HRA + allowances; LOP = (basic+HRA+allowances) × (1 − daysWorked/daysInMonth); PF = 12% basic; ESI = 0.75% of (basic+HRA+allowances) if gross < 21000; deductions sum PF + ESI + otherDeductions + LOP. `POST /:id/mark-paid` flips status, sets `paidAt`, marks payslips paid, and auto-posts a journal (Dr 5000 / Cr 2100 PF / Cr 2110 ESI / Cr 1010 Bank). PDFs streamed via `GET /api/payslips/:id/pdf` (PDFKit).
+- **Expenses** (`/expenses`) — Categories CRUD with optional `accountCode` link. Expenses with GST, payment method, optional receipt (uses `/api/uploads`). Auto-posts: Dr expenseAccount + Dr 1300 (GST input) / Cr 1000 cash or 1010 bank.
+- **Chart of accounts** — `ensureChartOfAccounts(orgId)` seeds 18 system accounts on first use (1000 Cash, 1010 Bank, 1100 AR, 1200 Inventory, 1300 GST Input, 2000 AP, 2100 PF Payable, 2110 ESI Payable, 2200 CGST Output, 2210 SGST Output, 2220 IGST Output, 4000 Sales, 5000 Salaries, 5100 Rent, 5200 Utilities, 5300 Travel, 5400 Office, 5900 Other expenses).
+- **Auto-postings** (`lib/accounting.ts`):
+  - Invoices: `recalcInvoice` (Dr 1100 AR / Cr 4000 Sales / Cr CGST + SGST or IGST output).
+  - Payments: `repostPayment` (Dr 1000/1010 / Cr 1100 AR).
+  - Vendor bills: Dr 1200 + Dr 1300 / Cr 2000 AP.
+  - Expenses: as above.
+  - Payroll: on mark-paid.
+  - All sources use `reverseAndRepost(orgId, sourceType, sourceId, …)` so repeated updates stay idempotent.
+- **Ledger** (`/accounting/ledger`) — Per-account running balance. `GET /api/accounting/ledger?accountId=&from=&to=` returns lines with debit/credit/running balance.
+- **P&L** (`/accounting/pnl`) — `GET /api/accounting/pnl?from=&to=&compare=true` returns `{current, previous}` sections; previous matches range length immediately prior.
+- **GST reports** (`/accounting/gst`) — `GET /api/accounting/gstr1` returns `{b2b, b2c, summary}` (B2B = client with GSTIN); `GET /api/accounting/gstr3b` returns outward supplies + ITC (from vendor bills + expense GST). Both accept `?format=csv|xlsx` (ExcelJS).
+- **Vendor ageing** (`/accounting/vendor-ageing`) — 0-30/31-60/61-90/90+ buckets from unpaid vendor bills.
+
+### New API routes
+- `/api/employees` (CRUD), `/api/attendance` (list/create/bulk), `/api/leaves`, `/api/leaves/balances`
+- `/api/leave-requests` (list/create), `/api/leave-requests/:id/{approve,reject}` — apply/approve workflow. Approval auto-creates `leave` attendance rows for each day in the range and decrements the matching key in `employees.leaveBalances`.
+- `/api/payroll-runs` (list/create/get), `/api/payroll-runs/:id/mark-paid`, `/api/payslips/:id/pdf`
+- `/api/payroll-runs/:id/payslips.pdf` — single PDF containing every payslip in the run (one slip per page). `/api/payroll-runs/:id/payments.csv` — bank-friendly CSV (employee code, name, bank, account, IFSC, PAN, net) for bulk salary transfer.
+- `/api/expense-categories` (CRUD), `/api/expenses` (CRUD)
+- `/api/accounts` (list/create), `/api/journal-entries` (list/create — manual)
+- `/api/accounting/ledger`, `/api/accounting/pnl`, `/api/accounting/gstr1`, `/api/accounting/gstr3b`, `/api/accounting/vendor-ageing`
+
+### New DB tables
+`employees, attendance, leave_requests, payroll_runs, payslips, accounts, journal_entries, journal_lines, expense_categories, expenses`. Each tenant-scoped. `accounts.is_system=true` for the seeded 18 accounts. Journal lines store `debit/credit` as decimal(14,2).
+
+### Round-5 gotchas
+- Nav + dashboard gating: HR pages require `org.modules.hr`; expenses/accounting require `org.modules.accounting`. Toggle in Settings → Modules.
+- Payroll compute treats employees with **no** attendance records for the month as full-month present (daysWorked = daysInMonth). Attendance must be marked **before** running payroll for LOP to apply.
+- `reverseAndRepost` deletes prior journal entries for a `(sourceType, sourceId)` and re-posts a fresh balanced entry. If rebuild() returns null (e.g. draft invoice), prior entries are removed and nothing is posted. Both `postJournal` and `reverseAndRepost` run inside `db.transaction(...)` and pre-validate every account code + balance before touching the DB, so a bad source can never leave half-written entries behind.
+- GSTR-1 B2B vs B2C is split by presence of `client.gstNumber`. Same-state vs different-state still drives CGST+SGST vs IGST (set on the invoice at creation time).
+- ExcelJS xlsx export is server-side; browser downloads via authenticated fetch + blob URL.
+- Payslip PDFs are generated on demand (not stored). Re-generated each request.
+
 ## User preferences
 
 - Currency: Indian Rupees (₹) with Indian comma system

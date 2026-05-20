@@ -26,3 +26,5 @@ export * from "./vendor_bills";
 export * from "./social";
 export * from "./marketing";
 export * from "./ai_insights";
+export * from "./employees";
+export * from "./accounting";

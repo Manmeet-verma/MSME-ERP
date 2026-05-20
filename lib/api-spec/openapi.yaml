@@ -38,6 +38,11 @@ tags:
   - name: GRN
   - name: VendorBills
   - name: Inventory
+  - name: Employees
+  - name: Attendance
+  - name: Payroll
+  - name: Expenses
+  - name: Accounting
 
 security:
   - bearerAuth: []
@@ -2465,6 +2470,485 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/EmailPerformanceRow" } }
+  /employees:
+    get:
+      tags: [Employees]
+      operationId: listEmployees
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Employee" } }
+    post:
+      tags: [Employees]
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+  /employees/{id}:
+    get:
+      tags: [Employees]
+      operationId: getEmployee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+    patch:
+      tags: [Employees]
+      operationId: updateEmployee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+    delete:
+      tags: [Employees]
+      operationId: deleteEmployee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /attendance:
+    get:
+      tags: [Attendance]
+      operationId: listAttendance
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: employeeId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Attendance" } }
+    post:
+      tags: [Attendance]
+      operationId: markAttendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AttendanceInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attendance" }
+  /attendance/bulk:
+    post:
+      tags: [Attendance]
+      operationId: bulkAttendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, entries]
+              properties:
+                date: { type: string }
+                entries:
+                  type: array
+                  items: { $ref: "#/components/schemas/AttendanceInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Attendance" } }
+  /leaves:
+    get:
+      tags: [Attendance]
+      operationId: listLeaves
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Attendance" } }
+  /leaves/balances:
+    get:
+      tags: [Attendance]
+      operationId: getLeaveBalances
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LeaveBalance" } }
+
+  /payroll-runs:
+    get:
+      tags: [Payroll]
+      operationId: listPayrollRuns
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PayrollRun" } }
+    post:
+      tags: [Payroll]
+      operationId: createPayrollRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodMonth, periodYear]
+              properties:
+                periodMonth: { type: integer }
+                periodYear: { type: integer }
+                notes: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PayrollRun" }
+  /payroll-runs/{id}:
+    get:
+      tags: [Payroll]
+      operationId: getPayrollRun
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PayrollRunDetail" }
+  /payroll-runs/{id}/mark-paid:
+    post:
+      tags: [Payroll]
+      operationId: markPayrollPaid
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /expense-categories:
+    get:
+      tags: [Expenses]
+      operationId: listExpenseCategories
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ExpenseCategory" } }
+    post:
+      tags: [Expenses]
+      operationId: createExpenseCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                accountCode: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseCategory" }
+  /expenses:
+    get:
+      tags: [Expenses]
+      operationId: listExpenses
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Expense" } }
+    post:
+      tags: [Expenses]
+      operationId: createExpense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpenseInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+  /expenses/{id}:
+    patch:
+      tags: [Expenses]
+      operationId: updateExpense
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpenseInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+    delete:
+      tags: [Expenses]
+      operationId: deleteExpense
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /accounts:
+    get:
+      tags: [Accounting]
+      operationId: listAccounts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Account" } }
+    post:
+      tags: [Accounting]
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, type]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                type: { type: string, enum: [asset, liability, equity, income, expense] }
+                subtype: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+  /journal-entries:
+    get:
+      tags: [Accounting]
+      operationId: listJournalEntries
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/JournalEntry" } }
+    post:
+      tags: [Accounting]
+      operationId: createJournalEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entryDate, lines]
+              properties:
+                entryDate: { type: string }
+                memo: { type: ["string", "null"] }
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [accountCode]
+                    properties:
+                      accountCode: { type: string }
+                      debit: { type: ["number", "null"] }
+                      credit: { type: ["number", "null"] }
+                      description: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: integer }
+  /accounting/ledger:
+    get:
+      tags: [Accounting]
+      operationId: getLedger
+      parameters:
+        - in: query
+          name: accountId
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ledger" }
+  /accounting/pnl:
+    get:
+      tags: [Accounting]
+      operationId: getPnl
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: compare
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PnlResponse" }
+  /accounting/gstr1:
+    get:
+      tags: [Accounting]
+      operationId: getGstr1
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Gstr1Response" }
+  /accounting/gstr3b:
+    get:
+      tags: [Accounting]
+      operationId: getGstr3b
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Gstr3bResponse" }
+  /accounting/vendor-ageing:
+    get:
+      tags: [Accounting]
+      operationId: getVendorAgeing
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/VendorAgeingRow" } }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -4111,3 +4595,352 @@ components:
         clicked: { type: integer }
         openRate: { type: integer }
         clickRate: { type: integer }
+    # ── R5 — HR, Payroll & Accounting ──
+    Employee:
+      type: object
+      required: [id, employeeCode, name, status, basic, hra, allowances, otherDeductions, pfEnabled, esiEnabled, leaveBalances, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        employeeCode: { type: string }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+        department: { type: ["string", "null"] }
+        dateOfJoining: { type: ["string", "null"] }
+        status: { type: string, enum: [active, inactive, terminated] }
+        basic: { type: number }
+        hra: { type: number }
+        allowances: { type: number }
+        otherDeductions: { type: number }
+        pfEnabled: { type: boolean }
+        esiEnabled: { type: boolean }
+        bankName: { type: ["string", "null"] }
+        bankAccount: { type: ["string", "null"] }
+        ifsc: { type: ["string", "null"] }
+        panNumber: { type: ["string", "null"] }
+        leaveBalances:
+          type: object
+          additionalProperties: { type: number }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    EmployeeInput:
+      type: object
+      properties:
+        employeeCode: { type: ["string", "null"] }
+        name: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+        department: { type: ["string", "null"] }
+        dateOfJoining: { type: ["string", "null"] }
+        status: { type: ["string", "null"], enum: [active, inactive, terminated, null] }
+        basic: { type: ["number", "null"] }
+        hra: { type: ["number", "null"] }
+        allowances: { type: ["number", "null"] }
+        otherDeductions: { type: ["number", "null"] }
+        pfEnabled: { type: ["boolean", "null"] }
+        esiEnabled: { type: ["boolean", "null"] }
+        bankName: { type: ["string", "null"] }
+        bankAccount: { type: ["string", "null"] }
+        ifsc: { type: ["string", "null"] }
+        panNumber: { type: ["string", "null"] }
+        leaveBalances:
+          type: ["object", "null"]
+          additionalProperties: { type: number }
+
+    Attendance:
+      type: object
+      required: [id, employeeId, date, status, createdAt]
+      properties:
+        id: { type: integer }
+        employeeId: { type: integer }
+        date: { type: string }
+        status: { type: string, enum: [present, absent, half, leave, holiday, weekoff] }
+        leaveType: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    AttendanceInput:
+      type: object
+      required: [employeeId, status]
+      properties:
+        employeeId: { type: integer }
+        date: { type: ["string", "null"] }
+        status: { type: string, enum: [present, absent, half, leave, holiday, weekoff] }
+        leaveType: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    LeaveBalance:
+      type: object
+      required: [employeeId, employeeName, balances, used]
+      properties:
+        employeeId: { type: integer }
+        employeeName: { type: string }
+        balances:
+          type: object
+          additionalProperties: { type: number }
+        used:
+          type: object
+          additionalProperties: { type: number }
+
+    PayrollRun:
+      type: object
+      required: [id, periodMonth, periodYear, status, totalGross, totalDeductions, totalNet, createdAt]
+      properties:
+        id: { type: integer }
+        periodMonth: { type: integer }
+        periodYear: { type: integer }
+        status: { type: string, enum: [draft, computed, paid] }
+        totalGross: { type: number }
+        totalDeductions: { type: number }
+        totalNet: { type: number }
+        notes: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+    Payslip:
+      type: object
+      required: [id, payrollRunId, employeeId, basic, hra, allowances, daysWorked, daysInMonth, lopAmount, pfAmount, esiAmount, otherDeductions, gross, deductions, net, status]
+      properties:
+        id: { type: integer }
+        payrollRunId: { type: integer }
+        employeeId: { type: integer }
+        employeeName: { type: ["string", "null"] }
+        employeeCode: { type: ["string", "null"] }
+        basic: { type: number }
+        hra: { type: number }
+        allowances: { type: number }
+        daysWorked: { type: number }
+        daysInMonth: { type: integer }
+        lopAmount: { type: number }
+        pfAmount: { type: number }
+        esiAmount: { type: number }
+        otherDeductions: { type: number }
+        gross: { type: number }
+        deductions: { type: number }
+        net: { type: number }
+        status: { type: string, enum: [pending, paid] }
+        paidAt: { type: ["string", "null"] }
+    PayrollRunDetail:
+      allOf:
+        - $ref: "#/components/schemas/PayrollRun"
+        - type: object
+          properties:
+            payslips:
+              type: array
+              items: { $ref: "#/components/schemas/Payslip" }
+
+    ExpenseCategory:
+      type: object
+      required: [id, name, isSystem, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        accountCode: { type: ["string", "null"] }
+        isSystem: { type: boolean }
+        createdAt: { type: string }
+    Expense:
+      type: object
+      required: [id, expenseDate, amount, gstRate, gstAmount, total, paymentMethod, createdAt]
+      properties:
+        id: { type: integer }
+        expenseDate: { type: string }
+        categoryId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        amount: { type: number }
+        gstRate: { type: number }
+        gstAmount: { type: number }
+        total: { type: number }
+        paymentMethod: { type: string, enum: [cash, bank, upi, card, cheque, other] }
+        receiptUrl: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    ExpenseInput:
+      type: object
+      required: [expenseDate, amount]
+      properties:
+        expenseDate: { type: string }
+        categoryId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        amount: { type: number }
+        gstRate: { type: ["number", "null"] }
+        paymentMethod: { type: ["string", "null"], enum: [cash, bank, upi, card, cheque, other, null] }
+        receiptUrl: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    Account:
+      type: object
+      required: [id, code, name, type, isSystem, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [asset, liability, equity, income, expense] }
+        subtype: { type: ["string", "null"] }
+        isSystem: { type: boolean }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+    JournalLine:
+      type: object
+      required: [id, accountId, accountCode, accountName, debit, credit]
+      properties:
+        id: { type: integer }
+        accountId: { type: integer }
+        accountCode: { type: string }
+        accountName: { type: string }
+        debit: { type: number }
+        credit: { type: number }
+        description: { type: ["string", "null"] }
+    JournalEntry:
+      type: object
+      required: [id, entryDate, lines, createdAt]
+      properties:
+        id: { type: integer }
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        sourceType: { type: ["string", "null"] }
+        sourceId: { type: ["integer", "null"] }
+        createdAt: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/JournalLine" }
+
+    LedgerLine:
+      type: object
+      required: [lineId, entryId, entryDate, debit, credit, balance]
+      properties:
+        lineId: { type: integer }
+        entryId: { type: integer }
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        sourceType: { type: ["string", "null"] }
+        sourceId: { type: ["integer", "null"] }
+        description: { type: ["string", "null"] }
+        debit: { type: number }
+        credit: { type: number }
+        balance: { type: number }
+    Ledger:
+      type: object
+      required: [account, lines, closingBalance]
+      properties:
+        account:
+          type: object
+          required: [id, code, name, type]
+          properties:
+            id: { type: integer }
+            code: { type: string }
+            name: { type: string }
+            type: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/LedgerLine" }
+        closingBalance: { type: number }
+
+    PnlSection:
+      type: object
+      required: [from, to, income, expense, totalIncome, totalExpense, netProfit]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        income:
+          type: array
+          items:
+            type: object
+            required: [code, name, amount]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              amount: { type: number }
+        expense:
+          type: array
+          items:
+            type: object
+            required: [code, name, amount]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              amount: { type: number }
+        totalIncome: { type: number }
+        totalExpense: { type: number }
+        netProfit: { type: number }
+    PnlResponse:
+      type: object
+      required: [current]
+      properties:
+        current: { $ref: "#/components/schemas/PnlSection" }
+        previous:
+          oneOf:
+            - $ref: "#/components/schemas/PnlSection"
+            - type: "null"
+
+    Gstr1Row:
+      type: object
+      required: [invoiceNumber, invoiceDate, clientName, taxableValue, rate, cgst, sgst, igst, invoiceTotal]
+      properties:
+        invoiceNumber: { type: string }
+        invoiceDate: { type: string }
+        clientName: { type: string }
+        gstin: { type: string }
+        placeOfSupply: { type: string }
+        taxableValue: { type: number }
+        rate: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
+        invoiceTotal: { type: number }
+    Gstr1Response:
+      type: object
+      required: [from, to, b2b, b2c, summary]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        b2b:
+          type: array
+          items: { $ref: "#/components/schemas/Gstr1Row" }
+        b2c:
+          type: array
+          items: { $ref: "#/components/schemas/Gstr1Row" }
+        summary:
+          type: object
+          required: [invoices, taxableValue, cgst, sgst, igst, totalTax]
+          properties:
+            invoices: { type: integer }
+            taxableValue: { type: number }
+            cgst: { type: number }
+            sgst: { type: number }
+            igst: { type: number }
+            totalTax: { type: number }
+    Gstr3bResponse:
+      type: object
+      required: [from, to, outwardSupplies, itc, netTaxPayable]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        outwardSupplies:
+          type: object
+          required: [taxable, cgst, sgst, igst]
+          properties:
+            taxable: { type: number }
+            cgst: { type: number }
+            sgst: { type: number }
+            igst: { type: number }
+        itc:
+          type: object
+          required: [cgstSgstInputs, igstInputs, total]
+          properties:
+            cgstSgstInputs: { type: number }
+            igstInputs: { type: number }
+            total: { type: number }
+        netTaxPayable: { type: number }
+    VendorAgeingRow:
+      type: object
+      required: [vendorId, vendorName, current, days30, days60, days90, daysOver90, total]
+      properties:
+        vendorId: { type: integer }
+        vendorName: { type: string }
+        current: { type: number }
+        days30: { type: number }
+        days60: { type: number }
+        days90: { type: number }
+        daysOver90: { type: number }
+        total: { type: number }

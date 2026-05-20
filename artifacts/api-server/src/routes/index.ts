@@ -30,6 +30,12 @@ import marketingRouter from "./marketing";
 import aiRouter from "./ai";
 import reportsR4Router from "./reports-r4";
 import uploadsRouter from "./uploads";
+import employeesRouter from "./employees";
+import attendanceRouter from "./attendance";
+import payrollRouter from "./payroll";
+import leaveRequestsRouter from "./leave-requests";
+import expensesRouter from "./expenses";
+import accountingRouter from "./accounting";
 
 const router: IRouter = Router();
 
@@ -64,5 +70,11 @@ router.use(marketingRouter);
 router.use(aiRouter);
 router.use(reportsR4Router);
 router.use(uploadsRouter);
+router.use(employeesRouter);
+router.use(attendanceRouter);
+router.use(payrollRouter);
+router.use(leaveRequestsRouter);
+router.use(expensesRouter);
+router.use(accountingRouter);
 
 export default router;

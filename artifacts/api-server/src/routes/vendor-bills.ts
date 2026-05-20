@@ -10,6 +10,7 @@ import {
 import { and, eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
+import { reverseAndRepost } from "../lib/accounting";
 
 const vendorBillsRouter = Router();
 
@@ -71,6 +72,44 @@ async function recalc(billId: number, taxRate = 18) {
       updatedAt: new Date(),
     })
     .where(eq(vendorBillsTable.id, billId));
+  // Auto-post: Dr Inventory/Expense + GST input, Cr AP. We treat all bill lines
+  // as inventory purchases (Round 3 hooks GRN into stock so use 1200).
+  const [u] = await db.select().from(vendorBillsTable).where(eq(vendorBillsTable.id, billId));
+  const postable = u && u.status !== "draft" && u.status !== "cancelled" && Number(u.total) > 0;
+  await reverseAndRepost(
+    u.organizationId,
+    "vendor_bill",
+    billId,
+    async () => {
+      if (!postable) return null;
+      const sub = Number(u.subtotal);
+      const tax = Number(u.taxAmount);
+      const tot = Number(u.total);
+      const lines: Array<{ accountCode: string; debit?: number; credit?: number; description: string }> = [
+        { accountCode: "1200", debit: sub, description: `Vendor bill ${u.billNumber}` },
+      ];
+      if (tax > 0) lines.push({ accountCode: "1300", debit: tax, description: "GST input on bill" });
+      lines.push({ accountCode: "2000", credit: tot, description: "Accounts payable" });
+      return lines;
+    },
+    { entryDate: u.issueDate, memo: `Vendor bill ${u.billNumber}` },
+  );
+  // Auto-post AP settlement for any paid portion (Dr AP / Cr Bank).
+  // Uses a separate sourceType so it stays idempotent across repeated edits.
+  const paid = Number(u.amountPaid ?? 0);
+  await reverseAndRepost(
+    u.organizationId,
+    "vendor_bill_payment",
+    billId,
+    async () => {
+      if (!postable || paid <= 0) return null;
+      return [
+        { accountCode: "2000", debit: paid, description: `Payment for bill ${u.billNumber}` },
+        { accountCode: "1010", credit: paid, description: `Payment for bill ${u.billNumber}` },
+      ];
+    },
+    { entryDate: new Date(), memo: `Payment of vendor bill ${u.billNumber}` },
+  );
 }
 
 vendorBillsRouter.get("/vendor-bills", requireAuth, async (req, res) => {

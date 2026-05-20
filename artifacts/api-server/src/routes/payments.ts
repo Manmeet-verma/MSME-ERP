@@ -4,6 +4,20 @@ import { and, eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { recalcInvoice } from "./invoices";
+import { reverseAndRepost } from "../lib/accounting";
+
+async function repostPayment(p: typeof paymentsTable.$inferSelect) {
+  await reverseAndRepost(
+    p.organizationId,
+    "payment",
+    p.id,
+    async () => [
+      { accountCode: p.method === "cash" ? "1000" : "1010", debit: Number(p.amount), description: `Payment ${p.reference ?? ""}`.trim() },
+      { accountCode: "1100", credit: Number(p.amount), description: "AR reduction" },
+    ],
+    { entryDate: p.paidAt, memo: `Payment for invoice` },
+  );
+}
 
 const paymentsRouter = Router();
 
@@ -62,6 +76,7 @@ paymentsRouter.post("/payments", requireAuth, async (req, res) => {
     })
     .returning();
   await recalcInvoice(Number(invoiceId));
+  await repostPayment(p);
   await logAction(req, "RECORD_PAYMENT", "payment", p.id, `₹${amount} for invoice ${inv.invoiceNumber}`);
   res.status(201).json(fmt(p));
 });
@@ -79,6 +94,7 @@ paymentsRouter.delete("/payments/:id", requireAuth, async (req, res) => {
   }
   await db.delete(paymentsTable).where(eq(paymentsTable.id, id));
   await recalcInvoice(p.invoiceId);
+  await reverseAndRepost(p.organizationId, "payment", id, async () => null, { entryDate: new Date() });
   res.json({ message: "Payment deleted" });
 });
 

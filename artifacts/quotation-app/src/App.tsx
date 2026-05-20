@@ -40,6 +40,15 @@ import SocialPage from "@/pages/social";
 import DripsPage from "@/pages/marketing/drips";
 import SuppressionsPage from "@/pages/marketing/suppressions";
 import UnsubscribePage from "@/pages/unsubscribe";
+import EmployeesPage from "@/pages/employees";
+import AttendancePage from "@/pages/attendance";
+import PayrollPage from "@/pages/payroll";
+import PayrollDetailPage from "@/pages/payroll/detail";
+import ExpensesPage from "@/pages/expenses";
+import LedgerPage from "@/pages/accounting/ledger";
+import PnlPage from "@/pages/accounting/pnl";
+import GstPage from "@/pages/accounting/gst";
+import VendorAgeingPage from "@/pages/accounting/vendor-ageing";
 import { Layout } from "@/components/layout";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
 import "@/lib/auth";
@@ -100,6 +109,15 @@ function Router() {
       <Route path="/social" component={() => <Guard component={SocialPage} />} />
       <Route path="/marketing/drips" component={() => <Guard component={DripsPage} />} />
       <Route path="/marketing/suppressions" component={() => <Guard component={SuppressionsPage} />} />
+      <Route path="/employees" component={() => <Guard component={EmployeesPage} />} />
+      <Route path="/attendance" component={() => <Guard component={AttendancePage} />} />
+      <Route path="/payroll" component={() => <Guard component={PayrollPage} />} />
+      <Route path="/payroll/:id" component={() => <Guard component={PayrollDetailPage} />} />
+      <Route path="/expenses" component={() => <Guard component={ExpensesPage} />} />
+      <Route path="/accounting/ledger" component={() => <Guard component={LedgerPage} />} />
+      <Route path="/accounting/pnl" component={() => <Guard component={PnlPage} />} />
+      <Route path="/accounting/gst" component={() => <Guard component={GstPage} />} />
+      <Route path="/accounting/vendor-ageing" component={() => <Guard component={VendorAgeingPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

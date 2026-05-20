@@ -9,6 +9,7 @@ import {
   TrendingUp, CheckSquare, ShoppingCart, Receipt, Megaphone,
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
   Share2, Mail, Ban,
+  UserCircle2, CalendarCheck, Wallet, BookOpen,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -46,6 +47,14 @@ const navItems: NavItem[] = [
   { href: "/vendors", label: "Vendors", icon: Truck, module: "purchase" },
   { href: "/purchase-orders", label: "Purchase Orders", icon: FileBox, module: "purchase" },
   { href: "/vendor-bills", label: "Vendor Bills", icon: Receipt, module: "purchase" },
+  { href: "/employees", label: "Employees", icon: UserCircle2, module: "hr" },
+  { href: "/attendance", label: "Attendance", icon: CalendarCheck, module: "hr" },
+  { href: "/payroll", label: "Payroll", icon: Wallet, module: "hr" },
+  { href: "/expenses", label: "Expenses", icon: Receipt, module: "accounting" },
+  { href: "/accounting/ledger", label: "Ledger", icon: BookOpen, module: "accounting" },
+  { href: "/accounting/pnl", label: "P&L", icon: TrendingUp, module: "accounting" },
+  { href: "/accounting/gst", label: "GST reports", icon: FileText, module: "accounting" },
+  { href: "/accounting/vendor-ageing", label: "Vendor ageing", icon: Truck, module: "accounting" },
   { href: "/reports", label: "Reports", icon: BarChart3, module: "sales" },
   { href: "/audit-logs", label: "Audit Logs", icon: ShieldCheck },
 ];

@@ -3096,3 +3096,583 @@ export const GetEmailPerformanceReportResponseItem = zod.object({
 export const GetEmailPerformanceReportResponse = zod.array(GetEmailPerformanceReportResponseItem)
 
 
+export const ListEmployeesResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeCode": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "department": zod.string().nullish(),
+  "dateOfJoining": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive', 'terminated']),
+  "basic": zod.number(),
+  "hra": zod.number(),
+  "allowances": zod.number(),
+  "otherDeductions": zod.number(),
+  "pfEnabled": zod.boolean(),
+  "esiEnabled": zod.boolean(),
+  "bankName": zod.string().nullish(),
+  "bankAccount": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "panNumber": zod.string().nullish(),
+  "leaveBalances": zod.record(zod.string(), zod.number()),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListEmployeesResponse = zod.array(ListEmployeesResponseItem)
+
+
+export const CreateEmployeeBody = zod.object({
+  "employeeCode": zod.string().nullish(),
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "department": zod.string().nullish(),
+  "dateOfJoining": zod.string().nullish(),
+  "status": zod.union([zod.literal('active'),zod.literal('inactive'),zod.literal('terminated'),zod.literal(null)]).nullish(),
+  "basic": zod.number().nullish(),
+  "hra": zod.number().nullish(),
+  "allowances": zod.number().nullish(),
+  "otherDeductions": zod.number().nullish(),
+  "pfEnabled": zod.boolean().nullish(),
+  "esiEnabled": zod.boolean().nullish(),
+  "bankName": zod.string().nullish(),
+  "bankAccount": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "panNumber": zod.string().nullish(),
+  "leaveBalances": zod.record(zod.string(), zod.number()).nullish()
+})
+
+
+export const GetEmployeeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetEmployeeResponse = zod.object({
+  "id": zod.number(),
+  "employeeCode": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "department": zod.string().nullish(),
+  "dateOfJoining": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive', 'terminated']),
+  "basic": zod.number(),
+  "hra": zod.number(),
+  "allowances": zod.number(),
+  "otherDeductions": zod.number(),
+  "pfEnabled": zod.boolean(),
+  "esiEnabled": zod.boolean(),
+  "bankName": zod.string().nullish(),
+  "bankAccount": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "panNumber": zod.string().nullish(),
+  "leaveBalances": zod.record(zod.string(), zod.number()),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+export const UpdateEmployeeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateEmployeeBody = zod.object({
+  "employeeCode": zod.string().nullish(),
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "department": zod.string().nullish(),
+  "dateOfJoining": zod.string().nullish(),
+  "status": zod.union([zod.literal('active'),zod.literal('inactive'),zod.literal('terminated'),zod.literal(null)]).nullish(),
+  "basic": zod.number().nullish(),
+  "hra": zod.number().nullish(),
+  "allowances": zod.number().nullish(),
+  "otherDeductions": zod.number().nullish(),
+  "pfEnabled": zod.boolean().nullish(),
+  "esiEnabled": zod.boolean().nullish(),
+  "bankName": zod.string().nullish(),
+  "bankAccount": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "panNumber": zod.string().nullish(),
+  "leaveBalances": zod.record(zod.string(), zod.number()).nullish()
+})
+
+export const UpdateEmployeeResponse = zod.object({
+  "id": zod.number(),
+  "employeeCode": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.string().nullish(),
+  "department": zod.string().nullish(),
+  "dateOfJoining": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive', 'terminated']),
+  "basic": zod.number(),
+  "hra": zod.number(),
+  "allowances": zod.number(),
+  "otherDeductions": zod.number(),
+  "pfEnabled": zod.boolean(),
+  "esiEnabled": zod.boolean(),
+  "bankName": zod.string().nullish(),
+  "bankAccount": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "panNumber": zod.string().nullish(),
+  "leaveBalances": zod.record(zod.string(), zod.number()),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+export const DeleteEmployeeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteEmployeeResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const ListAttendanceQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "employeeId": zod.coerce.number().optional()
+})
+
+export const ListAttendanceResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "date": zod.string(),
+  "status": zod.enum(['present', 'absent', 'half', 'leave', 'holiday', 'weekoff']),
+  "leaveType": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListAttendanceResponse = zod.array(ListAttendanceResponseItem)
+
+
+export const MarkAttendanceBody = zod.object({
+  "employeeId": zod.number(),
+  "date": zod.string().nullish(),
+  "status": zod.enum(['present', 'absent', 'half', 'leave', 'holiday', 'weekoff']),
+  "leaveType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+
+export const BulkAttendanceBody = zod.object({
+  "date": zod.string(),
+  "entries": zod.array(zod.object({
+  "employeeId": zod.number(),
+  "date": zod.string().nullish(),
+  "status": zod.enum(['present', 'absent', 'half', 'leave', 'holiday', 'weekoff']),
+  "leaveType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+}))
+})
+
+
+export const ListLeavesResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "date": zod.string(),
+  "status": zod.enum(['present', 'absent', 'half', 'leave', 'holiday', 'weekoff']),
+  "leaveType": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListLeavesResponse = zod.array(ListLeavesResponseItem)
+
+
+export const GetLeaveBalancesResponseItem = zod.object({
+  "employeeId": zod.number(),
+  "employeeName": zod.string(),
+  "balances": zod.record(zod.string(), zod.number()),
+  "used": zod.record(zod.string(), zod.number())
+})
+export const GetLeaveBalancesResponse = zod.array(GetLeaveBalancesResponseItem)
+
+
+export const ListPayrollRunsResponseItem = zod.object({
+  "id": zod.number(),
+  "periodMonth": zod.number(),
+  "periodYear": zod.number(),
+  "status": zod.enum(['draft', 'computed', 'paid']),
+  "totalGross": zod.number(),
+  "totalDeductions": zod.number(),
+  "totalNet": zod.number(),
+  "notes": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListPayrollRunsResponse = zod.array(ListPayrollRunsResponseItem)
+
+
+export const CreatePayrollRunBody = zod.object({
+  "periodMonth": zod.number(),
+  "periodYear": zod.number(),
+  "notes": zod.string().nullish()
+})
+
+
+export const GetPayrollRunParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPayrollRunResponse = zod.object({
+  "id": zod.number(),
+  "periodMonth": zod.number(),
+  "periodYear": zod.number(),
+  "status": zod.enum(['draft', 'computed', 'paid']),
+  "totalGross": zod.number(),
+  "totalDeductions": zod.number(),
+  "totalNet": zod.number(),
+  "notes": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "payslips": zod.array(zod.object({
+  "id": zod.number(),
+  "payrollRunId": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().nullish(),
+  "employeeCode": zod.string().nullish(),
+  "basic": zod.number(),
+  "hra": zod.number(),
+  "allowances": zod.number(),
+  "daysWorked": zod.number(),
+  "daysInMonth": zod.number(),
+  "lopAmount": zod.number(),
+  "pfAmount": zod.number(),
+  "esiAmount": zod.number(),
+  "otherDeductions": zod.number(),
+  "gross": zod.number(),
+  "deductions": zod.number(),
+  "net": zod.number(),
+  "status": zod.enum(['pending', 'paid']),
+  "paidAt": zod.string().nullish()
+})).optional()
+}))
+
+
+export const MarkPayrollPaidParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkPayrollPaidResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const ListExpenseCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "accountCode": zod.string().nullish(),
+  "isSystem": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListExpenseCategoriesResponse = zod.array(ListExpenseCategoriesResponseItem)
+
+
+export const CreateExpenseCategoryBody = zod.object({
+  "name": zod.string(),
+  "accountCode": zod.string().nullish()
+})
+
+
+export const ListExpensesQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ListExpensesResponseItem = zod.object({
+  "id": zod.number(),
+  "expenseDate": zod.string(),
+  "categoryId": zod.number().nullish(),
+  "vendorName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "amount": zod.number(),
+  "gstRate": zod.number(),
+  "gstAmount": zod.number(),
+  "total": zod.number(),
+  "paymentMethod": zod.enum(['cash', 'bank', 'upi', 'card', 'cheque', 'other']),
+  "receiptUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListExpensesResponse = zod.array(ListExpensesResponseItem)
+
+
+export const CreateExpenseBody = zod.object({
+  "expenseDate": zod.string(),
+  "categoryId": zod.number().nullish(),
+  "vendorName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "amount": zod.number(),
+  "gstRate": zod.number().nullish(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('bank'),zod.literal('upi'),zod.literal('card'),zod.literal('cheque'),zod.literal('other'),zod.literal(null)]).nullish(),
+  "receiptUrl": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+
+export const UpdateExpenseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateExpenseBody = zod.object({
+  "expenseDate": zod.string(),
+  "categoryId": zod.number().nullish(),
+  "vendorName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "amount": zod.number(),
+  "gstRate": zod.number().nullish(),
+  "paymentMethod": zod.union([zod.literal('cash'),zod.literal('bank'),zod.literal('upi'),zod.literal('card'),zod.literal('cheque'),zod.literal('other'),zod.literal(null)]).nullish(),
+  "receiptUrl": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+export const UpdateExpenseResponse = zod.object({
+  "id": zod.number(),
+  "expenseDate": zod.string(),
+  "categoryId": zod.number().nullish(),
+  "vendorName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "amount": zod.number(),
+  "gstRate": zod.number(),
+  "gstAmount": zod.number(),
+  "total": zod.number(),
+  "paymentMethod": zod.enum(['cash', 'bank', 'upi', 'card', 'cheque', 'other']),
+  "receiptUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+export const DeleteExpenseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteExpenseResponse = zod.object({
+  "message": zod.string()
+})
+
+
+export const ListAccountsResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['asset', 'liability', 'equity', 'income', 'expense']),
+  "subtype": zod.string().nullish(),
+  "isSystem": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListAccountsResponse = zod.array(ListAccountsResponseItem)
+
+
+export const CreateAccountBody = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['asset', 'liability', 'equity', 'income', 'expense']),
+  "subtype": zod.string().nullish()
+})
+
+
+export const ListJournalEntriesQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ListJournalEntriesResponseItem = zod.object({
+  "id": zod.number(),
+  "entryDate": zod.string(),
+  "memo": zod.string().nullish(),
+  "sourceType": zod.string().nullish(),
+  "sourceId": zod.number().nullish(),
+  "createdAt": zod.string(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "accountId": zod.number(),
+  "accountCode": zod.string(),
+  "accountName": zod.string(),
+  "debit": zod.number(),
+  "credit": zod.number(),
+  "description": zod.string().nullish()
+}))
+})
+export const ListJournalEntriesResponse = zod.array(ListJournalEntriesResponseItem)
+
+
+export const CreateJournalEntryBody = zod.object({
+  "entryDate": zod.string(),
+  "memo": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "accountCode": zod.string(),
+  "debit": zod.number().nullish(),
+  "credit": zod.number().nullish(),
+  "description": zod.string().nullish()
+}))
+})
+
+
+export const GetLedgerQueryParams = zod.object({
+  "accountId": zod.coerce.number(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetLedgerResponse = zod.object({
+  "account": zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "type": zod.string()
+}),
+  "lines": zod.array(zod.object({
+  "lineId": zod.number(),
+  "entryId": zod.number(),
+  "entryDate": zod.string(),
+  "memo": zod.string().nullish(),
+  "sourceType": zod.string().nullish(),
+  "sourceId": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "debit": zod.number(),
+  "credit": zod.number(),
+  "balance": zod.number()
+})),
+  "closingBalance": zod.number()
+})
+
+
+export const GetPnlQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "compare": zod.coerce.string().optional()
+})
+
+export const GetPnlResponse = zod.object({
+  "current": zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "income": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "expense": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "totalIncome": zod.number(),
+  "totalExpense": zod.number(),
+  "netProfit": zod.number()
+}),
+  "previous": zod.union([zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "income": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "expense": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "totalIncome": zod.number(),
+  "totalExpense": zod.number(),
+  "netProfit": zod.number()
+}),zod.null()]).optional()
+})
+
+
+export const GetGstr1QueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "format": zod.coerce.string().optional()
+})
+
+export const GetGstr1Response = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "b2b": zod.array(zod.object({
+  "invoiceNumber": zod.string(),
+  "invoiceDate": zod.string(),
+  "clientName": zod.string(),
+  "gstin": zod.string().optional(),
+  "placeOfSupply": zod.string().optional(),
+  "taxableValue": zod.number(),
+  "rate": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "invoiceTotal": zod.number()
+})),
+  "b2c": zod.array(zod.object({
+  "invoiceNumber": zod.string(),
+  "invoiceDate": zod.string(),
+  "clientName": zod.string(),
+  "gstin": zod.string().optional(),
+  "placeOfSupply": zod.string().optional(),
+  "taxableValue": zod.number(),
+  "rate": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "invoiceTotal": zod.number()
+})),
+  "summary": zod.object({
+  "invoices": zod.number(),
+  "taxableValue": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "totalTax": zod.number()
+})
+})
+
+
+export const GetGstr3bQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "format": zod.coerce.string().optional()
+})
+
+export const GetGstr3bResponse = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "outwardSupplies": zod.object({
+  "taxable": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number()
+}),
+  "itc": zod.object({
+  "cgstSgstInputs": zod.number(),
+  "igstInputs": zod.number(),
+  "total": zod.number()
+}),
+  "netTaxPayable": zod.number()
+})
+
+
+export const GetVendorAgeingResponseItem = zod.object({
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "current": zod.number(),
+  "days30": zod.number(),
+  "days60": zod.number(),
+  "days90": zod.number(),
+  "daysOver90": zod.number(),
+  "total": zod.number()
+})
+export const GetVendorAgeingResponse = zod.array(GetVendorAgeingResponseItem)
+
+
