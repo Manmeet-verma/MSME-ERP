@@ -329,12 +329,21 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
       }
       if (becomingActive) {
         // Forward dispatch uses CURRENT lines + (possibly new) warehouse
-        const currentLines = (
-          await tx
-            .select()
-            .from(salesOrderItemsTable)
-            .where(eq(salesOrderItemsTable.salesOrderId, id))
-        ).map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
+        const currentRows = await tx
+          .select()
+          .from(salesOrderItemsTable)
+          .where(eq(salesOrderItemsTable.salesOrderId, id));
+        // Linkage invariant: every SO line must point at an inventory item
+        // before confirmation. Otherwise stock control is silently bypassed.
+        const unlinked = currentRows
+          .filter((l) => l.itemId == null)
+          .map((l) => ({ id: l.id, description: l.description, quantity: l.quantity }));
+        if (unlinked.length > 0) {
+          const err = new Error("UNLINKED_LINES");
+          (err as unknown as { unlinkedLines: typeof unlinked }).unlinkedLines = unlinked;
+          throw err;
+        }
+        const currentLines = currentRows.map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
         const [refreshed] = await tx
           .select()
           .from(salesOrdersTable)
@@ -373,10 +382,20 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
       }
     });
   } catch (e) {
-    const shortages = (e as { message?: string; shortages?: unknown }).shortages;
-    if ((e as Error).message === "INSUFFICIENT_STOCK" && Array.isArray(shortages)) {
+    const msg = (e as Error).message;
+    const shortages = (e as { shortages?: unknown }).shortages;
+    const unlinkedLines = (e as { unlinkedLines?: unknown }).unlinkedLines;
+    if (msg === "INSUFFICIENT_STOCK" && Array.isArray(shortages)) {
       req.log.warn({ shortages }, "SO confirmation blocked by insufficient stock");
       res.status(409).json({ error: "Insufficient stock to confirm sales order", shortages });
+      return;
+    }
+    if (msg === "UNLINKED_LINES" && Array.isArray(unlinkedLines)) {
+      req.log.warn({ unlinkedLines }, "SO confirmation blocked by unlinked lines");
+      res.status(409).json({
+        error: "Link every line to an inventory item before confirming",
+        unlinkedLines,
+      });
       return;
     }
     req.log.error({ err: e }, "SO patch transaction failed; nothing committed");

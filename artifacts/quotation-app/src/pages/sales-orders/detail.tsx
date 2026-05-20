@@ -29,7 +29,7 @@ export default function SalesOrderDetailPage() {
         qc.invalidateQueries({ queryKey: getGetSalesOrderQueryKey(id) });
       },
       onError(err: unknown) {
-        const e = err as { response?: { data?: { error?: string; shortages?: Array<{ itemId: number; needed: number; available: number }> } } };
+        const e = err as { response?: { data?: { error?: string; shortages?: Array<{ itemId: number; needed: number; available: number }>; unlinkedLines?: Array<{ description: string }> } } };
         const data = e?.response?.data;
         if (data?.shortages?.length) {
           const lines = data.shortages
@@ -39,6 +39,12 @@ export default function SalesOrderDetailPage() {
             })
             .join("; ");
           toast({ title: "Insufficient stock", description: lines, variant: "destructive" });
+        } else if (data?.unlinkedLines?.length) {
+          toast({
+            title: "Link inventory items first",
+            description: data.unlinkedLines.map((u) => u.description).join(", "),
+            variant: "destructive",
+          });
         } else {
           toast({ title: "Update failed", description: data?.error ?? "Unknown error", variant: "destructive" });
         }
@@ -49,6 +55,20 @@ export default function SalesOrderDetailPage() {
     const body: { status: typeof status; warehouseId?: number | null } = { status };
     if (warehouseId !== undefined) body.warehouseId = warehouseId;
     updateMut.mutate({ id, data: body });
+  }
+  function linkLineItem(lineId: number, itemId: number | null) {
+    if (!order?.items) return;
+    updateMut.mutate({
+      id,
+      data: {
+        items: order.items.map((it) => ({
+          itemId: it.id === lineId ? itemId : (it.itemId ?? null),
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: Number(it.unitPrice),
+        })),
+      },
+    });
   }
   if (!order) return <div className="p-6">Loading...</div>;
   const itemMap = new Map(items.map((i) => [i.id, i]));
@@ -122,13 +142,31 @@ export default function SalesOrderDetailPage() {
               const linked = it.itemId ? itemMap.get(it.itemId) : null;
               const stock = linked?.currentStock ?? null;
               const enough = stock !== null && stock >= it.quantity;
+              const editable = order.status === "draft";
               return (
                 <tr key={it.id} className="border-t border-border">
-                  <td className="p-3">{it.description}</td>
+                  <td className="p-3">
+                    <div>{it.description}</div>
+                    {editable && (
+                      <select
+                        aria-label={`Link inventory item for ${it.description}`}
+                        className="mt-1 h-7 rounded-md border border-input bg-background px-1 text-xs"
+                        value={it.itemId ?? ""}
+                        onChange={(e) => linkLineItem(it.id, e.target.value ? Number(e.target.value) : null)}
+                      >
+                        <option value="">— Unlinked —</option>
+                        {items.map((opt) => (
+                          <option key={opt.id} value={opt.id}>{opt.name} ({opt.sku})</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
                   <td className="p-3 text-right">{it.quantity}</td>
                   <td className="p-3 text-right">
                     {linked == null ? (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-amber-500 inline-flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Unlinked
+                      </span>
                     ) : (
                       <span className={`inline-flex items-center gap-1 text-xs ${enough ? "text-emerald-500" : "text-amber-500"}`}>
                         {enough ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}

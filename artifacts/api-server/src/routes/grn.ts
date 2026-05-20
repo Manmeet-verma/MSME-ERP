@@ -136,8 +136,10 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
       return;
     }
   }
-  // Build pending-qty map per PO line so we can block over-receipt.
+  // Build pending-qty map + itemId map per PO line so we can block both
+  // over-receipt AND item mismatches between a GRN line and its PO line.
   const poLinePending = new Map<number, number>();
+  const poLineItem = new Map<number, number | null>();
   if (b.purchaseOrderId && poItemIds.length > 0) {
     const poLines = await db
       .select()
@@ -145,12 +147,25 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
       .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId));
     for (const p of poLines) {
       poLinePending.set(p.id, Number(p.quantity) - Number(p.receivedQuantity));
+      poLineItem.set(p.id, p.itemId ?? null);
     }
   }
   for (const it of incomingItems) {
     if (it.poItemId && !poItemIds.includes(it.poItemId)) {
       res.status(400).json({ error: "Invalid PO line reference" });
       return;
+    }
+    if (it.poItemId) {
+      const expected = poLineItem.get(it.poItemId);
+      if (expected != null && expected !== it.itemId) {
+        res.status(409).json({
+          error: "GRN line item does not match the referenced PO line item",
+          poItemId: it.poItemId,
+          expectedItemId: expected,
+          receivedItemId: it.itemId,
+        });
+        return;
+      }
     }
     if (!(it.quantity > 0)) {
       res.status(400).json({ error: "Quantity must be positive" });
