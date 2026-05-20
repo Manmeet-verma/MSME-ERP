@@ -1,0 +1,63 @@
+import { Router } from "express";
+import twilio from "twilio";
+import { db, quotationsTable, clientsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { requireAuth } from "../middlewares/auth";
+import { logAction } from "../lib/auditLog";
+
+const smsRouter = Router();
+
+function getTwilioClient() {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token) return null;
+  return twilio(sid, token);
+}
+
+smsRouter.post("/quotations/:id/send-sms", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { phone, message } = req.body;
+
+  if (!phone || !message) {
+    res.status(400).json({ error: "phone and message are required" });
+    return;
+  }
+
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+  const client = getTwilioClient();
+
+  if (!client || !fromNumber) {
+    res.status(503).json({ error: "SMS service not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER." });
+    return;
+  }
+
+  const [q] = await db.select().from(quotationsTable).where(eq(quotationsTable.id, id));
+  if (!q) {
+    res.status(404).json({ error: "Quotation not found" });
+    return;
+  }
+
+  let toNumber = phone.trim();
+  if (toNumber.startsWith("0")) {
+    toNumber = "+91" + toNumber.slice(1);
+  } else if (!toNumber.startsWith("+")) {
+    toNumber = "+91" + toNumber;
+  }
+
+  try {
+    await client.messages.create({
+      body: message,
+      from: fromNumber,
+      to: toNumber,
+    });
+
+    await logAction(req, "SEND_SMS", "quotation", id, `SMS sent to ${toNumber}`);
+    res.json({ message: "SMS sent successfully" });
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Failed to send SMS";
+    req.log.error({ err }, "Twilio SMS error");
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
+export default smsRouter;

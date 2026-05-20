@@ -729,6 +729,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /quotations/{id}/send-sms:
+    post:
+      operationId: sendQuotationSms
+      tags: [quotations]
+      summary: Send quotation summary via SMS
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendSmsInput"
+      responses:
+        "200":
+          description: SMS sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: SMS service not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Reports / Dashboard ────────────────────────────────────────────────────
   /reports/dashboard:
     get:
@@ -814,6 +851,17 @@ paths:
 
 components:
   schemas:
+    SendSmsInput:
+      type: object
+      required: [phone, message]
+      properties:
+        phone:
+          type: string
+          description: Recipient phone number (E.164 format preferred)
+        message:
+          type: string
+          description: SMS message body
+
     HealthStatus:
       type: object
       required: [status]

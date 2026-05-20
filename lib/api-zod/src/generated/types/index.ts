@@ -44,6 +44,7 @@ export * from './quotationStatus';
 export * from './quotationStatusUpdate';
 export * from './quotationStatusUpdateStatus';
 export * from './quotationUpdate';
+export * from './sendSmsInput';
 export * from './topProduct';
 export * from './user';
 export * from './userInput';

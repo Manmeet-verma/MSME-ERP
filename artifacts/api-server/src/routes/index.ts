@@ -7,6 +7,7 @@ import productsRouter from "./products";
 import addonsRouter from "./addons";
 import quotationsRouter from "./quotations";
 import reportsRouter from "./reports";
+import smsRouter from "./sms";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(productsRouter);
 router.use(addonsRouter);
 router.use(quotationsRouter);
 router.use(reportsRouter);
+router.use(smsRouter);
 
 export default router;

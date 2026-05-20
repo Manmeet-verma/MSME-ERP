@@ -719,6 +719,23 @@ export const DeleteQuotationAddonResponse = zod.object({
 
 
 /**
+ * @summary Send quotation summary via SMS
+ */
+export const SendQuotationSmsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SendQuotationSmsBody = zod.object({
+  "phone": zod.string().describe('Recipient phone number (E.164 format preferred)'),
+  "message": zod.string().describe('SMS message body')
+})
+
+export const SendQuotationSmsResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Dashboard summary — totals, pipeline, recent activity
  */
 export const GetDashboardSummaryResponse = zod.object({

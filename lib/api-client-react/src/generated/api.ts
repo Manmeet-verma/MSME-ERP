@@ -52,6 +52,7 @@ import type {
   QuotationItemUpdate,
   QuotationStatusUpdate,
   QuotationUpdate,
+  SendSmsInput,
   TopProduct,
   User,
   UserInput,
@@ -2646,6 +2647,78 @@ export const useDeleteQuotationAddon = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteQuotationAddonMutationOptions(options));
+    }
+
+export const getSendQuotationSmsUrl = (id: number,) => {
+
+
+
+
+  return `/api/quotations/${id}/send-sms`
+}
+
+/**
+ * @summary Send quotation summary via SMS
+ */
+export const sendQuotationSms = async (id: number,
+    sendSmsInput: SendSmsInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getSendQuotationSmsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sendSmsInput,)
+  }
+);}
+
+
+
+
+export const getSendQuotationSmsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendQuotationSms>>, TError,{id: number;data: BodyType<SendSmsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendQuotationSms>>, TError,{id: number;data: BodyType<SendSmsInput>}, TContext> => {
+
+const mutationKey = ['sendQuotationSms'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendQuotationSms>>, {id: number;data: BodyType<SendSmsInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendQuotationSms(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendQuotationSmsMutationResult = NonNullable<Awaited<ReturnType<typeof sendQuotationSms>>>
+    export type SendQuotationSmsMutationBody = BodyType<SendSmsInput>
+    export type SendQuotationSmsMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Send quotation summary via SMS
+ */
+export const useSendQuotationSms = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendQuotationSms>>, TError,{id: number;data: BodyType<SendSmsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendQuotationSms>>,
+        TError,
+        {id: number;data: BodyType<SendSmsInput>},
+        TContext
+      > => {
+      return useMutation(getSendQuotationSmsMutationOptions(options));
     }
 
 export const getGetDashboardSummaryUrl = () => {

@@ -5,6 +5,13 @@
  * LED Quotation Pro API
  * OpenAPI spec version: 0.1.0
  */
+export interface SendSmsInput {
+  /** Recipient phone number (E.164 format preferred) */
+  phone: string;
+  /** SMS message body */
+  message: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
