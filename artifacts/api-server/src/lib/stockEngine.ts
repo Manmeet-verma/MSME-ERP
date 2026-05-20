@@ -60,6 +60,11 @@ export async function getStockLevel(
 }
 
 export async function recordMovement(input: RecordMovementInput) {
+  // Ledger integrity: quantities are always strictly positive. The sign
+  // applied to stock math comes from `direction`, never from the magnitude.
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    throw new Error("Movement quantity must be a positive number");
+  }
   const exec = (input.executor ?? db) as typeof db;
   const [item] = await exec
     .select()

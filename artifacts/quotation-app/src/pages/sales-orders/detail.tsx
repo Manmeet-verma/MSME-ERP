@@ -1,8 +1,9 @@
 import { useParams, useLocation, Link } from "wouter";
-import { useGetSalesOrder, usePromoteSalesOrderToInvoice, useListItems } from "@workspace/api-client-react";
+import { useGetSalesOrder, usePromoteSalesOrderToInvoice, useUpdateSalesOrder, useListItems, useListWarehouses, getGetSalesOrderQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, CheckCircle2, CheckCircle, XCircle, Undo2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function SalesOrderDetailPage() {
@@ -10,8 +11,10 @@ export default function SalesOrderDetailPage() {
   const id = Number(params.id);
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const { data: order } = useGetSalesOrder(id);
   const { data: items = [] } = useListItems();
+  const { data: warehouses = [] } = useListWarehouses();
   const promoteMut = usePromoteSalesOrderToInvoice({
     mutation: {
       onSuccess(inv) {
@@ -20,6 +23,33 @@ export default function SalesOrderDetailPage() {
       },
     },
   });
+  const updateMut = useUpdateSalesOrder({
+    mutation: {
+      onSuccess() {
+        qc.invalidateQueries({ queryKey: getGetSalesOrderQueryKey(id) });
+      },
+      onError(err: unknown) {
+        const e = err as { response?: { data?: { error?: string; shortages?: Array<{ itemId: number; needed: number; available: number }> } } };
+        const data = e?.response?.data;
+        if (data?.shortages?.length) {
+          const lines = data.shortages
+            .map((s) => {
+              const it = items.find((i) => i.id === s.itemId);
+              return `${it?.name ?? `Item #${s.itemId}`}: need ${s.needed}, have ${s.available}`;
+            })
+            .join("; ");
+          toast({ title: "Insufficient stock", description: lines, variant: "destructive" });
+        } else {
+          toast({ title: "Update failed", description: data?.error ?? "Unknown error", variant: "destructive" });
+        }
+      },
+    },
+  });
+  function setStatus(status: "draft" | "confirmed" | "cancelled", warehouseId?: number | null) {
+    const body: { status: typeof status; warehouseId?: number | null } = { status };
+    if (warehouseId !== undefined) body.warehouseId = warehouseId;
+    updateMut.mutate({ id, data: body });
+  }
   if (!order) return <div className="p-6">Loading...</div>;
   const itemMap = new Map(items.map((i) => [i.id, i]));
   return (
@@ -36,9 +66,44 @@ export default function SalesOrderDetailPage() {
             <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
           </div>
         </div>
-        <Button size="sm" className="mt-4 gap-1" onClick={() => promoteMut.mutate({ salesOrderId: id })}>
-          <FileText className="h-4 w-4" />Generate Invoice
-        </Button>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {order.status === "draft" && (
+            <>
+              <select
+                aria-label="Warehouse"
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                value={order.warehouseId ?? ""}
+                onChange={(e) => setStatus("draft", e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Default warehouse</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+              <Button size="sm" className="gap-1" disabled={updateMut.isPending} onClick={() => setStatus("confirmed")}>
+                <CheckCircle className="h-4 w-4" />Confirm &amp; deduct stock
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1" disabled={updateMut.isPending} onClick={() => setStatus("cancelled")}>
+                <XCircle className="h-4 w-4" />Cancel
+              </Button>
+            </>
+          )}
+          {["confirmed", "in_production", "delivered"].includes(order.status) && (
+            <>
+              <Button size="sm" variant="outline" className="gap-1" disabled={updateMut.isPending} onClick={() => setStatus("draft")}>
+                <Undo2 className="h-4 w-4" />Revert to draft (restore stock)
+              </Button>
+              <Button size="sm" className="gap-1" onClick={() => promoteMut.mutate({ salesOrderId: id })}>
+                <FileText className="h-4 w-4" />Generate Invoice
+              </Button>
+            </>
+          )}
+          {order.status === "cancelled" && (
+            <Button size="sm" variant="outline" className="gap-1" disabled={updateMut.isPending} onClick={() => setStatus("draft")}>
+              <Undo2 className="h-4 w-4" />Reopen as draft
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-xl border border-border overflow-hidden">
