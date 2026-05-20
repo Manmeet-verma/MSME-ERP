@@ -115,33 +115,39 @@ inventoryRouter.post("/inventory/movements", requireAuth, async (req, res) => {
     return;
   }
   try {
-    const m = await recordMovement({
-      organizationId: orgId,
-      itemId: b.itemId,
-      warehouseId: b.warehouseId,
-      direction: b.direction,
-      quantity: Number(b.quantity),
-      unitCost: b.unitCost != null ? Number(b.unitCost) : undefined,
-      reason: b.reason,
-      referenceType: "manual",
-      notes: b.notes ?? null,
-      createdById: req.user!.userId,
-    });
-    // Optional transfer: also record IN on destination warehouse
-    if (b.reason === "transfer_out" && b.transferToWarehouseId) {
-      await recordMovement({
+    // Wrap transfer_out + paired transfer_in in a single tx so we never leave
+    // a one-sided transfer in the ledger.
+    const m = await db.transaction(async (tx) => {
+      const out = await recordMovement({
         organizationId: orgId,
         itemId: b.itemId,
-        warehouseId: b.transferToWarehouseId,
-        direction: "in",
+        warehouseId: b.warehouseId,
+        direction: b.direction,
         quantity: Number(b.quantity),
         unitCost: b.unitCost != null ? Number(b.unitCost) : undefined,
-        reason: "transfer_in",
-        referenceType: "transfer",
-        referenceId: m.id,
+        reason: b.reason,
+        referenceType: "manual",
+        notes: b.notes ?? null,
         createdById: req.user!.userId,
+        executor: tx,
       });
-    }
+      if (b.reason === "transfer_out" && b.transferToWarehouseId) {
+        await recordMovement({
+          organizationId: orgId,
+          itemId: b.itemId,
+          warehouseId: b.transferToWarehouseId,
+          direction: "in",
+          quantity: Number(b.quantity),
+          unitCost: b.unitCost != null ? Number(b.unitCost) : undefined,
+          reason: "transfer_in",
+          referenceType: "transfer",
+          referenceId: out.id,
+          createdById: req.user!.userId,
+          executor: tx,
+        });
+      }
+      return out;
+    });
     res.status(201).json({
       id: m.id,
       itemId: m.itemId,

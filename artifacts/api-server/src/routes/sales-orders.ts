@@ -380,7 +380,9 @@ salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth,
       orderNumber: genNumber(),
       clientId: q.clientId,
       quotationId: qid,
-      status: "confirmed",
+      // Created as draft; user must confirm via PATCH (which will deduct stock
+      // for any lines explicitly linked to inventory items).
+      status: "draft",
       subtotal: q.subtotal,
       discountAmount: q.discountAmount,
       taxAmount: q.taxAmount,
