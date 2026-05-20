@@ -1,18 +1,11 @@
 import { Router } from "express";
-import twilio from "twilio";
-import { db, quotationsTable, clientsTable } from "@workspace/db";
+import { db, quotationsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
+import { getTwilioClient } from "../lib/twilio";
 
 const smsRouter = Router();
-
-function getTwilioClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) return null;
-  return twilio(sid, token);
-}
 
 smsRouter.post("/quotations/:id/send-sms", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
@@ -23,11 +16,9 @@ smsRouter.post("/quotations/:id/send-sms", requireAuth, async (req, res) => {
     return;
   }
 
-  const fromNumber = process.env.TWILIO_FROM_NUMBER;
-  const client = getTwilioClient();
-
-  if (!client || !fromNumber) {
-    res.status(503).json({ error: "SMS service not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER." });
+  const twilio = await getTwilioClient();
+  if (!twilio || !twilio.fromNumber) {
+    res.status(503).json({ error: "SMS service not configured. Please connect Twilio in the integrations panel." });
     return;
   }
 
@@ -40,14 +31,16 @@ smsRouter.post("/quotations/:id/send-sms", requireAuth, async (req, res) => {
   let toNumber = phone.trim();
   if (toNumber.startsWith("0")) {
     toNumber = "+91" + toNumber.slice(1);
+  } else if (/^\d{10}$/.test(toNumber)) {
+    toNumber = "+91" + toNumber;
   } else if (!toNumber.startsWith("+")) {
     toNumber = "+91" + toNumber;
   }
 
   try {
-    await client.messages.create({
+    await twilio.client.messages.create({
       body: message,
-      from: fromNumber,
+      from: twilio.fromNumber,
       to: toNumber,
     });
 
