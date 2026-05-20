@@ -279,6 +279,7 @@ export default function QuotationDetailPage() {
     clientName?: string; clientCompany?: string; clientEmail?: string; clientPhone?: string; clientAddress?: string; clientGstNumber?: string;
     items?: Array<{ id: number; description: string; widthFt?: number; heightFt?: number; areaSqFt?: number; quantity: number; unitPrice: number; totalPrice: number; productName?: string }>;
     addons?: Array<{ id: number; description: string; quantity: number; price: number; totalPrice: number; addonName?: string }>;
+    quotationAddons?: Array<{ id: number; description: string; quantity: number; price: number; totalPrice: number; addonName?: string | null }>;
   };
 
   return (
@@ -413,7 +414,7 @@ export default function QuotationDetailPage() {
         </Card>
 
         {/* Add-ons */}
-        {(q.addons ?? []).length > 0 && (
+        {(q.quotationAddons ?? q.addons ?? []).length > 0 && (
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Services & Add-ons</CardTitle></CardHeader>
             <CardContent className="p-0">
@@ -427,7 +428,7 @@ export default function QuotationDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(q.addons ?? []).map((a) => (
+                  {(q.quotationAddons ?? q.addons ?? []).map((a) => (
                     <tr key={a.id} className="border-b border-border/50">
                       <td className="px-5 py-2.5 font-medium">{a.description}</td>
                       <td className="px-3 py-2.5 text-right">{a.quantity}</td>

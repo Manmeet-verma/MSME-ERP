@@ -1,13 +1,16 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { clearAuth, getCurrentOrg, getCurrentUser, getCurrentRole } from "@/lib/auth";
+import { clearAuth, getCurrentOrg, getCurrentUser, getCurrentRole, setAuthToken, setCurrentOrg, setCurrentRole } from "@/lib/auth";
 import { getModules, type ModuleKey } from "@/lib/modules";
 import {
   LayoutDashboard, FileText, Users, Package, Puzzle,
   BarChart3, ShieldCheck, LogOut, Sparkles, Menu, X, Settings,
-  UserPlus, Building2
+  UserPlus, Building2, Check, ChevronsUpDown
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useGetMe, useSwitchOrg, getCurrentOrganization } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
@@ -58,6 +61,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, navigate] = useLocation();
   const [location] = useLocation();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [orgVersion, setOrgVersion] = useState(0);
 
   function handleLogout() {
     clearAuth();
@@ -68,6 +74,46 @@ export function Layout({ children }: { children: ReactNode }) {
   const org = getCurrentOrg();
   const role = getCurrentRole();
   const modules = getModules(org);
+
+  const { data: me } = useGetMe();
+  const memberships = me?.organizations ?? [];
+
+  useEffect(() => {
+    if (org && (org as { modules?: unknown }).modules) return;
+    let cancelled = false;
+    getCurrentOrganization()
+      .then((full) => {
+        if (cancelled) return;
+        setCurrentOrg(full);
+        setOrgVersion((v) => v + 1);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [org?.id]);
+
+  const switchMutation = useSwitchOrg({
+    mutation: {
+      async onSuccess(data) {
+        setAuthToken(data.token);
+        setCurrentRole(data.role);
+        try {
+          const full = await getCurrentOrganization();
+          setCurrentOrg(full);
+        } catch {
+          setCurrentOrg(null);
+        }
+        await queryClient.invalidateQueries();
+        setOrgVersion((v) => v + 1);
+        toast({ title: "Switched workspace" });
+        navigate("/");
+      },
+      onError() {
+        toast({ title: "Could not switch workspace", variant: "destructive" });
+      },
+    },
+  });
+
+  void orgVersion;
 
   const visibleNav = navItems.filter((i) => !i.module || modules[i.module]);
   const visibleBottom = bottomNavItems.filter((i) => !i.module || modules[i.module]);
@@ -82,15 +128,43 @@ export function Layout({ children }: { children: ReactNode }) {
         "fixed inset-y-0 left-0 z-30 w-64 flex flex-col bg-sidebar border-r border-sidebar-border transition-transform duration-200 lg:relative lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-sidebar-border shrink-0">
-          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+        <div className="flex items-center gap-2 px-3 h-14 border-b border-sidebar-border shrink-0">
+          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
-          <div className="leading-tight flex-1 min-w-0">
-            <p className="text-sm font-bold text-foreground truncate">{org?.name ?? "Workspace"}</p>
-            <p className="text-[10px] text-muted-foreground capitalize">{org?.plan ?? "free"} plan</p>
-          </div>
-          <button className="lg:hidden text-muted-foreground hover:text-foreground" onClick={() => setSidebarOpen(false)}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-sidebar-accent text-left">
+                <div className="leading-tight flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground truncate">{org?.name ?? "Workspace"}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">{org?.plan ?? "free"} plan</p>
+                </div>
+                <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel className="text-xs">Workspaces</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {memberships.map((m) => (
+                <DropdownMenuItem
+                  key={m.id}
+                  disabled={switchMutation.isPending}
+                  onClick={() => {
+                    if (m.id === org?.id) return;
+                    switchMutation.mutate({ data: { organizationId: m.id } });
+                  }}
+                >
+                  <span className="flex-1 truncate">{m.name}</span>
+                  {m.id === org?.id && <Check className="h-3.5 w-3.5 text-primary ml-2" />}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/onboarding")}>
+                <Building2 className="h-4 w-4 mr-2" /> Create workspace
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button className="lg:hidden text-muted-foreground hover:text-foreground shrink-0" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
           </button>
         </div>
