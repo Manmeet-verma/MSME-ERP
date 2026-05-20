@@ -1233,6 +1233,437 @@ export interface DashboardWidgets {
   revenueThisMonth: number;
   overdueAmount: number;
   openTasks: number;
+  lowStockItems?: number;
+  openPurchaseOrders?: number;
+  stockValue?: number;
+}
+
+export interface Item {
+  id: number;
+  sku: string;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description?: string | null;
+  unit: string;
+  /** @nullable */
+  hsnCode?: string | null;
+  gstRate: number;
+  salePrice: number;
+  purchasePrice: number;
+  avgCost: number;
+  openingStock?: number;
+  lowStockThreshold?: number;
+  currentStock?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ItemInput {
+  sku: string;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description?: string | null;
+  unit: string;
+  /** @nullable */
+  hsnCode?: string | null;
+  /** @nullable */
+  gstRate?: number | null;
+  /** @nullable */
+  salePrice?: number | null;
+  /** @nullable */
+  purchasePrice?: number | null;
+  /** @nullable */
+  openingStock?: number | null;
+  /** @nullable */
+  lowStockThreshold?: number | null;
+  /** @nullable */
+  isActive?: boolean | null;
+}
+
+export interface Warehouse {
+  id: number;
+  name: string;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface WarehouseInput {
+  name: string;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  isDefault?: boolean | null;
+  /** @nullable */
+  isActive?: boolean | null;
+}
+
+export interface Vendor {
+  id: number;
+  name: string;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  gstNumber?: string | null;
+  paymentTermsDays: number;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface VendorInput {
+  name: string;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  gstNumber?: string | null;
+  /** @nullable */
+  paymentTermsDays?: number | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PurchaseOrder {
+  id: number;
+  poNumber: string;
+  /** @nullable */
+  vendorId?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  warehouseId?: number | null;
+  status: string;
+  /** @nullable */
+  expectedDate?: string | null;
+  subtotal: number;
+  taxAmount?: number;
+  total: number;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PurchaseOrderItem {
+  id: number;
+  /** @nullable */
+  itemId?: number | null;
+  /** @nullable */
+  itemName?: string | null;
+  /** @nullable */
+  itemSku?: string | null;
+  description: string;
+  quantity: number;
+  receivedQuantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export type PurchaseOrderDetail = PurchaseOrder & {
+  items?: PurchaseOrderItem[];
+};
+
+export type PurchaseOrderInputStatus = typeof PurchaseOrderInputStatus[keyof typeof PurchaseOrderInputStatus];
+
+
+export const PurchaseOrderInputStatus = {
+  draft: 'draft',
+  sent: 'sent',
+  partial: 'partial',
+  received: 'received',
+  cancelled: 'cancelled',
+} as const;
+
+export type PurchaseOrderInputItemsItem = {
+  /** @nullable */
+  itemId?: number | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export interface PurchaseOrderInput {
+  /** @nullable */
+  vendorId?: number | null;
+  /** @nullable */
+  warehouseId?: number | null;
+  status?: PurchaseOrderInputStatus;
+  /** @nullable */
+  expectedDate?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  taxRate?: number | null;
+  items?: PurchaseOrderInputItemsItem[];
+}
+
+export interface GrnItem {
+  id: number;
+  /** @nullable */
+  poItemId?: number | null;
+  itemId: number;
+  /** @nullable */
+  itemName?: string | null;
+  /** @nullable */
+  itemSku?: string | null;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface Grn {
+  id: number;
+  grnNumber: string;
+  /** @nullable */
+  purchaseOrderId?: number | null;
+  /** @nullable */
+  poNumber?: string | null;
+  warehouseId: number;
+  /** @nullable */
+  warehouseName?: string | null;
+  receivedAt: string;
+  /** @nullable */
+  notes?: string | null;
+  items?: GrnItem[];
+  createdAt: string;
+}
+
+export type GrnInputItemsItem = {
+  /** @nullable */
+  poItemId?: number | null;
+  itemId: number;
+  quantity: number;
+  unitCost: number;
+};
+
+export interface GrnInput {
+  /** @nullable */
+  purchaseOrderId?: number | null;
+  warehouseId: number;
+  /** @nullable */
+  receivedAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  items: GrnInputItemsItem[];
+}
+
+export interface VendorBill {
+  id: number;
+  billNumber: string;
+  /** @nullable */
+  vendorId?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  purchaseOrderId?: number | null;
+  status: string;
+  issueDate?: string;
+  /** @nullable */
+  dueDate?: string | null;
+  subtotal: number;
+  taxAmount?: number;
+  total: number;
+  amountPaid: number;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface VendorBillItem {
+  id: number;
+  /** @nullable */
+  itemId?: number | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export type VendorBillDetail = VendorBill & {
+  items?: VendorBillItem[];
+};
+
+export type VendorBillInputStatus = typeof VendorBillInputStatus[keyof typeof VendorBillInputStatus];
+
+
+export const VendorBillInputStatus = {
+  draft: 'draft',
+  open: 'open',
+  partial: 'partial',
+  paid: 'paid',
+  overdue: 'overdue',
+  cancelled: 'cancelled',
+} as const;
+
+export type VendorBillInputItemsItem = {
+  /** @nullable */
+  itemId?: number | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export interface VendorBillInput {
+  /** @nullable */
+  billNumber?: string | null;
+  /** @nullable */
+  vendorId?: number | null;
+  /** @nullable */
+  purchaseOrderId?: number | null;
+  status?: VendorBillInputStatus;
+  /** @nullable */
+  issueDate?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  taxRate?: number | null;
+  /** @nullable */
+  amountPaid?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  items?: VendorBillInputItemsItem[];
+}
+
+export interface StockLevel {
+  itemId: number;
+  /** @nullable */
+  itemSku?: string | null;
+  itemName: string;
+  /** @nullable */
+  unit?: string | null;
+  warehouseId: number;
+  warehouseName: string;
+  quantity: number;
+  avgCost?: number;
+  value?: number;
+}
+
+export interface StockMovement {
+  id: number;
+  itemId: number;
+  /** @nullable */
+  itemName?: string | null;
+  /** @nullable */
+  itemSku?: string | null;
+  warehouseId: number;
+  /** @nullable */
+  warehouseName?: string | null;
+  direction: string;
+  quantity: number;
+  unitCost?: number;
+  reason: string;
+  /** @nullable */
+  referenceType?: string | null;
+  /** @nullable */
+  referenceId?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type StockMovementInputDirection = typeof StockMovementInputDirection[keyof typeof StockMovementInputDirection];
+
+
+export const StockMovementInputDirection = {
+  in: 'in',
+  out: 'out',
+} as const;
+
+export type StockMovementInputReason = typeof StockMovementInputReason[keyof typeof StockMovementInputReason];
+
+
+export const StockMovementInputReason = {
+  opening: 'opening',
+  purchase: 'purchase',
+  sale: 'sale',
+  adjustment: 'adjustment',
+  transfer_in: 'transfer_in',
+  transfer_out: 'transfer_out',
+  return: 'return',
+} as const;
+
+export interface StockMovementInput {
+  itemId: number;
+  warehouseId: number;
+  direction: StockMovementInputDirection;
+  quantity: number;
+  /** @nullable */
+  unitCost?: number | null;
+  reason: StockMovementInputReason;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  transferToWarehouseId?: number | null;
+}
+
+export type StockValuationByWarehouseItem = {
+  warehouseId: number;
+  warehouseName: string;
+  value: number;
+  items: number;
+};
+
+export type StockValuationByCategoryItem = {
+  category: string;
+  value: number;
+  items: number;
+};
+
+export interface StockValuation {
+  totalValue: number;
+  totalItems: number;
+  byWarehouse: StockValuationByWarehouseItem[];
+  byCategory: StockValuationByCategoryItem[];
+}
+
+export interface LowStockItem {
+  itemId: number;
+  /** @nullable */
+  itemSku?: string | null;
+  itemName: string;
+  /** @nullable */
+  unit?: string | null;
+  currentStock: number;
+  lowStockThreshold: number;
 }
 
 export type SwitchOrgBody = {
@@ -1295,5 +1726,19 @@ export type SetInvoiceStatusBody = {
 
 export type ListPaymentsParams = {
 invoiceId?: number;
+};
+
+export type ListGrnParams = {
+purchaseOrderId?: number;
+};
+
+export type GetStockLevelsParams = {
+warehouseId?: number;
+itemId?: number;
+};
+
+export type ListStockMovementsParams = {
+itemId?: number;
+warehouseId?: number;
 };
 

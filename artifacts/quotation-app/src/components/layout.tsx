@@ -7,6 +7,7 @@ import {
   BarChart3, ShieldCheck, LogOut, Sparkles, Menu, X, Settings,
   UserPlus, Building2, Check, ChevronsUpDown,
   TrendingUp, CheckSquare, ShoppingCart, Receipt, Megaphone,
+  Boxes, Warehouse, Truck, ClipboardList, FileBox,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,12 @@ const navItems: NavItem[] = [
   { href: "/clients", label: "Clients", icon: Users, module: "sales" },
   { href: "/products", label: "Products", icon: Package, module: "sales" },
   { href: "/addons", label: "Add-ons", icon: Puzzle, module: "sales" },
+  { href: "/items", label: "Items", icon: Boxes, module: "inventory" },
+  { href: "/warehouses", label: "Warehouses", icon: Warehouse, module: "inventory" },
+  { href: "/inventory", label: "Stock Ledger", icon: ClipboardList, module: "inventory" },
+  { href: "/vendors", label: "Vendors", icon: Truck, module: "purchase" },
+  { href: "/purchase-orders", label: "Purchase Orders", icon: FileBox, module: "purchase" },
+  { href: "/vendor-bills", label: "Vendor Bills", icon: Receipt, module: "purchase" },
   { href: "/reports", label: "Reports", icon: BarChart3, module: "sales" },
   { href: "/audit-logs", label: "Audit Logs", icon: ShieldCheck },
 ];

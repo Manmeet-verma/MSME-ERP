@@ -18,6 +18,13 @@ import invoicesRouter from "./invoices";
 import paymentsRouter from "./payments";
 import integrationsRouter from "./integrations";
 import dashboardWidgetsRouter from "./dashboard-widgets";
+import itemsRouter from "./items";
+import warehousesRouter from "./warehouses";
+import vendorsRouter from "./vendors";
+import purchaseOrdersRouter from "./purchase-orders";
+import grnRouter from "./grn";
+import vendorBillsRouter from "./vendor-bills";
+import inventoryRouter from "./inventory";
 
 const router: IRouter = Router();
 
@@ -40,5 +47,12 @@ router.use(invoicesRouter);
 router.use(paymentsRouter);
 router.use(integrationsRouter);
 router.use(dashboardWidgetsRouter);
+router.use(itemsRouter);
+router.use(warehousesRouter);
+router.use(vendorsRouter);
+router.use(purchaseOrdersRouter);
+router.use(grnRouter);
+router.use(vendorBillsRouter);
+router.use(inventoryRouter);
 
 export default router;

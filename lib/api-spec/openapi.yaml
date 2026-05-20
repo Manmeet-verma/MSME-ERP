@@ -31,6 +31,13 @@ tags:
   - name: Integrations
   - name: AI
   - name: DashboardWidgets
+  - name: Items
+  - name: Warehouses
+  - name: Vendors
+  - name: PurchaseOrders
+  - name: GRN
+  - name: VendorBills
+  - name: Inventory
 
 security:
   - bearerAuth: []
@@ -1586,6 +1593,421 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/DashboardWidgets" }
 
+  # ── Items (R3) ──
+  /items:
+    get:
+      tags: [Items]
+      operationId: listItems
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Item" }
+    post:
+      tags: [Items]
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+  /items/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Items]
+      operationId: getItem
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+    patch:
+      tags: [Items]
+      operationId: updateItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+    delete:
+      tags: [Items]
+      operationId: deleteItem
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Warehouses (R3) ──
+  /warehouses:
+    get:
+      tags: [Warehouses]
+      operationId: listWarehouses
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Warehouse" }
+    post:
+      tags: [Warehouses]
+      operationId: createWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarehouseInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Warehouse" }
+  /warehouses/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Warehouses]
+      operationId: updateWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarehouseInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Warehouse" }
+    delete:
+      tags: [Warehouses]
+      operationId: deleteWarehouse
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Vendors (R3) ──
+  /vendors:
+    get:
+      tags: [Vendors]
+      operationId: listVendors
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Vendor" }
+    post:
+      tags: [Vendors]
+      operationId: createVendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+  /vendors/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Vendors]
+      operationId: getVendor
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+    patch:
+      tags: [Vendors]
+      operationId: updateVendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+    delete:
+      tags: [Vendors]
+      operationId: deleteVendor
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Purchase Orders (R3) ──
+  /purchase-orders:
+    get:
+      tags: [PurchaseOrders]
+      operationId: listPurchaseOrders
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PurchaseOrder" }
+    post:
+      tags: [PurchaseOrders]
+      operationId: createPurchaseOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PurchaseOrderInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseOrder" }
+  /purchase-orders/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [PurchaseOrders]
+      operationId: getPurchaseOrder
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseOrderDetail" }
+    patch:
+      tags: [PurchaseOrders]
+      operationId: updatePurchaseOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PurchaseOrderInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseOrder" }
+
+  # ── GRN (R3) ──
+  /grn:
+    get:
+      tags: [GRN]
+      operationId: listGrn
+      parameters:
+        - in: query
+          name: purchaseOrderId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Grn" }
+    post:
+      tags: [GRN]
+      summary: Receive goods (auto-increments stock + updates moving average cost)
+      operationId: createGrn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GrnInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grn" }
+
+  # ── Vendor Bills (R3) ──
+  /vendor-bills:
+    get:
+      tags: [VendorBills]
+      operationId: listVendorBills
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VendorBill" }
+    post:
+      tags: [VendorBills]
+      operationId: createVendorBill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorBillInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorBill" }
+  /vendor-bills/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [VendorBills]
+      operationId: getVendorBill
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorBillDetail" }
+    patch:
+      tags: [VendorBills]
+      operationId: updateVendorBill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorBillInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorBill" }
+
+  # ── Inventory (R3) ──
+  /inventory/stock-levels:
+    get:
+      tags: [Inventory]
+      summary: Per-item per-warehouse stock levels
+      operationId: getStockLevels
+      parameters:
+        - in: query
+          name: warehouseId
+          schema: { type: integer }
+        - in: query
+          name: itemId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockLevel" }
+  /inventory/movements:
+    get:
+      tags: [Inventory]
+      operationId: listStockMovements
+      parameters:
+        - in: query
+          name: itemId
+          schema: { type: integer }
+        - in: query
+          name: warehouseId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockMovement" }
+    post:
+      tags: [Inventory]
+      summary: Manual adjustment / transfer
+      operationId: createStockMovement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StockMovementInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockMovement" }
+  /inventory/valuation:
+    get:
+      tags: [Inventory]
+      summary: Stock valuation report using moving-average cost
+      operationId: getStockValuation
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockValuation" }
+  /inventory/low-stock:
+    get:
+      tags: [Inventory]
+      operationId: getLowStock
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LowStockItem" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2622,3 +3044,344 @@ components:
         revenueThisMonth: { type: number }
         overdueAmount: { type: number }
         openTasks: { type: integer }
+        lowStockItems: { type: integer }
+        openPurchaseOrders: { type: integer }
+        stockValue: { type: number }
+
+    # ── R3 — Inventory & Purchase ──
+    Item:
+      type: object
+      required: [id, sku, name, unit, gstRate, salePrice, purchasePrice, avgCost, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        sku: { type: string }
+        name: { type: string }
+        category: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        unit: { type: string }
+        hsnCode: { type: ["string", "null"] }
+        gstRate: { type: number }
+        salePrice: { type: number }
+        purchasePrice: { type: number }
+        avgCost: { type: number }
+        openingStock: { type: number }
+        lowStockThreshold: { type: number }
+        currentStock: { type: number }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    ItemInput:
+      type: object
+      required: [sku, name, unit]
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        category: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        unit: { type: string }
+        hsnCode: { type: ["string", "null"] }
+        gstRate: { type: ["number", "null"] }
+        salePrice: { type: ["number", "null"] }
+        purchasePrice: { type: ["number", "null"] }
+        openingStock: { type: ["number", "null"] }
+        lowStockThreshold: { type: ["number", "null"] }
+        isActive: { type: ["boolean", "null"] }
+
+    Warehouse:
+      type: object
+      required: [id, name, isDefault, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        code: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        isDefault: { type: boolean }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+    WarehouseInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        code: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        isDefault: { type: ["boolean", "null"] }
+        isActive: { type: ["boolean", "null"] }
+
+    Vendor:
+      type: object
+      required: [id, name, paymentTermsDays, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        contactName: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        paymentTermsDays: { type: integer }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    VendorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        contactName: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        paymentTermsDays: { type: ["integer", "null"] }
+        notes: { type: ["string", "null"] }
+
+    PurchaseOrder:
+      type: object
+      required: [id, poNumber, status, subtotal, total, createdAt]
+      properties:
+        id: { type: integer }
+        poNumber: { type: string }
+        vendorId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        warehouseId: { type: ["integer", "null"] }
+        status: { type: string }
+        expectedDate: { type: ["string", "null"] }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    PurchaseOrderItem:
+      type: object
+      required: [id, description, quantity, unitPrice, totalPrice, receivedQuantity]
+      properties:
+        id: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        itemName: { type: ["string", "null"] }
+        itemSku: { type: ["string", "null"] }
+        description: { type: string }
+        quantity: { type: number }
+        receivedQuantity: { type: number }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+    PurchaseOrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/PurchaseOrder"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PurchaseOrderItem" }
+    PurchaseOrderInput:
+      type: object
+      properties:
+        vendorId: { type: ["integer", "null"] }
+        warehouseId: { type: ["integer", "null"] }
+        status: { type: string, enum: [draft, sent, partial, received, cancelled] }
+        expectedDate: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        taxRate: { type: ["number", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              itemId: { type: ["integer", "null"] }
+              description: { type: string }
+              quantity: { type: number }
+              unitPrice: { type: number }
+
+    Grn:
+      type: object
+      required: [id, grnNumber, warehouseId, receivedAt, createdAt]
+      properties:
+        id: { type: integer }
+        grnNumber: { type: string }
+        purchaseOrderId: { type: ["integer", "null"] }
+        poNumber: { type: ["string", "null"] }
+        warehouseId: { type: integer }
+        warehouseName: { type: ["string", "null"] }
+        receivedAt: { type: string }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GrnItem" }
+        createdAt: { type: string }
+    GrnItem:
+      type: object
+      required: [id, itemId, quantity, unitCost]
+      properties:
+        id: { type: integer }
+        poItemId: { type: ["integer", "null"] }
+        itemId: { type: integer }
+        itemName: { type: ["string", "null"] }
+        itemSku: { type: ["string", "null"] }
+        quantity: { type: number }
+        unitCost: { type: number }
+    GrnInput:
+      type: object
+      required: [warehouseId, items]
+      properties:
+        purchaseOrderId: { type: ["integer", "null"] }
+        warehouseId: { type: integer }
+        receivedAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [itemId, quantity, unitCost]
+            properties:
+              poItemId: { type: ["integer", "null"] }
+              itemId: { type: integer }
+              quantity: { type: number }
+              unitCost: { type: number }
+
+    VendorBill:
+      type: object
+      required: [id, billNumber, status, subtotal, total, amountPaid, createdAt]
+      properties:
+        id: { type: integer }
+        billNumber: { type: string }
+        vendorId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        purchaseOrderId: { type: ["integer", "null"] }
+        status: { type: string }
+        issueDate: { type: string }
+        dueDate: { type: ["string", "null"] }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+        amountPaid: { type: number }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    VendorBillItem:
+      type: object
+      required: [id, description, quantity, unitPrice, totalPrice]
+      properties:
+        id: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        description: { type: string }
+        quantity: { type: number }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+    VendorBillDetail:
+      allOf:
+        - $ref: "#/components/schemas/VendorBill"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/VendorBillItem" }
+    VendorBillInput:
+      type: object
+      properties:
+        billNumber: { type: ["string", "null"] }
+        vendorId: { type: ["integer", "null"] }
+        purchaseOrderId: { type: ["integer", "null"] }
+        status: { type: string, enum: [draft, open, partial, paid, overdue, cancelled] }
+        issueDate: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"] }
+        taxRate: { type: ["number", "null"] }
+        amountPaid: { type: ["number", "null"] }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              itemId: { type: ["integer", "null"] }
+              description: { type: string }
+              quantity: { type: number }
+              unitPrice: { type: number }
+
+    StockLevel:
+      type: object
+      required: [itemId, itemName, warehouseId, warehouseName, quantity]
+      properties:
+        itemId: { type: integer }
+        itemSku: { type: ["string", "null"] }
+        itemName: { type: string }
+        unit: { type: ["string", "null"] }
+        warehouseId: { type: integer }
+        warehouseName: { type: string }
+        quantity: { type: number }
+        avgCost: { type: number }
+        value: { type: number }
+    StockMovement:
+      type: object
+      required: [id, itemId, warehouseId, direction, quantity, reason, createdAt]
+      properties:
+        id: { type: integer }
+        itemId: { type: integer }
+        itemName: { type: ["string", "null"] }
+        itemSku: { type: ["string", "null"] }
+        warehouseId: { type: integer }
+        warehouseName: { type: ["string", "null"] }
+        direction: { type: string }
+        quantity: { type: number }
+        unitCost: { type: number }
+        reason: { type: string }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["integer", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    StockMovementInput:
+      type: object
+      required: [itemId, warehouseId, direction, quantity, reason]
+      properties:
+        itemId: { type: integer }
+        warehouseId: { type: integer }
+        direction: { type: string, enum: [in, out] }
+        quantity: { type: number }
+        unitCost: { type: ["number", "null"] }
+        reason: { type: string, enum: [opening, purchase, sale, adjustment, transfer_in, transfer_out, return] }
+        notes: { type: ["string", "null"] }
+        transferToWarehouseId: { type: ["integer", "null"] }
+    StockValuation:
+      type: object
+      required: [totalValue, totalItems, byWarehouse, byCategory]
+      properties:
+        totalValue: { type: number }
+        totalItems: { type: integer }
+        byWarehouse:
+          type: array
+          items:
+            type: object
+            required: [warehouseId, warehouseName, value, items]
+            properties:
+              warehouseId: { type: integer }
+              warehouseName: { type: string }
+              value: { type: number }
+              items: { type: integer }
+        byCategory:
+          type: array
+          items:
+            type: object
+            required: [category, value, items]
+            properties:
+              category: { type: string }
+              value: { type: number }
+              items: { type: integer }
+    LowStockItem:
+      type: object
+      required: [itemId, itemName, currentStock, lowStockThreshold]
+      properties:
+        itemId: { type: integer }
+        itemSku: { type: ["string", "null"] }
+        itemName: { type: string }
+        unit: { type: ["string", "null"] }
+        currentStock: { type: number }
+        lowStockThreshold: { type: number }

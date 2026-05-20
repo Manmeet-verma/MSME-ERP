@@ -28,6 +28,14 @@ import SalesOrderDetailPage from "@/pages/sales-orders/detail";
 import InvoicesPage from "@/pages/invoices";
 import InvoiceDetailPage from "@/pages/invoices/detail";
 import CampaignsPage from "@/pages/campaigns";
+import ItemsPage from "@/pages/items";
+import WarehousesPage from "@/pages/warehouses";
+import VendorsPage from "@/pages/vendors";
+import PurchaseOrdersPage from "@/pages/purchase-orders";
+import PurchaseOrderDetailPage from "@/pages/purchase-orders/detail";
+import VendorBillsPage from "@/pages/vendor-bills";
+import VendorBillDetailPage from "@/pages/vendor-bills/detail";
+import InventoryPage from "@/pages/inventory";
 import { Layout } from "@/components/layout";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
 import "@/lib/auth";
@@ -76,6 +84,14 @@ function Router() {
       <Route path="/invoices" component={() => <Guard component={InvoicesPage} />} />
       <Route path="/invoices/:id" component={() => <Guard component={InvoiceDetailPage} />} />
       <Route path="/campaigns" component={() => <Guard component={CampaignsPage} />} />
+      <Route path="/items" component={() => <Guard component={ItemsPage} />} />
+      <Route path="/warehouses" component={() => <Guard component={WarehousesPage} />} />
+      <Route path="/vendors" component={() => <Guard component={VendorsPage} />} />
+      <Route path="/purchase-orders" component={() => <Guard component={PurchaseOrdersPage} />} />
+      <Route path="/purchase-orders/:id" component={() => <Guard component={PurchaseOrderDetailPage} />} />
+      <Route path="/vendor-bills" component={() => <Guard component={VendorBillsPage} />} />
+      <Route path="/vendor-bills/:id" component={() => <Guard component={VendorBillDetailPage} />} />
+      <Route path="/inventory" component={() => <Guard component={InventoryPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

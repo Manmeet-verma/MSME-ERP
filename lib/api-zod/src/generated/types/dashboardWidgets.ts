@@ -16,4 +16,7 @@ export interface DashboardWidgets {
   revenueThisMonth: number;
   overdueAmount: number;
   openTasks: number;
+  lowStockItems?: number;
+  openPurchaseOrders?: number;
+  stockValue?: number;
 }
