@@ -1,6 +1,15 @@
 import twilio from "twilio";
 
-async function getCredentials() {
+interface ConnectorSettings {
+  account_sid?: string;
+  auth_token?: string;
+  api_key?: string;
+  api_key_secret?: string;
+  phone_number?: string;
+  [key: string]: string | undefined;
+}
+
+async function getCredentials(): Promise<ConnectorSettings | null> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -8,39 +17,49 @@ async function getCredentials() {
     ? "depl " + process.env.WEB_REPL_RENEWAL
     : null;
 
-  if (!hostname || !xReplitToken) {
-    return null;
-  }
+  if (!hostname || !xReplitToken) return null;
 
-  const data = await fetch(
+  const resp = await fetch(
     "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=twilio",
-    {
-      headers: {
-        Accept: "application/json",
-        "X-Replit-Token": xReplitToken,
-      },
-    }
-  )
-    .then((res) => res.json())
-    .then((d: { items?: Array<{ settings: { account_sid?: string; api_key?: string; api_key_secret?: string; phone_number?: string } }> }) => d.items?.[0]);
+    { headers: { Accept: "application/json", "X-Replit-Token": xReplitToken } }
+  ).then((res) => res.json()) as { items?: Array<{ settings: ConnectorSettings }> };
 
-  if (!data?.settings?.account_sid || !data?.settings?.api_key || !data?.settings?.api_key_secret) {
-    return null;
-  }
-
-  return {
-    accountSid: data.settings.account_sid,
-    apiKey: data.settings.api_key,
-    apiKeySecret: data.settings.api_key_secret,
-    phoneNumber: data.settings.phone_number ?? null,
-  };
+  const settings = resp.items?.[0]?.settings;
+  if (!settings?.account_sid) return null;
+  return settings;
 }
 
 export async function getTwilioClient() {
-  const creds = await getCredentials();
-  if (!creds) return null;
-  return {
-    client: twilio(creds.apiKey, creds.apiKeySecret, { accountSid: creds.accountSid }),
-    fromNumber: creds.phoneNumber,
-  };
+  const settings = await getCredentials();
+  if (!settings) return null;
+
+  const accountSid = settings.account_sid!;
+  const fromNumber = settings.phone_number ?? null;
+
+  if (!fromNumber) {
+    console.error("[twilio] no phone_number in connector settings");
+    return null;
+  }
+
+  // Twilio API Key SIDs start with "SK" and are 34 chars.
+  // If api_key looks like a valid Key SID, use API key auth.
+  if (settings.api_key?.startsWith("SK") && settings.api_key_secret) {
+    return {
+      client: twilio(settings.api_key, settings.api_key_secret, { accountSid }),
+      fromNumber,
+    };
+  }
+
+  // Otherwise fall back to Account SID + Auth Token basic auth.
+  // The Replit connector stores the auth token in api_key_secret.
+  const authToken = settings.auth_token || settings.api_key_secret || settings.api_key;
+  if (authToken) {
+    return {
+      client: twilio(accountSid, authToken),
+      fromNumber,
+    };
+  }
+
+  console.error("[twilio] unable to determine auth credentials from connector settings");
+  return null;
 }
