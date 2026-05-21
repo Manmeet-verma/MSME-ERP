@@ -43,6 +43,9 @@ tags:
   - name: Payroll
   - name: Expenses
   - name: Accounting
+  - name: Push
+  - name: WhatsApp
+  - name: LeadSources
 
 security:
   - bearerAuth: []
@@ -1585,6 +1588,143 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/IndiamartSyncResponse" }
+
+  # ── Lead sources (R6) ──
+  /integrations/tradeindia/sync:
+    post:
+      tags: [LeadSources]
+      summary: Pull leads from TradeIndia
+      operationId: syncTradeindiaLeads
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadSourceSyncResponse" }
+  /integrations/justdial/sync:
+    post:
+      tags: [LeadSources]
+      summary: Pull leads from JustDial
+      operationId: syncJustdialLeads
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadSourceSyncResponse" }
+  /integrations/fb-lead-ads/sync:
+    post:
+      tags: [LeadSources]
+      summary: Pull leads from Facebook Lead Ads
+      operationId: syncFbLeadAds
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadSourceSyncResponse" }
+
+  # ── Push (R6) ──
+  /push/register:
+    post:
+      tags: [Push]
+      summary: Register an Expo push token for the current user
+      operationId: registerPushToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTokenInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushToken" }
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushToken" }
+    delete:
+      tags: [Push]
+      summary: Unregister an Expo push token
+      operationId: unregisterPushToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTokenDeleteInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /push/tokens:
+    get:
+      tags: [Push]
+      summary: List push tokens for the org
+      operationId: listPushTokens
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PushToken" }
+  /push/test:
+    post:
+      tags: [Push]
+      summary: Send a test push to the current user
+      operationId: sendTestPush
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTestInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushSendResult" }
+
+  # ── WhatsApp (R6) ──
+  /whatsapp/messages:
+    get:
+      tags: [WhatsApp]
+      summary: List WhatsApp messages (optionally filter by leadId)
+      operationId: listWhatsappMessages
+      parameters:
+        - in: query
+          name: leadId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WhatsappMessage" }
+  /whatsapp/send:
+    post:
+      tags: [WhatsApp]
+      summary: Send a WhatsApp message (template or freeform)
+      operationId: sendWhatsappMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsappSendInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatsappMessage" }
 
   # ── Dashboard widgets (R2) ──
   /dashboard/widgets:
@@ -4944,3 +5084,76 @@ components:
         days90: { type: number }
         daysOver90: { type: number }
         total: { type: number }
+
+    PushTokenInput:
+      type: object
+      required: [token, platform]
+      properties:
+        token: { type: string }
+        platform: { type: string, enum: [ios, android, web] }
+        deviceName: { type: string, nullable: true }
+    PushTokenDeleteInput:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    PushToken:
+      type: object
+      required: [id, platform]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        token: { type: string }
+        platform: { type: string, enum: [ios, android, web] }
+        deviceName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+    PushTestInput:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+    PushSendResult:
+      type: object
+      required: [sent, failed]
+      properties:
+        sent: { type: integer }
+        failed: { type: integer }
+    WhatsappMessage:
+      type: object
+      required: [id, direction, phone, status, createdAt]
+      properties:
+        id: { type: integer }
+        leadId: { type: integer, nullable: true }
+        clientId: { type: integer, nullable: true }
+        direction: { type: string, enum: [inbound, outbound] }
+        phone: { type: string }
+        body: { type: string, nullable: true }
+        templateName: { type: string, nullable: true }
+        templateLanguage: { type: string, nullable: true }
+        templateVariables:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [queued, sent, delivered, read, failed, received] }
+        providerMessageId: { type: string, nullable: true }
+        errorMessage: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    WhatsappSendInput:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string }
+        body: { type: string }
+        templateName: { type: string }
+        templateLanguage: { type: string }
+        templateVariables:
+          type: array
+          items: { type: string }
+        leadId: { type: integer }
+        clientId: { type: integer }
+    LeadSourceSyncResponse:
+      type: object
+      required: [imported, message]
+      properties:
+        imported: { type: integer }
+        message: { type: string }

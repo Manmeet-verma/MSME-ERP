@@ -26,7 +26,14 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      // Capture raw body bytes so WhatsApp webhook can verify HMAC.
+      (req as unknown as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded social media files publicly so providers (Meta/LinkedIn)

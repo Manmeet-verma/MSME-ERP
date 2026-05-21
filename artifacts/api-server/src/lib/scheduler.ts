@@ -3,6 +3,7 @@ import { and, eq, lte, isNotNull } from "drizzle-orm";
 import { logger } from "./logger";
 import { publishPost } from "../routes/social";
 import { tickDrips } from "../routes/marketing";
+import { tickNotifications } from "./notifications";
 
 let started = false;
 let timer: NodeJS.Timeout | null = null;
@@ -38,6 +39,8 @@ async function tick() {
     } catch (err) {
       logger.error({ err }, "Drip tick failed");
     }
+    // Push notifications (Round 6)
+    await tickNotifications();
   } catch (err) {
     logger.error({ err }, "Scheduler tick failed");
   } finally {

@@ -36,6 +36,9 @@ import payrollRouter from "./payroll";
 import leaveRequestsRouter from "./leave-requests";
 import expensesRouter from "./expenses";
 import accountingRouter from "./accounting";
+import pushRouter from "./push";
+import whatsappRouter from "./whatsapp";
+import leadSourcesRouter from "./lead-sources";
 
 const router: IRouter = Router();
 
@@ -76,5 +79,8 @@ router.use(payrollRouter);
 router.use(leaveRequestsRouter);
 router.use(expensesRouter);
 router.use(accountingRouter);
+router.use(pushRouter);
+router.use(whatsappRouter);
+router.use(leadSourcesRouter);
 
 export default router;

@@ -102,6 +102,7 @@ import type {
   LeadDetail,
   LeadInput,
   LeadSourceRoiRow,
+  LeadSourceSyncResponse,
   LeaveBalance,
   Ledger,
   ListAttendanceParams,
@@ -118,6 +119,7 @@ import type {
   ListQuotationsParams,
   ListStockMovementsParams,
   ListTasksParams,
+  ListWhatsappMessagesParams,
   LoginInput,
   LowStockItem,
   MeResponse,
@@ -142,6 +144,11 @@ import type {
   PurchaseOrderDetail,
   PurchaseOrderInput,
   PurchaseRegisterRow,
+  PushSendResult,
+  PushTestInput,
+  PushToken,
+  PushTokenDeleteInput,
+  PushTokenInput,
   Quotation,
   QuotationAddon,
   QuotationAddonInput,
@@ -190,7 +197,9 @@ import type {
   VendorBillInput,
   VendorInput,
   Warehouse,
-  WarehouseInput
+  WarehouseInput,
+  WhatsappMessage,
+  WhatsappSendInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -6830,6 +6839,661 @@ export const useSyncIndiamartLeads = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSyncIndiamartLeadsMutationOptions(options));
+    }
+
+export const getSyncTradeindiaLeadsUrl = () => {
+
+
+
+
+  return `/api/integrations/tradeindia/sync`
+}
+
+/**
+ * @summary Pull leads from TradeIndia
+ */
+export const syncTradeindiaLeads = async ( options?: RequestInit): Promise<LeadSourceSyncResponse> => {
+
+  return customFetch<LeadSourceSyncResponse>(getSyncTradeindiaLeadsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncTradeindiaLeadsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTradeindiaLeads>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncTradeindiaLeads>>, TError,void, TContext> => {
+
+const mutationKey = ['syncTradeindiaLeads'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncTradeindiaLeads>>, void> = () => {
+
+
+          return  syncTradeindiaLeads(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncTradeindiaLeadsMutationResult = NonNullable<Awaited<ReturnType<typeof syncTradeindiaLeads>>>
+
+    export type SyncTradeindiaLeadsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Pull leads from TradeIndia
+ */
+export const useSyncTradeindiaLeads = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTradeindiaLeads>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncTradeindiaLeads>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncTradeindiaLeadsMutationOptions(options));
+    }
+
+export const getSyncJustdialLeadsUrl = () => {
+
+
+
+
+  return `/api/integrations/justdial/sync`
+}
+
+/**
+ * @summary Pull leads from JustDial
+ */
+export const syncJustdialLeads = async ( options?: RequestInit): Promise<LeadSourceSyncResponse> => {
+
+  return customFetch<LeadSourceSyncResponse>(getSyncJustdialLeadsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncJustdialLeadsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncJustdialLeads>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncJustdialLeads>>, TError,void, TContext> => {
+
+const mutationKey = ['syncJustdialLeads'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncJustdialLeads>>, void> = () => {
+
+
+          return  syncJustdialLeads(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncJustdialLeadsMutationResult = NonNullable<Awaited<ReturnType<typeof syncJustdialLeads>>>
+
+    export type SyncJustdialLeadsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Pull leads from JustDial
+ */
+export const useSyncJustdialLeads = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncJustdialLeads>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncJustdialLeads>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncJustdialLeadsMutationOptions(options));
+    }
+
+export const getSyncFbLeadAdsUrl = () => {
+
+
+
+
+  return `/api/integrations/fb-lead-ads/sync`
+}
+
+/**
+ * @summary Pull leads from Facebook Lead Ads
+ */
+export const syncFbLeadAds = async ( options?: RequestInit): Promise<LeadSourceSyncResponse> => {
+
+  return customFetch<LeadSourceSyncResponse>(getSyncFbLeadAdsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncFbLeadAdsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncFbLeadAds>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncFbLeadAds>>, TError,void, TContext> => {
+
+const mutationKey = ['syncFbLeadAds'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncFbLeadAds>>, void> = () => {
+
+
+          return  syncFbLeadAds(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncFbLeadAdsMutationResult = NonNullable<Awaited<ReturnType<typeof syncFbLeadAds>>>
+
+    export type SyncFbLeadAdsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Pull leads from Facebook Lead Ads
+ */
+export const useSyncFbLeadAds = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncFbLeadAds>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncFbLeadAds>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncFbLeadAdsMutationOptions(options));
+    }
+
+export const getRegisterPushTokenUrl = () => {
+
+
+
+
+  return `/api/push/register`
+}
+
+/**
+ * @summary Register an Expo push token for the current user
+ */
+export const registerPushToken = async (pushTokenInput: PushTokenInput, options?: RequestInit): Promise<PushToken> => {
+
+  return customFetch<PushToken>(getRegisterPushTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      pushTokenInput,)
+  }
+);}
+
+
+
+
+export const getRegisterPushTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<PushTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<PushTokenInput>}, TContext> => {
+
+const mutationKey = ['registerPushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerPushToken>>, {data: BodyType<PushTokenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerPushToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterPushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof registerPushToken>>>
+    export type RegisterPushTokenMutationBody = BodyType<PushTokenInput>
+    export type RegisterPushTokenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register an Expo push token for the current user
+ */
+export const useRegisterPushToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<PushTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerPushToken>>,
+        TError,
+        {data: BodyType<PushTokenInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterPushTokenMutationOptions(options));
+    }
+
+export const getUnregisterPushTokenUrl = () => {
+
+
+
+
+  return `/api/push/register`
+}
+
+/**
+ * @summary Unregister an Expo push token
+ */
+export const unregisterPushToken = async (pushTokenDeleteInput: PushTokenDeleteInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getUnregisterPushTokenUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      pushTokenDeleteInput,)
+  }
+);}
+
+
+
+
+export const getUnregisterPushTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unregisterPushToken>>, TError,{data: BodyType<PushTokenDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unregisterPushToken>>, TError,{data: BodyType<PushTokenDeleteInput>}, TContext> => {
+
+const mutationKey = ['unregisterPushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unregisterPushToken>>, {data: BodyType<PushTokenDeleteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  unregisterPushToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnregisterPushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof unregisterPushToken>>>
+    export type UnregisterPushTokenMutationBody = BodyType<PushTokenDeleteInput>
+    export type UnregisterPushTokenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Unregister an Expo push token
+ */
+export const useUnregisterPushToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unregisterPushToken>>, TError,{data: BodyType<PushTokenDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unregisterPushToken>>,
+        TError,
+        {data: BodyType<PushTokenDeleteInput>},
+        TContext
+      > => {
+      return useMutation(getUnregisterPushTokenMutationOptions(options));
+    }
+
+export const getListPushTokensUrl = () => {
+
+
+
+
+  return `/api/push/tokens`
+}
+
+/**
+ * @summary List push tokens for the org
+ */
+export const listPushTokens = async ( options?: RequestInit): Promise<PushToken[]> => {
+
+  return customFetch<PushToken[]>(getListPushTokensUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPushTokensQueryKey = () => {
+    return [
+    `/api/push/tokens`
+    ] as const;
+    }
+
+
+export const getListPushTokensQueryOptions = <TData = Awaited<ReturnType<typeof listPushTokens>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPushTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPushTokensQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPushTokens>>> = ({ signal }) => listPushTokens({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPushTokens>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPushTokensQueryResult = NonNullable<Awaited<ReturnType<typeof listPushTokens>>>
+export type ListPushTokensQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List push tokens for the org
+ */
+
+export function useListPushTokens<TData = Awaited<ReturnType<typeof listPushTokens>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPushTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPushTokensQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSendTestPushUrl = () => {
+
+
+
+
+  return `/api/push/test`
+}
+
+/**
+ * @summary Send a test push to the current user
+ */
+export const sendTestPush = async (pushTestInput?: PushTestInput, options?: RequestInit): Promise<PushSendResult> => {
+
+  return customFetch<PushSendResult>(getSendTestPushUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      pushTestInput,)
+  }
+);}
+
+
+
+
+export const getSendTestPushMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendTestPush>>, TError,{data?: BodyType<PushTestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendTestPush>>, TError,{data?: BodyType<PushTestInput>}, TContext> => {
+
+const mutationKey = ['sendTestPush'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendTestPush>>, {data?: BodyType<PushTestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendTestPush(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendTestPushMutationResult = NonNullable<Awaited<ReturnType<typeof sendTestPush>>>
+    export type SendTestPushMutationBody = BodyType<PushTestInput> | undefined
+    export type SendTestPushMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send a test push to the current user
+ */
+export const useSendTestPush = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendTestPush>>, TError,{data?: BodyType<PushTestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendTestPush>>,
+        TError,
+        {data?: BodyType<PushTestInput>},
+        TContext
+      > => {
+      return useMutation(getSendTestPushMutationOptions(options));
+    }
+
+export const getListWhatsappMessagesUrl = (params?: ListWhatsappMessagesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/whatsapp/messages?${stringifiedParams}` : `/api/whatsapp/messages`
+}
+
+/**
+ * @summary List WhatsApp messages (optionally filter by leadId)
+ */
+export const listWhatsappMessages = async (params?: ListWhatsappMessagesParams, options?: RequestInit): Promise<WhatsappMessage[]> => {
+
+  return customFetch<WhatsappMessage[]>(getListWhatsappMessagesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWhatsappMessagesQueryKey = (params?: ListWhatsappMessagesParams,) => {
+    return [
+    `/api/whatsapp/messages`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWhatsappMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listWhatsappMessages>>, TError = ErrorType<unknown>>(params?: ListWhatsappMessagesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWhatsappMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWhatsappMessagesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWhatsappMessages>>> = ({ signal }) => listWhatsappMessages(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWhatsappMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWhatsappMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listWhatsappMessages>>>
+export type ListWhatsappMessagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List WhatsApp messages (optionally filter by leadId)
+ */
+
+export function useListWhatsappMessages<TData = Awaited<ReturnType<typeof listWhatsappMessages>>, TError = ErrorType<unknown>>(
+ params?: ListWhatsappMessagesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWhatsappMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWhatsappMessagesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSendWhatsappMessageUrl = () => {
+
+
+
+
+  return `/api/whatsapp/send`
+}
+
+/**
+ * @summary Send a WhatsApp message (template or freeform)
+ */
+export const sendWhatsappMessage = async (whatsappSendInput: WhatsappSendInput, options?: RequestInit): Promise<WhatsappMessage> => {
+
+  return customFetch<WhatsappMessage>(getSendWhatsappMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      whatsappSendInput,)
+  }
+);}
+
+
+
+
+export const getSendWhatsappMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendWhatsappMessage>>, TError,{data: BodyType<WhatsappSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendWhatsappMessage>>, TError,{data: BodyType<WhatsappSendInput>}, TContext> => {
+
+const mutationKey = ['sendWhatsappMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendWhatsappMessage>>, {data: BodyType<WhatsappSendInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendWhatsappMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendWhatsappMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendWhatsappMessage>>>
+    export type SendWhatsappMessageMutationBody = BodyType<WhatsappSendInput>
+    export type SendWhatsappMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send a WhatsApp message (template or freeform)
+ */
+export const useSendWhatsappMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendWhatsappMessage>>, TError,{data: BodyType<WhatsappSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendWhatsappMessage>>,
+        TError,
+        {data: BodyType<WhatsappSendInput>},
+        TContext
+      > => {
+      return useMutation(getSendWhatsappMessageMutationOptions(options));
     }
 
 export const getGetDashboardWidgetsUrl = () => {

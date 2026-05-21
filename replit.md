@@ -216,6 +216,30 @@ Live in addition to Rounds 1–4:
 - ExcelJS xlsx export is server-side; browser downloads via authenticated fetch + blob URL.
 - Payslip PDFs are generated on demand (not stored). Re-generated each request.
 
+## Round 6 — Mobile App, Push, WhatsApp & More Lead Sources
+
+Live in addition to Rounds 1–5:
+
+- **MSME Pro Mobile** (`artifacts/erp-mobile`) — Native Expo app (iOS + Android + web preview) with a bespoke fetch wrapper around the same `/api` routes (the shared OpenAPI client is web-targeted; mobile keeps a lighter typed wrapper). Tabs: Home, Leads, Today, Tasks, Settings. Stack screens: Lead detail (one-tap call + WhatsApp thread), Calls (Twilio dialer + history), Expense (camera capture → `/api/uploads` → `/api/expenses`), Barcode (CameraView scanner → `/api/items?search=` SKU lookup). React Query is wrapped with `PersistQueryClientProvider` + AsyncStorage persister so dashboard/leads/tasks render instantly offline. Auth token persisted via AsyncStorage. Dark theme matches the web (`#050816` / blue / cyan).
+- **Push notifications** — Expo push (`/api/push/register`, `/push/tokens`, `/push/test`). `push_tokens` table maps `(user, organization, token, platform)`. The 60s scheduler tick (`tickNotifications` in `lib/notifications.ts`) sends push for: new hot leads (10-min window), invoices that just rolled overdue (24-hr window), tasks due in the next hour. Invalid tokens (`DeviceNotRegistered`) are pruned automatically.
+- **WhatsApp Business Cloud API** — `/api/whatsapp/send` posts templated or freeform messages via Meta Graph API (`graph.facebook.com/v20.0/{phoneNumberId}/messages`). Per-org config (`integrations.whatsapp.config = { accessToken, phoneNumberId, verifyToken, businessAccountId }`). Public `/api/whatsapp/webhook` handles Meta verification (GET) and inbound delivery + status updates (POST); inbound messages auto-thread onto a matching lead (by phone) or create a new `whatsapp` lead. Every send/receive also logs a `lead_activities` note.
+- **Extra lead sources** — TradeIndia (`/api/integrations/tradeindia/sync`), JustDial (`/api/integrations/justdial/sync`), Facebook Lead Ads (`/api/integrations/fb-lead-ads/sync`). Each mirrors the IndiaMart pattern: per-org integration config, dedup by `externalId`, AI scoring via `scoreLead`, updates `integrations.lastSyncedAt/Status/Message`. Lead `source` enum extended with `tradeindia`, `justdial`, `fb_lead_ads`, `whatsapp`.
+
+### New API routes
+- `/api/push/register` (POST/DELETE), `/api/push/tokens` (GET), `/api/push/test` (POST)
+- `/api/whatsapp/messages` (GET, optional `?leadId=`), `/api/whatsapp/send` (POST), `/api/whatsapp/webhook` (GET verify + POST inbound — public, no auth)
+- `/api/integrations/tradeindia/sync` (POST, admin), `/api/integrations/justdial/sync` (POST, admin), `/api/integrations/fb-lead-ads/sync` (POST, admin)
+
+### New DB tables
+`push_tokens` (unique on `token`), `whatsapp_messages` (direction, status enum incl. `received`, optional `lead_id`/`client_id`, template fields). `integrations.provider` enum extended with `tradeindia, justdial, fb_lead_ads, whatsapp`.
+
+### Round-6 gotchas
+- Push only works on a physical device (Expo limitation). On the simulator `registerForPush()` returns null silently.
+- Mobile app needs `EXPO_PUBLIC_DOMAIN` (set by the workflow). `lib/api.ts` builds `https://${EXPO_PUBLIC_DOMAIN}/api/...`.
+- WhatsApp webhook URL to register in Meta: `https://<your-domain>/api/whatsapp/webhook`. Verify token is matched against any org's stored `integrations.whatsapp.config.verifyToken`.
+- Notification dedupe is in-memory per process; restarting the server may briefly re-notify recently-changed entities.
+- EAS build & Play Store / App Store publishing is **not** executed automatically — it requires the user's Expo/Apple/Google credentials. To publish: `npm i -g eas-cli`, `eas login`, `eas build --platform android --profile production` (or `ios`), then `eas submit`. App Store / Play listing copy lives alongside `replit.md` (see `artifacts/erp-mobile/STORE_LISTING.md` if added later).
+
 ## User preferences
 
 - Currency: Indian Rupees (₹) with Indian comma system

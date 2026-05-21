@@ -2442,6 +2442,105 @@ export interface VendorAgeingRow {
   total: number;
 }
 
+export type PushTokenInputPlatform = typeof PushTokenInputPlatform[keyof typeof PushTokenInputPlatform];
+
+
+export const PushTokenInputPlatform = {
+  ios: 'ios',
+  android: 'android',
+  web: 'web',
+} as const;
+
+export interface PushTokenInput {
+  token: string;
+  platform: PushTokenInputPlatform;
+  deviceName?: string | null;
+}
+
+export interface PushTokenDeleteInput {
+  token: string;
+}
+
+export type PushTokenPlatform = typeof PushTokenPlatform[keyof typeof PushTokenPlatform];
+
+
+export const PushTokenPlatform = {
+  ios: 'ios',
+  android: 'android',
+  web: 'web',
+} as const;
+
+export interface PushToken {
+  id: number;
+  userId?: number;
+  token?: string;
+  platform: PushTokenPlatform;
+  deviceName?: string | null;
+  createdAt?: string;
+  lastUsedAt?: string;
+}
+
+export interface PushTestInput {
+  title?: string;
+  body?: string;
+}
+
+export interface PushSendResult {
+  sent: number;
+  failed: number;
+}
+
+export type WhatsappMessageDirection = typeof WhatsappMessageDirection[keyof typeof WhatsappMessageDirection];
+
+
+export const WhatsappMessageDirection = {
+  inbound: 'inbound',
+  outbound: 'outbound',
+} as const;
+
+export type WhatsappMessageStatus = typeof WhatsappMessageStatus[keyof typeof WhatsappMessageStatus];
+
+
+export const WhatsappMessageStatus = {
+  queued: 'queued',
+  sent: 'sent',
+  delivered: 'delivered',
+  read: 'read',
+  failed: 'failed',
+  received: 'received',
+} as const;
+
+export interface WhatsappMessage {
+  id: number;
+  leadId?: number | null;
+  clientId?: number | null;
+  direction: WhatsappMessageDirection;
+  phone: string;
+  body?: string | null;
+  templateName?: string | null;
+  templateLanguage?: string | null;
+  templateVariables?: string[];
+  status: WhatsappMessageStatus;
+  providerMessageId?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
+export interface WhatsappSendInput {
+  phone: string;
+  body?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateVariables?: string[];
+  leadId?: number;
+  clientId?: number;
+}
+
+export interface LeadSourceSyncResponse {
+  imported: number;
+  message: string;
+}
+
 export type SwitchOrgBody = {
   organizationId: number;
 };
@@ -2502,6 +2601,10 @@ export type SetInvoiceStatusBody = {
 
 export type ListPaymentsParams = {
 invoiceId?: number;
+};
+
+export type ListWhatsappMessagesParams = {
+leadId?: number;
 };
 
 export type ListGrnParams = {

@@ -8,7 +8,9 @@ export const integrationsTable = pgTable(
   {
     id: serial("id").primaryKey(),
     organizationId: integer("organization_id").notNull().references(() => organizationsTable.id, { onDelete: "cascade" }),
-    provider: text("provider", { enum: ["indiamart", "smtp", "twilio"] }).notNull(),
+    provider: text("provider", {
+      enum: ["indiamart", "smtp", "twilio", "tradeindia", "justdial", "fb_lead_ads", "whatsapp"],
+    }).notNull(),
     enabled: boolean("enabled").notNull().default(true),
     config: jsonb("config").$type<Record<string, string>>().notNull().default({}),
     lastSyncedAt: timestamp("last_synced_at"),

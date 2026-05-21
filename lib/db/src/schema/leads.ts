@@ -13,7 +13,9 @@ export const leadsTable = pgTable("leads", {
   company: text("company"),
   city: text("city"),
   state: text("state"),
-  source: text("source", { enum: ["manual", "indiamart", "website", "other"] }).notNull().default("manual"),
+  source: text("source", {
+    enum: ["manual", "indiamart", "tradeindia", "justdial", "fb_lead_ads", "whatsapp", "website", "other"],
+  }).notNull().default("manual"),
   externalId: text("external_id"),
   status: text("status", { enum: ["new", "contacted", "qualified", "won", "lost"] }).notNull().default("new"),
   priority: text("priority", { enum: ["hot", "warm", "cold"] }).notNull().default("warm"),

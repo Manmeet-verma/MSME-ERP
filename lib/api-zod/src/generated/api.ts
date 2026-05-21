@@ -1983,6 +1983,149 @@ export const SyncIndiamartLeadsResponse = zod.object({
 })
 
 
+/**
+ * @summary Pull leads from TradeIndia
+ */
+export const SyncTradeindiaLeadsResponse = zod.object({
+  "imported": zod.number(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Pull leads from JustDial
+ */
+export const SyncJustdialLeadsResponse = zod.object({
+  "imported": zod.number(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Pull leads from Facebook Lead Ads
+ */
+export const SyncFbLeadAdsResponse = zod.object({
+  "imported": zod.number(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Register an Expo push token for the current user
+ */
+export const RegisterPushTokenBody = zod.object({
+  "token": zod.string(),
+  "platform": zod.enum(['ios', 'android', 'web']),
+  "deviceName": zod.string().nullish()
+})
+
+export const RegisterPushTokenResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number().optional(),
+  "token": zod.string().optional(),
+  "platform": zod.enum(['ios', 'android', 'web']),
+  "deviceName": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional(),
+  "lastUsedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Unregister an Expo push token
+ */
+export const UnregisterPushTokenBody = zod.object({
+  "token": zod.string()
+})
+
+export const UnregisterPushTokenResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List push tokens for the org
+ */
+export const ListPushTokensResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number().optional(),
+  "token": zod.string().optional(),
+  "platform": zod.enum(['ios', 'android', 'web']),
+  "deviceName": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional(),
+  "lastUsedAt": zod.coerce.date().optional()
+})
+export const ListPushTokensResponse = zod.array(ListPushTokensResponseItem)
+
+
+/**
+ * @summary Send a test push to the current user
+ */
+export const SendTestPushBody = zod.object({
+  "title": zod.string().optional(),
+  "body": zod.string().optional()
+})
+
+export const SendTestPushResponse = zod.object({
+  "sent": zod.number(),
+  "failed": zod.number()
+})
+
+
+/**
+ * @summary List WhatsApp messages (optionally filter by leadId)
+ */
+export const ListWhatsappMessagesQueryParams = zod.object({
+  "leadId": zod.coerce.number().optional()
+})
+
+export const ListWhatsappMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "leadId": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "direction": zod.enum(['inbound', 'outbound']),
+  "phone": zod.string(),
+  "body": zod.string().nullish(),
+  "templateName": zod.string().nullish(),
+  "templateLanguage": zod.string().nullish(),
+  "templateVariables": zod.array(zod.string()).optional(),
+  "status": zod.enum(['queued', 'sent', 'delivered', 'read', 'failed', 'received']),
+  "providerMessageId": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListWhatsappMessagesResponse = zod.array(ListWhatsappMessagesResponseItem)
+
+
+/**
+ * @summary Send a WhatsApp message (template or freeform)
+ */
+export const SendWhatsappMessageBody = zod.object({
+  "phone": zod.string(),
+  "body": zod.string().optional(),
+  "templateName": zod.string().optional(),
+  "templateLanguage": zod.string().optional(),
+  "templateVariables": zod.array(zod.string()).optional(),
+  "leadId": zod.number().optional(),
+  "clientId": zod.number().optional()
+})
+
+export const SendWhatsappMessageResponse = zod.object({
+  "id": zod.number(),
+  "leadId": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "direction": zod.enum(['inbound', 'outbound']),
+  "phone": zod.string(),
+  "body": zod.string().nullish(),
+  "templateName": zod.string().nullish(),
+  "templateLanguage": zod.string().nullish(),
+  "templateVariables": zod.array(zod.string()).optional(),
+  "status": zod.enum(['queued', 'sent', 'delivered', 'read', 'failed', 'received']),
+  "providerMessageId": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
 export const GetDashboardWidgetsResponse = zod.object({
   "newLeadsToday": zod.number(),
   "hotLeads": zod.number(),
