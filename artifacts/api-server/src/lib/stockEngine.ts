@@ -65,11 +65,30 @@ export async function recordMovement(input: RecordMovementInput) {
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     throw new Error("Movement quantity must be a positive number");
   }
-  const exec = (input.executor ?? db) as typeof db;
+  // Always run inside a transaction so we can hold a row lock on the item
+  // for the entire compute-and-write of the moving-average cost. If the
+  // caller didn't pass one, open one ourselves.
+  if (!input.executor) {
+    return db.transaction((tx) => recordMovementInTx({ ...input, executor: tx }));
+  }
+  return recordMovementInTx(input);
+}
+
+async function recordMovementInTx(input: RecordMovementInput) {
+  const exec = input.executor as typeof db;
+  // Row-lock the item for the rest of the transaction so two simultaneous
+  // IN movements for the same item serialize their avg-cost updates and
+  // never read a stale current quantity / avg cost.
   const [item] = await exec
     .select()
     .from(itemsTable)
-    .where(and(eq(itemsTable.id, input.itemId), eq(itemsTable.organizationId, input.organizationId)));
+    .where(
+      and(
+        eq(itemsTable.id, input.itemId),
+        eq(itemsTable.organizationId, input.organizationId),
+      ),
+    )
+    .for("update");
   if (!item) throw new Error("Item not found");
 
   const [warehouse] = await exec
@@ -102,7 +121,10 @@ export async function recordMovement(input: RecordMovementInput) {
     })
     .returning();
 
-  // Update moving average cost on IN movements with positive unitCost
+  // Update moving average cost on IN movements with positive unitCost.
+  // Safe under concurrency because the item row is locked above; another
+  // concurrent recordMovement on the same item will block here until we
+  // commit, then see our IN row in its own sum.
   if (input.direction === "in" && unitCost > 0) {
     const [row] = await exec
       .select({
