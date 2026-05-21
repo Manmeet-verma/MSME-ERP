@@ -2457,6 +2457,37 @@ export interface Gstr3bResponse {
   netTaxPayable: number;
 }
 
+export interface BalanceSheetLine {
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export type BalanceSheetResponseTotals = {
+  assets: number;
+  liabilities: number;
+  equity: number;
+  liabilitiesAndEquity: number;
+  difference: number;
+};
+
+export type BalanceSheetResponseEquityReconciliation = {
+  fyStart: string;
+  openingEquity: number;
+  openingRetainedEarnings: number;
+  periodNetProfit: number;
+  totalEquity: number;
+};
+
+export interface BalanceSheetResponse {
+  asOf: string;
+  assets: BalanceSheetLine[];
+  liabilities: BalanceSheetLine[];
+  equity: BalanceSheetLine[];
+  totals: BalanceSheetResponseTotals;
+  equityReconciliation: BalanceSheetResponseEquityReconciliation;
+}
+
 export interface VendorAgeingRow {
   vendorId: number;
   vendorName: string;
@@ -2806,6 +2837,11 @@ format?: string;
 export type GetGstr3bParams = {
 from?: string;
 to?: string;
+format?: string;
+};
+
+export type GetBalanceSheetParams = {
+asOf?: string;
 format?: string;
 };
 

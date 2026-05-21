@@ -3853,3 +3853,42 @@ export const GetVendorAgeingResponseItem = zod.object({
 export const GetVendorAgeingResponse = zod.array(GetVendorAgeingResponseItem)
 
 
+export const GetBalanceSheetQueryParams = zod.object({
+  "asOf": zod.coerce.string().optional(),
+  "format": zod.coerce.string().optional()
+})
+
+export const GetBalanceSheetResponse = zod.object({
+  "asOf": zod.string(),
+  "assets": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "liabilities": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "equity": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "totals": zod.object({
+  "assets": zod.number(),
+  "liabilities": zod.number(),
+  "equity": zod.number(),
+  "liabilitiesAndEquity": zod.number(),
+  "difference": zod.number()
+}),
+  "equityReconciliation": zod.object({
+  "fyStart": zod.string(),
+  "openingEquity": zod.number(),
+  "openingRetainedEarnings": zod.number(),
+  "periodNetProfit": zod.number(),
+  "totalEquity": zod.number()
+})
+})
+
+

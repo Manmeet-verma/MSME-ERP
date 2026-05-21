@@ -3088,6 +3088,23 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/VendorAgeingRow" } }
+  /accounting/balance-sheet:
+    get:
+      tags: [Accounting]
+      operationId: getBalanceSheet
+      parameters:
+        - in: query
+          name: asOf
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BalanceSheetResponse" }
 
 components:
   securitySchemes:
@@ -5100,6 +5117,45 @@ components:
             igstInputs: { type: number }
             total: { type: number }
         netTaxPayable: { type: number }
+    BalanceSheetLine:
+      type: object
+      required: [code, name, amount]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        amount: { type: number }
+    BalanceSheetResponse:
+      type: object
+      required: [asOf, assets, liabilities, equity, totals, equityReconciliation]
+      properties:
+        asOf: { type: string }
+        assets:
+          type: array
+          items: { $ref: "#/components/schemas/BalanceSheetLine" }
+        liabilities:
+          type: array
+          items: { $ref: "#/components/schemas/BalanceSheetLine" }
+        equity:
+          type: array
+          items: { $ref: "#/components/schemas/BalanceSheetLine" }
+        totals:
+          type: object
+          required: [assets, liabilities, equity, liabilitiesAndEquity, difference]
+          properties:
+            assets: { type: number }
+            liabilities: { type: number }
+            equity: { type: number }
+            liabilitiesAndEquity: { type: number }
+            difference: { type: number }
+        equityReconciliation:
+          type: object
+          required: [openingEquity, openingRetainedEarnings, periodNetProfit, totalEquity, fyStart]
+          properties:
+            fyStart: { type: string }
+            openingEquity: { type: number }
+            openingRetainedEarnings: { type: number }
+            periodNetProfit: { type: number }
+            totalEquity: { type: number }
     VendorAgeingRow:
       type: object
       required: [vendorId, vendorName, current, days30, days60, days90, daysOver90, total]

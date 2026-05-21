@@ -49,6 +49,7 @@ import LedgerPage from "@/pages/accounting/ledger";
 import PnlPage from "@/pages/accounting/pnl";
 import GstPage from "@/pages/accounting/gst";
 import VendorAgeingPage from "@/pages/accounting/vendor-ageing";
+import BalanceSheetPage from "@/pages/accounting/balance-sheet";
 import { Layout } from "@/components/layout";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
 import "@/lib/auth";
@@ -118,6 +119,7 @@ function Router() {
       <Route path="/accounting/pnl" component={() => <Guard component={PnlPage} />} />
       <Route path="/accounting/gst" component={() => <Guard component={GstPage} />} />
       <Route path="/accounting/vendor-ageing" component={() => <Guard component={VendorAgeingPage} />} />
+      <Route path="/accounting/balance-sheet" component={() => <Guard component={BalanceSheetPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

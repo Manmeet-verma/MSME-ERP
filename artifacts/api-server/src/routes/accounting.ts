@@ -466,6 +466,188 @@ accountingRouter.get("/accounting/gstr3b", requireAuth, async (req, res) => {
   res.json(data);
 });
 
+// ── Balance sheet ─────────────────────────────────────────────────────────
+function fiscalYearStart(asOf: string): string {
+  // Indian FY: April 1 → March 31
+  const d = new Date(asOf);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth(); // 0=Jan
+  const startYear = m >= 3 ? y : y - 1;
+  return `${startYear}-04-01`;
+}
+
+async function balanceSheetData(orgId: number, asOf: string) {
+  await ensureChartOfAccounts(orgId);
+  const fyStart = fiscalYearStart(asOf);
+
+  // Aggregate journal lines per account up to asOf
+  const allRows = await db
+    .select({
+      accountId: journalLinesTable.accountId,
+      debit: sql<string>`coalesce(sum(${journalLinesTable.debit}),0)::text`,
+      credit: sql<string>`coalesce(sum(${journalLinesTable.credit}),0)::text`,
+    })
+    .from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
+    .where(
+      and(
+        eq(journalLinesTable.organizationId, orgId),
+        lte(journalEntriesTable.entryDate, asOf),
+      ),
+    )
+    .groupBy(journalLinesTable.accountId);
+
+  // Aggregate journal lines per account up to (fyStart - 1) — prior-year cumulative
+  const priorRows = await db
+    .select({
+      accountId: journalLinesTable.accountId,
+      debit: sql<string>`coalesce(sum(${journalLinesTable.debit}),0)::text`,
+      credit: sql<string>`coalesce(sum(${journalLinesTable.credit}),0)::text`,
+    })
+    .from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
+    .where(
+      and(
+        eq(journalLinesTable.organizationId, orgId),
+        sql`${journalEntriesTable.entryDate} < ${fyStart}`,
+      ),
+    )
+    .groupBy(journalLinesTable.accountId);
+
+  const accounts = await db.select().from(accountsTable).where(eq(accountsTable.organizationId, orgId));
+  const amap = new Map(accounts.map((a) => [a.id, a]));
+  const priorMap = new Map(priorRows.map((r) => [r.accountId, r]));
+
+  const assets: Array<{ code: string; name: string; amount: number }> = [];
+  const liabilities: Array<{ code: string; name: string; amount: number }> = [];
+  const equity: Array<{ code: string; name: string; amount: number }> = [];
+
+  // P&L net profit
+  let pyIncome = 0;
+  let pyExpense = 0;
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  for (const r of allRows) {
+    const a = amap.get(r.accountId);
+    if (!a) continue;
+    const dr = Number(r.debit);
+    const cr = Number(r.credit);
+    if (a.type === "asset") {
+      const amt = dr - cr;
+      if (Math.abs(amt) > 0.005) assets.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
+    } else if (a.type === "liability") {
+      const amt = cr - dr;
+      if (Math.abs(amt) > 0.005) liabilities.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
+    } else if (a.type === "equity") {
+      const amt = cr - dr;
+      if (Math.abs(amt) > 0.005) equity.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
+    } else if (a.type === "income") {
+      totalIncome += cr - dr;
+    } else if (a.type === "expense") {
+      totalExpense += dr - cr;
+    }
+  }
+
+  for (const r of priorRows.values()) {
+    const a = amap.get(r.accountId);
+    if (!a) continue;
+    const dr = Number(r.debit);
+    const cr = Number(r.credit);
+    if (a.type === "income") pyIncome += cr - dr;
+    else if (a.type === "expense") pyExpense += dr - cr;
+  }
+  void priorMap;
+
+  const openingRetainedEarnings = Number((pyIncome - pyExpense).toFixed(2));
+  const cumulativeNetProfit = totalIncome - totalExpense;
+  const periodNetProfit = Number((cumulativeNetProfit - (pyIncome - pyExpense)).toFixed(2));
+  const openingEquity = Number(equity.reduce((s, e) => s + e.amount, 0).toFixed(2));
+
+  // Roll retained earnings into the equity side as virtual lines
+  const equityWithRetained = [...equity];
+  if (Math.abs(openingRetainedEarnings) > 0.005) {
+    equityWithRetained.push({ code: "RE", name: "Retained Earnings (prior years)", amount: openingRetainedEarnings });
+  }
+  if (Math.abs(periodNetProfit) > 0.005) {
+    equityWithRetained.push({ code: "PNL", name: "Net Profit (current period)", amount: periodNetProfit });
+  }
+
+  assets.sort((a, b) => a.code.localeCompare(b.code));
+  liabilities.sort((a, b) => a.code.localeCompare(b.code));
+
+  const totalAssets = Number(assets.reduce((s, x) => s + x.amount, 0).toFixed(2));
+  const totalLiabilities = Number(liabilities.reduce((s, x) => s + x.amount, 0).toFixed(2));
+  const totalEquity = Number(equityWithRetained.reduce((s, x) => s + x.amount, 0).toFixed(2));
+  const liabilitiesAndEquity = Number((totalLiabilities + totalEquity).toFixed(2));
+  const difference = Number((totalAssets - liabilitiesAndEquity).toFixed(2));
+
+  return {
+    asOf,
+    assets,
+    liabilities,
+    equity: equityWithRetained,
+    totals: {
+      assets: totalAssets,
+      liabilities: totalLiabilities,
+      equity: totalEquity,
+      liabilitiesAndEquity,
+      difference,
+    },
+    equityReconciliation: {
+      fyStart,
+      openingEquity,
+      openingRetainedEarnings,
+      periodNetProfit,
+      totalEquity,
+    },
+  };
+}
+
+accountingRouter.get("/accounting/balance-sheet", requireAuth, async (req, res) => {
+  const orgId = req.user!.organizationId;
+  const asOf = String(req.query.asOf ?? new Date().toISOString().slice(0, 10));
+  const data = await balanceSheetData(orgId, asOf);
+  const format = String(req.query.format ?? "json");
+  if (format === "csv") {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="balance-sheet-${asOf}.csv"`);
+    const lines: string[] = [];
+    lines.push(`# Balance Sheet as of ${asOf}`);
+    lines.push("");
+    lines.push("# Assets");
+    lines.push("Code,Name,Amount");
+    for (const a of data.assets) lines.push(`${a.code},${a.name},${a.amount}`);
+    lines.push(`,Total Assets,${data.totals.assets}`);
+    lines.push("");
+    lines.push("# Liabilities");
+    lines.push("Code,Name,Amount");
+    for (const a of data.liabilities) lines.push(`${a.code},${a.name},${a.amount}`);
+    lines.push(`,Total Liabilities,${data.totals.liabilities}`);
+    lines.push("");
+    lines.push("# Equity");
+    lines.push("Code,Name,Amount");
+    for (const a of data.equity) lines.push(`${a.code},${a.name},${a.amount}`);
+    lines.push(`,Total Equity,${data.totals.equity}`);
+    lines.push("");
+    lines.push(`,Liabilities + Equity,${data.totals.liabilitiesAndEquity}`);
+    lines.push(`,Difference,${data.totals.difference}`);
+    res.send(lines.join("\n"));
+    return;
+  }
+  if (format === "xlsx") {
+    void sendXlsx(res, `balance-sheet-${asOf}`, [
+      { name: "Assets", rows: [...data.assets, { code: "", name: "Total Assets", amount: data.totals.assets }] },
+      { name: "Liabilities", rows: [...data.liabilities, { code: "", name: "Total Liabilities", amount: data.totals.liabilities }] },
+      { name: "Equity", rows: [...data.equity, { code: "", name: "Total Equity", amount: data.totals.equity }] },
+      { name: "Summary", rows: [{ ...data.totals, asOf }] },
+      { name: "Reconciliation", rows: [data.equityReconciliation] },
+    ]);
+    return;
+  }
+  res.json(data);
+});
+
 // ── Vendor ageing ─────────────────────────────────────────────────────────
 accountingRouter.get("/accounting/vendor-ageing", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;

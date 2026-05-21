@@ -9,7 +9,7 @@ import {
   TrendingUp, CheckSquare, ShoppingCart, Receipt, Megaphone,
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
   Share2, Mail, Ban,
-  UserCircle2, CalendarCheck, Wallet, BookOpen,
+  UserCircle2, CalendarCheck, Wallet, BookOpen, Scale,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -55,6 +55,7 @@ const navItems: NavItem[] = [
   { href: "/accounting/pnl", label: "P&L", icon: TrendingUp, module: "accounting" },
   { href: "/accounting/gst", label: "GST reports", icon: FileText, module: "accounting" },
   { href: "/accounting/vendor-ageing", label: "Vendor ageing", icon: Truck, module: "accounting" },
+  { href: "/accounting/balance-sheet", label: "Balance sheet", icon: Scale, module: "accounting" },
   { href: "/reports", label: "Reports", icon: BarChart3, module: "sales" },
   { href: "/audit-logs", label: "Audit Logs", icon: ShieldCheck },
 ];
