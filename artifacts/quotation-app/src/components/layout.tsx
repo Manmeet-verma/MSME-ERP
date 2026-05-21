@@ -9,7 +9,7 @@ import {
   TrendingUp, CheckSquare, ShoppingCart, Receipt, Megaphone,
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
   Share2, Mail, Ban,
-  UserCircle2, CalendarCheck, Wallet, BookOpen, Scale,
+  UserCircle2, CalendarCheck, Wallet, BookOpen, Scale, Plane,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { href: "/vendor-bills", label: "Vendor Bills", icon: Receipt, module: "purchase" },
   { href: "/employees", label: "Employees", icon: UserCircle2, module: "hr" },
   { href: "/attendance", label: "Attendance", icon: CalendarCheck, module: "hr" },
+  { href: "/leave-requests", label: "Leave requests", icon: Plane, module: "hr" },
   { href: "/payroll", label: "Payroll", icon: Wallet, module: "hr" },
   { href: "/expenses", label: "Expenses", icon: Receipt, module: "accounting" },
   { href: "/accounting/ledger", label: "Ledger", icon: BookOpen, module: "accounting" },

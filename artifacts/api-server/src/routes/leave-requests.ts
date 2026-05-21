@@ -1,31 +1,95 @@
 import { Router, type Request, type Response } from "express";
-import { and, eq, desc } from "drizzle-orm";
-import { db, leaveRequestsTable, employeesTable, attendanceTable } from "@workspace/db";
-import { requireAuth, requireRole } from "../middlewares/auth";
+import { and, eq, desc, or } from "drizzle-orm";
+import { db, leaveRequestsTable, employeesTable, attendanceTable, usersTable } from "@workspace/db";
+import { requireAuth, requireRole, type MemberRole } from "../middlewares/auth";
 
 const leaveRequestsRouter = Router();
 
+function isApprover(role: MemberRole): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/**
+ * Resolve the employee row(s) tied to the requesting user inside this org.
+ * Matching is by email (case-insensitive) since employees don't have a hard FK to users.
+ * Returns all matches in case the same email is reused for multiple employee codes.
+ */
+async function findSelfEmployees(orgId: number, userId: number): Promise<number[]> {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user?.email) return [];
+  const rows = await db
+    .select({ id: employeesTable.id, email: employeesTable.email })
+    .from(employeesTable)
+    .where(eq(employeesTable.organizationId, orgId));
+  const target = user.email.trim().toLowerCase();
+  return rows.filter((r) => (r.email ?? "").trim().toLowerCase() === target).map((r) => r.id);
+}
+
 leaveRequestsRouter.get("/leave-requests", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
+  const role = req.user!.role;
+  const baseQuery = db
     .select()
     .from(leaveRequestsTable)
     .where(eq(leaveRequestsTable.organizationId, orgId))
+    .orderBy(desc(leaveRequestsTable.createdAt));
+
+  if (isApprover(role)) {
+    const rows = await baseQuery;
+    res.json(rows);
+    return;
+  }
+
+  const selfIds = await findSelfEmployees(orgId, req.user!.userId);
+  if (selfIds.length === 0) {
+    res.json([]);
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(leaveRequestsTable)
+    .where(and(
+      eq(leaveRequestsTable.organizationId, orgId),
+      or(...selfIds.map((id) => eq(leaveRequestsTable.employeeId, id))),
+    ))
     .orderBy(desc(leaveRequestsTable.createdAt));
   res.json(rows);
 });
 
 leaveRequestsRouter.post("/leave-requests", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
+  const role = req.user!.role;
   const b = req.body ?? {};
-  if (!b.employeeId || !b.fromDate || !b.toDate) {
-    res.status(400).json({ error: "employeeId, fromDate, toDate required" });
+  if (!b.fromDate || !b.toDate) {
+    res.status(400).json({ error: "fromDate and toDate required" });
     return;
   }
+
+  let targetEmployeeId: number | null = b.employeeId != null ? Number(b.employeeId) : null;
+
+  if (!isApprover(role)) {
+    const selfIds = await findSelfEmployees(orgId, req.user!.userId);
+    if (selfIds.length === 0) {
+      res.status(403).json({ error: "No employee profile linked to your account. Ask an admin to add you under Employees." });
+      return;
+    }
+    // Non-admins may only file for themselves. If they passed an employeeId, it must match a self-id.
+    if (targetEmployeeId != null && !selfIds.includes(targetEmployeeId)) {
+      res.status(403).json({ error: "You can only request leave for yourself." });
+      return;
+    }
+    targetEmployeeId = targetEmployeeId ?? selfIds[0];
+  } else {
+    if (!targetEmployeeId) {
+      res.status(400).json({ error: "employeeId required" });
+      return;
+    }
+  }
+
   const [emp] = await db
     .select()
     .from(employeesTable)
-    .where(and(eq(employeesTable.id, Number(b.employeeId)), eq(employeesTable.organizationId, orgId)));
+    .where(and(eq(employeesTable.id, targetEmployeeId), eq(employeesTable.organizationId, orgId)));
   if (!emp) { res.status(400).json({ error: "Invalid employee" }); return; }
   const from = new Date(b.fromDate);
   const to = new Date(b.toDate);
@@ -34,7 +98,7 @@ leaveRequestsRouter.post("/leave-requests", requireAuth, async (req, res) => {
     .insert(leaveRequestsTable)
     .values({
       organizationId: orgId,
-      employeeId: Number(b.employeeId),
+      employeeId: targetEmployeeId,
       leaveType: String(b.leaveType ?? "casual"),
       fromDate: b.fromDate,
       toDate: b.toDate,

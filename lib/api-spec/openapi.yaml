@@ -2760,6 +2760,71 @@ paths:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/LeaveBalance" } }
 
+  /leave-requests:
+    get:
+      tags: [Attendance]
+      operationId: listLeaveRequests
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LeaveRequest" } }
+    post:
+      tags: [Attendance]
+      operationId: createLeaveRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeaveRequestInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeaveRequest" }
+  /leave-requests/{id}/approve:
+    post:
+      tags: [Attendance]
+      operationId: approveLeaveRequest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeaveDecisionInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeaveRequest" }
+  /leave-requests/{id}/reject:
+    post:
+      tags: [Attendance]
+      operationId: rejectLeaveRequest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeaveDecisionInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeaveRequest" }
+
   /payroll-runs:
     get:
       tags: [Payroll]
@@ -4866,6 +4931,37 @@ components:
         used:
           type: object
           additionalProperties: { type: number }
+    LeaveRequest:
+      type: object
+      required: [id, organizationId, employeeId, leaveType, fromDate, toDate, days, status, createdAt]
+      properties:
+        id: { type: integer }
+        organizationId: { type: integer }
+        employeeId: { type: integer }
+        leaveType: { type: string }
+        fromDate: { type: string }
+        toDate: { type: string }
+        days: { type: string }
+        reason: { type: ["string", "null"] }
+        status: { type: string, enum: [pending, approved, rejected] }
+        approverId: { type: ["integer", "null"] }
+        decidedAt: { type: ["string", "null"] }
+        decisionNote: { type: ["string", "null"] }
+        createdAt: { type: string }
+    LeaveRequestInput:
+      type: object
+      required: [fromDate, toDate]
+      properties:
+        employeeId: { type: ["integer", "null"] }
+        leaveType: { type: string }
+        fromDate: { type: string }
+        toDate: { type: string }
+        days: { type: ["number", "string", "null"] }
+        reason: { type: ["string", "null"] }
+    LeaveDecisionInput:
+      type: object
+      properties:
+        note: { type: ["string", "null"] }
 
     PayrollRun:
       type: object

@@ -42,6 +42,7 @@ import SuppressionsPage from "@/pages/marketing/suppressions";
 import UnsubscribePage from "@/pages/unsubscribe";
 import EmployeesPage from "@/pages/employees";
 import AttendancePage from "@/pages/attendance";
+import LeaveRequestsPage from "@/pages/leave-requests";
 import PayrollPage from "@/pages/payroll";
 import PayrollDetailPage from "@/pages/payroll/detail";
 import ExpensesPage from "@/pages/expenses";
@@ -112,6 +113,7 @@ function Router() {
       <Route path="/marketing/suppressions" component={() => <Guard component={SuppressionsPage} />} />
       <Route path="/employees" component={() => <Guard component={EmployeesPage} />} />
       <Route path="/attendance" component={() => <Guard component={AttendancePage} />} />
+      <Route path="/leave-requests" component={() => <Guard component={LeaveRequestsPage} />} />
       <Route path="/payroll" component={() => <Guard component={PayrollPage} />} />
       <Route path="/payroll/:id" component={() => <Guard component={PayrollDetailPage} />} />
       <Route path="/expenses" component={() => <Guard component={ExpensesPage} />} />

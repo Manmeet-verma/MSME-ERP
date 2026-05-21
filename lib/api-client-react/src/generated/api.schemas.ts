@@ -2164,6 +2164,52 @@ export interface LeaveBalance {
   used: LeaveBalanceUsed;
 }
 
+export type LeaveRequestStatus = typeof LeaveRequestStatus[keyof typeof LeaveRequestStatus];
+
+
+export const LeaveRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface LeaveRequest {
+  id: number;
+  organizationId: number;
+  employeeId: number;
+  leaveType: string;
+  fromDate: string;
+  toDate: string;
+  days: string;
+  /** @nullable */
+  reason?: string | null;
+  status: LeaveRequestStatus;
+  /** @nullable */
+  approverId?: number | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  decisionNote?: string | null;
+  createdAt: string;
+}
+
+export interface LeaveRequestInput {
+  /** @nullable */
+  employeeId?: number | null;
+  leaveType?: string;
+  fromDate: string;
+  toDate: string;
+  /** @nullable */
+  days?: number | string | null;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface LeaveDecisionInput {
+  /** @nullable */
+  note?: string | null;
+}
+
 export type PayrollRunStatus = typeof PayrollRunStatus[keyof typeof PayrollRunStatus];
 
 

@@ -3474,6 +3474,84 @@ export const GetLeaveBalancesResponseItem = zod.object({
 export const GetLeaveBalancesResponse = zod.array(GetLeaveBalancesResponseItem)
 
 
+export const ListLeaveRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "organizationId": zod.number(),
+  "employeeId": zod.number(),
+  "leaveType": zod.string(),
+  "fromDate": zod.string(),
+  "toDate": zod.string(),
+  "days": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "approverId": zod.number().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListLeaveRequestsResponse = zod.array(ListLeaveRequestsResponseItem)
+
+
+export const CreateLeaveRequestBody = zod.object({
+  "employeeId": zod.number().nullish(),
+  "leaveType": zod.string().optional(),
+  "fromDate": zod.string(),
+  "toDate": zod.string(),
+  "days": zod.union([zod.number(),zod.string()]).nullish(),
+  "reason": zod.string().nullish()
+})
+
+
+export const ApproveLeaveRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ApproveLeaveRequestBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const ApproveLeaveRequestResponse = zod.object({
+  "id": zod.number(),
+  "organizationId": zod.number(),
+  "employeeId": zod.number(),
+  "leaveType": zod.string(),
+  "fromDate": zod.string(),
+  "toDate": zod.string(),
+  "days": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "approverId": zod.number().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+export const RejectLeaveRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectLeaveRequestBody = zod.object({
+  "note": zod.string().nullish()
+})
+
+export const RejectLeaveRequestResponse = zod.object({
+  "id": zod.number(),
+  "organizationId": zod.number(),
+  "employeeId": zod.number(),
+  "leaveType": zod.string(),
+  "fromDate": zod.string(),
+  "toDate": zod.string(),
+  "days": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "approverId": zod.number().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
 export const ListPayrollRunsResponseItem = zod.object({
   "id": zod.number(),
   "periodMonth": zod.number(),
