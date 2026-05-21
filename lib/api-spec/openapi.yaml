@@ -3533,6 +3533,8 @@ components:
         quotationId: { type: integer }
         productId: { type: ["integer", "null"] }
         productName: { type: ["string", "null"] }
+        itemId: { type: ["integer", "null"] }
+        itemName: { type: ["string", "null"] }
         description: { type: string }
         widthFt: { type: ["number", "null"] }
         heightFt: { type: ["number", "null"] }
@@ -3547,6 +3549,7 @@ components:
       required: [description, quantity, unitPrice]
       properties:
         productId: { type: integer }
+        itemId: { type: ["integer", "null"] }
         description: { type: string }
         widthFt: { type: number }
         heightFt: { type: number }
@@ -3558,6 +3561,7 @@ components:
       type: object
       properties:
         productId: { type: integer }
+        itemId: { type: ["integer", "null"] }
         description: { type: string }
         widthFt: { type: number }
         heightFt: { type: number }

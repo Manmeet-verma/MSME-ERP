@@ -418,14 +418,6 @@ salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth,
     return;
   }
   const items = await db.select().from(quotationItemsTable).where(eq(quotationItemsTable.quotationId, qid));
-  // Best-effort: map each quotation line to an inventory item by name match
-  // within the same org. Lines without a match remain unlinked (itemId=null)
-  // and will be flagged at SO confirm time.
-  const allItems = await db
-    .select()
-    .from(itemsTable)
-    .where(eq(itemsTable.organizationId, orgId));
-  const byName = new Map(allItems.map((it) => [it.name.trim().toLowerCase(), it.id]));
   const [s] = await db
     .insert(salesOrdersTable)
     .values({
@@ -444,10 +436,13 @@ salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth,
     })
     .returning();
   if (items.length > 0) {
+    // Carry the inventory item linkage straight across from the quotation
+    // line. Lines without a linked item stay unlinked and will be flagged at
+    // SO confirm time.
     await db.insert(salesOrderItemsTable).values(
       items.map((i) => ({
         salesOrderId: s.id,
-        itemId: byName.get(i.description.trim().toLowerCase()) ?? null,
+        itemId: i.itemId ?? null,
         description: i.description,
         quantity: i.quantity,
         unitPrice: i.unitPrice,

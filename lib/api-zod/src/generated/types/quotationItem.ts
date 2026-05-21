@@ -13,6 +13,10 @@ export interface QuotationItem {
   productId?: number | null;
   /** @nullable */
   productName?: string | null;
+  /** @nullable */
+  itemId?: number | null;
+  /** @nullable */
+  itemName?: string | null;
   description: string;
   /** @nullable */
   widthFt?: number | null;

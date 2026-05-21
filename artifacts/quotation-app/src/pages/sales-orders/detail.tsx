@@ -58,15 +58,29 @@ export default function SalesOrderDetailPage() {
   }
   function linkLineItem(lineId: number, itemId: number | null) {
     if (!order?.items) return;
+    // When the user picks an inventory item, auto-fill description and unit
+    // price from that item (matches the PO form UX). When clearing the link,
+    // leave description and price as-is.
+    const picked = itemId ? items.find((i) => i.id === itemId) : null;
     updateMut.mutate({
       id,
       data: {
-        items: order.items.map((it) => ({
-          itemId: it.id === lineId ? itemId : (it.itemId ?? null),
-          description: it.description,
-          quantity: it.quantity,
-          unitPrice: Number(it.unitPrice),
-        })),
+        items: order.items.map((it) => {
+          if (it.id !== lineId) {
+            return {
+              itemId: it.itemId ?? null,
+              description: it.description,
+              quantity: it.quantity,
+              unitPrice: Number(it.unitPrice),
+            };
+          }
+          return {
+            itemId,
+            description: picked?.name ?? it.description,
+            quantity: it.quantity,
+            unitPrice: picked?.salePrice ?? Number(it.unitPrice),
+          };
+        }),
       },
     });
   }

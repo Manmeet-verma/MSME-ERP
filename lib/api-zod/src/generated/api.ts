@@ -668,6 +668,8 @@ export const GetQuotationResponse = zod.object({
   "quotationId": zod.number(),
   "productId": zod.number().nullish(),
   "productName": zod.string().nullish(),
+  "itemId": zod.number().nullish(),
+  "itemName": zod.string().nullish(),
   "description": zod.string(),
   "widthFt": zod.number().nullish(),
   "heightFt": zod.number().nullish(),
@@ -779,6 +781,7 @@ export const AddQuotationItemParams = zod.object({
 
 export const AddQuotationItemBody = zod.object({
   "productId": zod.number().optional(),
+  "itemId": zod.number().nullish(),
   "description": zod.string(),
   "widthFt": zod.number().optional(),
   "heightFt": zod.number().optional(),
@@ -795,6 +798,7 @@ export const UpdateQuotationItemParams = zod.object({
 
 export const UpdateQuotationItemBody = zod.object({
   "productId": zod.number().optional(),
+  "itemId": zod.number().nullish(),
   "description": zod.string().optional(),
   "widthFt": zod.number().optional(),
   "heightFt": zod.number().optional(),
@@ -808,6 +812,8 @@ export const UpdateQuotationItemResponse = zod.object({
   "quotationId": zod.number(),
   "productId": zod.number().nullish(),
   "productName": zod.string().nullish(),
+  "itemId": zod.number().nullish(),
+  "itemName": zod.string().nullish(),
   "description": zod.string(),
   "widthFt": zod.number().nullish(),
   "heightFt": zod.number().nullish(),

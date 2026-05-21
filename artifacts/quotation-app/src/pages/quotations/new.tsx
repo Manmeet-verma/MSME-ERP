@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import {
-  useListClients, useListProducts, useListAddons,
+  useListClients, useListProducts, useListAddons, useListItems,
   useCreateQuotation, useAddQuotationItem, useAddQuotationAddon,
 } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
@@ -19,6 +19,7 @@ type LineItem = {
   id: string;
   productId: number;
   productName: string;
+  itemId: number | null;
   description: string;
   widthFt: string;
   heightFt: string;
@@ -55,6 +56,7 @@ export default function NewQuotationPage() {
   const { data: clients } = useListClients({});
   const { data: products } = useListProducts({});
   const { data: addons } = useListAddons();
+  const { data: inventoryItems } = useListItems();
 
   const [clientId, setClientId] = useState("");
   const [validDays, setValidDays] = useState("30");
@@ -78,6 +80,7 @@ export default function NewQuotationPage() {
         id: Math.random().toString(36).slice(2),
         productId: p.id,
         productName: p.name,
+        itemId: null,
         description: p.name,
         widthFt: "",
         heightFt: "",
@@ -141,6 +144,7 @@ export default function NewQuotationPage() {
             id: qId,
             data: {
               productId: item.productId,
+              itemId: item.itemId ?? null,
               description: item.description,
               widthFt: item.widthFt ? parseFloat(item.widthFt) : undefined,
               heightFt: item.heightFt ? parseFloat(item.heightFt) : undefined,
@@ -263,6 +267,30 @@ export default function NewQuotationPage() {
                           <button type="button" onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-1">Linked inventory item (optional, used for stock at SO confirm)</p>
+                          <select
+                            value={item.itemId ?? ""}
+                            onChange={(e) => {
+                              const id = e.target.value ? Number(e.target.value) : null;
+                              const inv = id ? (inventoryItems ?? []).find((x) => x.id === id) : null;
+                              setItems((prev) => prev.map((x) => x.id === item.id
+                                ? {
+                                    ...x,
+                                    itemId: id,
+                                    description: inv?.name ?? x.description,
+                                    unitPrice: inv?.salePrice ?? x.unitPrice,
+                                  }
+                                : x));
+                            }}
+                            className="w-full h-7 rounded-md border border-input bg-input px-2 text-xs"
+                          >
+                            <option value="">— Not linked —</option>
+                            {(inventoryItems ?? []).map((inv) => (
+                              <option key={inv.id} value={inv.id}>{inv.name} ({inv.sku})</option>
+                            ))}
+                          </select>
                         </div>
                         <Input
                           placeholder="Description"

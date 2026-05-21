@@ -8,6 +8,7 @@ import {
   usersTable,
   productsTable,
   addonsTable,
+  itemsTable,
 } from "@workspace/db";
 import { eq, and, sql, count } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
@@ -24,12 +25,14 @@ function genQuotationNumber(): string {
   return `QT-${y}${m}-${rand}`;
 }
 
-function formatItem(item: typeof quotationItemsTable.$inferSelect, productName?: string | null) {
+function formatItem(item: typeof quotationItemsTable.$inferSelect, productName?: string | null, itemName?: string | null) {
   return {
     id: item.id,
     quotationId: item.quotationId,
     productId: item.productId ?? null,
     productName: productName ?? null,
+    itemId: item.itemId ?? null,
+    itemName: itemName ?? null,
     description: item.description,
     widthFt: item.widthFt !== null ? Number(item.widthFt) : null,
     heightFt: item.heightFt !== null ? Number(item.heightFt) : null,
@@ -184,6 +187,15 @@ quotationsRouter.get("/quotations/:id", requireAuth, async (req, res) => {
           .where(sql`${productsTable.id} = ANY(ARRAY[${sql.raw(productIds.join(","))}])`)
       : [];
   const productMap = new Map(products.map((p) => [p.id, p.name]));
+  const itemIds = items.map((i) => i.itemId).filter(Boolean) as number[];
+  const linkedItems =
+    itemIds.length > 0
+      ? await db
+          .select()
+          .from(itemsTable)
+          .where(sql`${itemsTable.id} = ANY(ARRAY[${sql.raw(itemIds.join(","))}])`)
+      : [];
+  const itemMap = new Map(linkedItems.map((it) => [it.id, it.name]));
   const addonIds = addons.map((a) => a.addonId).filter(Boolean) as number[];
   const addonRows =
     addonIds.length > 0
@@ -214,7 +226,7 @@ quotationsRouter.get("/quotations/:id", requireAuth, async (req, res) => {
     total: Number(q.total),
     notes: q.notes ?? null,
     terms: q.terms ?? null,
-    items: items.map((i) => formatItem(i, productMap.get(i.productId ?? -1) ?? null)),
+    items: items.map((i) => formatItem(i, productMap.get(i.productId ?? -1) ?? null, itemMap.get(i.itemId ?? -1) ?? null)),
     quotationAddons: addons.map((a) => formatAddon(a, addonMap.get(a.addonId ?? -1) ?? null)),
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
@@ -361,7 +373,7 @@ quotationsRouter.post("/quotations/:id/items", requireAuth, async (req, res) => 
     res.status(404).json({ error: "Quotation not found" });
     return;
   }
-  const { productId, description, widthFt, heightFt, quantity, unitPrice, notes } = req.body ?? {};
+  const { productId, itemId, description, widthFt, heightFt, quantity, unitPrice, notes } = req.body ?? {};
   if (!description || !quantity || unitPrice === undefined) {
     res.status(400).json({ error: "Required fields missing" });
     return;
@@ -373,6 +385,16 @@ quotationsRouter.post("/quotations/:id/items", requireAuth, async (req, res) => 
       .where(and(eq(productsTable.id, Number(productId)), eq(productsTable.organizationId, orgId)));
     if (!p) {
       res.status(400).json({ error: "Invalid product" });
+      return;
+    }
+  }
+  if (itemId) {
+    const [it] = await db
+      .select()
+      .from(itemsTable)
+      .where(and(eq(itemsTable.id, Number(itemId)), eq(itemsTable.organizationId, orgId)));
+    if (!it) {
+      res.status(400).json({ error: "Invalid inventory item" });
       return;
     }
   }
@@ -390,6 +412,7 @@ quotationsRouter.post("/quotations/:id/items", requireAuth, async (req, res) => 
     .values({
       quotationId,
       productId: productId ?? null,
+      itemId: itemId ?? null,
       description,
       widthFt: widthFt ? String(widthFt) : null,
       heightFt: heightFt ? String(heightFt) : null,
@@ -407,7 +430,12 @@ quotationsRouter.post("/quotations/:id/items", requireAuth, async (req, res) => 
     const [p] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
     productName = p?.name ?? null;
   }
-  res.status(201).json(formatItem(item, productName));
+  let itemName: string | null = null;
+  if (item.itemId) {
+    const [it] = await db.select().from(itemsTable).where(eq(itemsTable.id, item.itemId));
+    itemName = it?.name ?? null;
+  }
+  res.status(201).json(formatItem(item, productName, itemName));
 });
 
 quotationsRouter.patch("/quotations/:id/items/:itemId", requireAuth, async (req, res) => {
@@ -424,7 +452,7 @@ quotationsRouter.patch("/quotations/:id/items/:itemId", requireAuth, async (req,
     res.status(404).json({ error: "Item not found" });
     return;
   }
-  const { productId, description, widthFt, heightFt, quantity, unitPrice, notes } = req.body ?? {};
+  const { productId, itemId: linkedItemId, description, widthFt, heightFt, quantity, unitPrice, notes } = req.body ?? {};
   if (productId) {
     const [p] = await db
       .select()
@@ -435,8 +463,19 @@ quotationsRouter.patch("/quotations/:id/items/:itemId", requireAuth, async (req,
       return;
     }
   }
+  if (linkedItemId) {
+    const [it] = await db
+      .select()
+      .from(itemsTable)
+      .where(and(eq(itemsTable.id, Number(linkedItemId)), eq(itemsTable.organizationId, orgId)));
+    if (!it) {
+      res.status(400).json({ error: "Invalid inventory item" });
+      return;
+    }
+  }
   const updates: Record<string, unknown> = {};
   if (productId !== undefined) updates.productId = productId;
+  if (linkedItemId !== undefined) updates.itemId = linkedItemId;
   if (description !== undefined) updates.description = description;
   if (notes !== undefined) updates.notes = notes;
   const newWidth = widthFt !== undefined ? Number(widthFt) : Number(current.widthFt ?? 0);
@@ -464,7 +503,12 @@ quotationsRouter.patch("/quotations/:id/items/:itemId", requireAuth, async (req,
     const [p] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
     productName = p?.name ?? null;
   }
-  res.json(formatItem(item, productName));
+  let itemName: string | null = null;
+  if (item.itemId) {
+    const [it] = await db.select().from(itemsTable).where(eq(itemsTable.id, item.itemId));
+    itemName = it?.name ?? null;
+  }
+  res.json(formatItem(item, productName, itemName));
 });
 
 quotationsRouter.delete("/quotations/:id/items/:itemId", requireAuth, async (req, res) => {

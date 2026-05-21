@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { clientsTable } from "./clients";
 import { organizationsTable } from "./organizations";
+import { itemsTable } from "./items";
 
 export const quotationsTable = pgTable("quotations", {
   id: serial("id").primaryKey(),
@@ -31,6 +32,7 @@ export const quotationItemsTable = pgTable("quotation_items", {
   id: serial("id").primaryKey(),
   quotationId: integer("quotation_id").notNull().references(() => quotationsTable.id, { onDelete: "cascade" }),
   productId: integer("product_id"),
+  itemId: integer("item_id").references(() => itemsTable.id, { onDelete: "set null" }),
   description: text("description").notNull(),
   widthFt: numeric("width_ft", { precision: 8, scale: 2 }),
   heightFt: numeric("height_ft", { precision: 8, scale: 2 }),

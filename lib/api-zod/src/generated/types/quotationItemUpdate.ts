@@ -8,6 +8,8 @@
 
 export interface QuotationItemUpdate {
   productId?: number;
+  /** @nullable */
+  itemId?: number | null;
   description?: string;
   widthFt?: number;
   heightFt?: number;

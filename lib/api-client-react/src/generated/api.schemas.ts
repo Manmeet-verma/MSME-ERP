@@ -438,6 +438,10 @@ export interface QuotationItem {
   productId?: number | null;
   /** @nullable */
   productName?: string | null;
+  /** @nullable */
+  itemId?: number | null;
+  /** @nullable */
+  itemName?: string | null;
   description: string;
   /** @nullable */
   widthFt?: number | null;
@@ -538,6 +542,8 @@ export interface QuotationStatusUpdate {
 
 export interface QuotationItemInput {
   productId?: number;
+  /** @nullable */
+  itemId?: number | null;
   description: string;
   widthFt?: number;
   heightFt?: number;
@@ -548,6 +554,8 @@ export interface QuotationItemInput {
 
 export interface QuotationItemUpdate {
   productId?: number;
+  /** @nullable */
+  itemId?: number | null;
   description?: string;
   widthFt?: number;
   heightFt?: number;
