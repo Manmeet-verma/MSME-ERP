@@ -5,6 +5,7 @@
  * Multi-tenant SaaS quotation & CRM platform for MSMEs
  * OpenAPI spec version: 2.0.0
  */
+import type { SOItemAvailability } from './sOItemAvailability';
 
 export interface SalesOrderItem {
   id: number;
@@ -14,4 +15,5 @@ export interface SalesOrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  availability?: SOItemAvailability[];
 }

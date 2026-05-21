@@ -5,6 +5,7 @@
  * Multi-tenant SaaS quotation & CRM platform for MSMEs
  * OpenAPI spec version: 2.0.0
  */
+import type { OrgSalesSettings } from './orgSalesSettings';
 
 export interface OrganizationUpdate {
   name?: string;
@@ -13,4 +14,5 @@ export interface OrganizationUpdate {
   state?: string;
   address?: string;
   phone?: string;
+  salesSettings?: OrgSalesSettings;
 }

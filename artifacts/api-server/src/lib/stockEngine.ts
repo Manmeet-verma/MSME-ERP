@@ -1,10 +1,11 @@
 import {
   db,
   stockMovementsTable,
+  stockReservationsTable,
   itemsTable,
   warehousesTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 
 export type MovementReason =
   | "opening"
@@ -152,6 +153,112 @@ async function recordMovementInTx(input: RecordMovementInput) {
   }
 
   return m;
+}
+
+/**
+ * Sum of currently-active reservations against (item, warehouse). Optionally
+ * excludes the SO doing the asking (so an SO's own draft reservations don't
+ * block its own confirmation).
+ */
+export async function getReservedStock(
+  organizationId: number,
+  itemId: number,
+  warehouseId: number,
+  excludeSalesOrderId?: number,
+  executor?: DbOrTx,
+): Promise<number> {
+  const exec = (executor ?? db) as typeof db;
+  const conds = [
+    eq(stockReservationsTable.organizationId, organizationId),
+    eq(stockReservationsTable.itemId, itemId),
+    eq(stockReservationsTable.warehouseId, warehouseId),
+  ];
+  if (excludeSalesOrderId !== undefined) {
+    conds.push(ne(stockReservationsTable.salesOrderId, excludeSalesOrderId));
+  }
+  const [row] = await exec
+    .select({
+      qty: sql<string>`coalesce(sum(${stockReservationsTable.quantity}),0)::text`,
+    })
+    .from(stockReservationsTable)
+    .where(and(...conds));
+  return Number(row?.qty ?? 0);
+}
+
+/**
+ * Stock on hand minus active reservations (other than excludeSalesOrderId).
+ * This is what salespeople should see when deciding whether to commit.
+ */
+export async function getAvailableStock(
+  organizationId: number,
+  itemId: number,
+  warehouseId: number,
+  excludeSalesOrderId?: number,
+  executor?: DbOrTx,
+): Promise<{ onHand: number; reserved: number; available: number }> {
+  const onHand = await getStockLevel(organizationId, itemId, warehouseId, executor);
+  const reserved = await getReservedStock(
+    organizationId,
+    itemId,
+    warehouseId,
+    excludeSalesOrderId,
+    executor,
+  );
+  return { onHand, reserved, available: onHand - reserved };
+}
+
+/**
+ * Replace the reservation set for a SO. Lines without itemId/warehouseId are
+ * ignored. Quantities are aggregated per (item, warehouse). Pass an empty
+ * array to clear.
+ */
+export async function setReservationsForSO(opts: {
+  organizationId: number;
+  salesOrderId: number;
+  lines: Array<{ itemId: number | null; quantity: number }>;
+  warehouseId: number;
+  executor: DbOrTx;
+}): Promise<void> {
+  const exec = opts.executor as typeof db;
+  await exec
+    .delete(stockReservationsTable)
+    .where(
+      and(
+        eq(stockReservationsTable.organizationId, opts.organizationId),
+        eq(stockReservationsTable.salesOrderId, opts.salesOrderId),
+      ),
+    );
+  const agg = new Map<number, number>();
+  for (const l of opts.lines) {
+    if (!l.itemId || !(l.quantity > 0)) continue;
+    agg.set(l.itemId, (agg.get(l.itemId) ?? 0) + l.quantity);
+  }
+  if (agg.size === 0) return;
+  await exec.insert(stockReservationsTable).values(
+    Array.from(agg.entries()).map(([itemId, quantity]) => ({
+      organizationId: opts.organizationId,
+      salesOrderId: opts.salesOrderId,
+      itemId,
+      warehouseId: opts.warehouseId,
+      quantity: String(quantity),
+    })),
+  );
+}
+
+export async function clearReservationsForSO(
+  organizationId: number,
+  salesOrderId: number,
+  executor: DbOrTx,
+): Promise<void> {
+  const exec = executor as typeof db;
+  await exec
+    .delete(stockReservationsTable)
+    .where(
+      and(
+        eq(stockReservationsTable.organizationId, organizationId),
+        eq(stockReservationsTable.salesOrderId, salesOrderId),
+      ),
+    );
 }
 
 export async function ensureDefaultWarehouse(organizationId: number): Promise<number> {

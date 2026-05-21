@@ -91,6 +91,7 @@ function formatOrg(o: typeof organizationsTable.$inferSelect) {
     phone: o.phone ?? null,
     limits: o.limits,
     modules: o.modules,
+    salesSettings: o.salesSettings,
     createdAt: o.createdAt.toISOString(),
   };
 }
@@ -108,7 +109,7 @@ orgRouter.get("/organizations/current", requireAuth, async (req, res) => {
 });
 
 orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req, res) => {
-  const { name, industry, gstNumber, state, address, phone } = req.body ?? {};
+  const { name, industry, gstNumber, state, address, phone, salesSettings } = req.body ?? {};
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (industry !== undefined) updates.industry = industry;
@@ -116,6 +117,17 @@ orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req,
   if (state !== undefined) updates.state = state;
   if (address !== undefined) updates.address = address;
   if (phone !== undefined) updates.phone = phone;
+  if (salesSettings !== undefined && typeof salesSettings === "object" && salesSettings !== null) {
+    // Merge so partial updates don't drop unrelated flags.
+    const [current] = await db
+      .select({ salesSettings: organizationsTable.salesSettings })
+      .from(organizationsTable)
+      .where(eq(organizationsTable.id, req.user!.organizationId));
+    updates.salesSettings = {
+      ...(current?.salesSettings ?? {}),
+      ...(salesSettings as Record<string, boolean>),
+    };
+  }
   const [org] = await db
     .update(organizationsTable)
     .set(updates)

@@ -8,6 +8,7 @@
 import type { OrganizationPlan } from './organizationPlan';
 import type { OrgLimits } from './orgLimits';
 import type { OrgModules } from './orgModules';
+import type { OrgSalesSettings } from './orgSalesSettings';
 
 export interface Organization {
   id: number;
@@ -26,5 +27,6 @@ export interface Organization {
   phone?: string | null;
   limits: OrgLimits;
   modules: OrgModules;
+  salesSettings: OrgSalesSettings;
   createdAt: string;
 }

@@ -3211,7 +3211,7 @@ components:
 
     Organization:
       type: object
-      required: [id, name, slug, plan, limits, modules, createdAt]
+      required: [id, name, slug, plan, limits, modules, salesSettings, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -3224,7 +3224,15 @@ components:
         phone: { type: ["string", "null"] }
         limits: { $ref: "#/components/schemas/OrgLimits" }
         modules: { $ref: "#/components/schemas/OrgModules" }
+        salesSettings: { $ref: "#/components/schemas/OrgSalesSettings" }
         createdAt: { type: string }
+
+    OrgSalesSettings:
+      type: object
+      required: [allowOverselling, reserveStockOnDraft]
+      properties:
+        allowOverselling: { type: boolean }
+        reserveStockOnDraft: { type: boolean }
 
     OrganizationInput:
       type: object
@@ -3236,6 +3244,7 @@ components:
         state: { type: string }
         address: { type: string }
         phone: { type: string }
+        salesSettings: { $ref: "#/components/schemas/OrgSalesSettings" }
 
     OrganizationUpdate:
       type: object
@@ -3246,6 +3255,7 @@ components:
         state: { type: string }
         address: { type: string }
         phone: { type: string }
+        salesSettings: { $ref: "#/components/schemas/OrgSalesSettings" }
 
     CreateOrgResponse:
       type: object
@@ -3969,6 +3979,20 @@ components:
         quantity: { type: integer }
         unitPrice: { type: number }
         totalPrice: { type: number }
+        availability:
+          type: array
+          items: { $ref: "#/components/schemas/SOItemAvailability" }
+
+    SOItemAvailability:
+      type: object
+      required: [warehouseId, warehouseName, isOrderWarehouse, onHand, reserved, available]
+      properties:
+        warehouseId: { type: integer }
+        warehouseName: { type: string }
+        isOrderWarehouse: { type: boolean }
+        onHand: { type: number }
+        reserved: { type: number }
+        available: { type: number }
 
     SalesOrderDetail:
       allOf:

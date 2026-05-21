@@ -112,6 +112,11 @@ export const OrganizationPlan = {
   pro: 'pro',
 } as const;
 
+export interface OrgSalesSettings {
+  allowOverselling: boolean;
+  reserveStockOnDraft: boolean;
+}
+
 export interface Organization {
   id: number;
   name: string;
@@ -129,6 +134,7 @@ export interface Organization {
   phone?: string | null;
   limits: OrgLimits;
   modules: OrgModules;
+  salesSettings: OrgSalesSettings;
   createdAt: string;
 }
 
@@ -139,6 +145,7 @@ export interface OrganizationInput {
   state?: string;
   address?: string;
   phone?: string;
+  salesSettings?: OrgSalesSettings;
 }
 
 export interface OrganizationUpdate {
@@ -148,6 +155,7 @@ export interface OrganizationUpdate {
   state?: string;
   address?: string;
   phone?: string;
+  salesSettings?: OrgSalesSettings;
 }
 
 export interface CreateOrgResponse {
@@ -1063,6 +1071,15 @@ export interface SalesOrder {
   updatedAt?: string;
 }
 
+export interface SOItemAvailability {
+  warehouseId: number;
+  warehouseName: string;
+  isOrderWarehouse: boolean;
+  onHand: number;
+  reserved: number;
+  available: number;
+}
+
 export interface SalesOrderItem {
   id: number;
   /** @nullable */
@@ -1071,6 +1088,7 @@ export interface SalesOrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  availability?: SOItemAvailability[];
 }
 
 export type SalesOrderDetail = SalesOrder & {

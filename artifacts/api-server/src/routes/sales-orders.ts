@@ -8,11 +8,30 @@ import {
   clientsTable,
   itemsTable,
   warehousesTable,
+  organizationsTable,
+  DEFAULT_SALES_SETTINGS,
+  type OrgSalesSettings,
 } from "@workspace/db";
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
-import { recordMovement, ensureDefaultWarehouse, getStockLevel, type DbOrTx } from "../lib/stockEngine";
+import {
+  recordMovement,
+  ensureDefaultWarehouse,
+  getStockLevel,
+  getReservedStock,
+  setReservationsForSO,
+  clearReservationsForSO,
+  type DbOrTx,
+} from "../lib/stockEngine";
+
+async function getSalesSettings(organizationId: number): Promise<OrgSalesSettings> {
+  const [org] = await db
+    .select({ salesSettings: organizationsTable.salesSettings })
+    .from(organizationsTable)
+    .where(eq(organizationsTable.id, organizationId));
+  return { ...DEFAULT_SALES_SETTINGS, ...(org?.salesSettings ?? {}) };
+}
 
 async function resolveSOWarehouse(organizationId: number, soWarehouseId: number | null): Promise<number> {
   if (soWarehouseId) return soWarehouseId;
@@ -187,6 +206,25 @@ salesOrdersRouter.post("/sales-orders", requireAuth, async (req, res) => {
     );
     await recalc(s.id);
   }
+  // New draft SOs that ship with linked lines should reserve immediately when
+  // the org opts in. The PATCH path handles the same logic atomically; this
+  // mirrors it for the create path.
+  const settings = await getSalesSettings(orgId);
+  if (settings.reserveStockOnDraft && Array.isArray(b.items) && b.items.length > 0) {
+    const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
+    await db.transaction(async (tx) => {
+      await setReservationsForSO({
+        organizationId: orgId,
+        salesOrderId: s.id,
+        lines: b.items.map((it: { itemId?: number | null; quantity: number }) => ({
+          itemId: it.itemId ?? null,
+          quantity: it.quantity,
+        })),
+        warehouseId: whId,
+        executor: tx,
+      });
+    });
+  }
   const [updated] = await db.select().from(salesOrdersTable).where(eq(salesOrdersTable.id, s.id));
   await logAction(req, "CREATE", "sales_order", s.id);
   res.status(201).json(await fmt(updated));
@@ -204,6 +242,34 @@ salesOrdersRouter.get("/sales-orders/:id", requireAuth, async (req, res) => {
     return;
   }
   const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
+  // Per-line stock availability for every warehouse in the org. The editor
+  // uses this to highlight oversell risk and surface alternative warehouses.
+  const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
+  const warehouses = await db
+    .select()
+    .from(warehousesTable)
+    .where(eq(warehousesTable.organizationId, orgId));
+  const linkedItemIds = Array.from(
+    new Set(items.map((i) => i.itemId).filter((x): x is number => x != null)),
+  );
+  const availability = new Map<number, Array<{ warehouseId: number; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }>>();
+  for (const itemId of linkedItemIds) {
+    const rows: Array<{ warehouseId: number; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }> = [];
+    for (const wh of warehouses) {
+      const onHand = await getStockLevel(orgId, itemId, wh.id);
+      // Exclude THIS SO's own reservations so a draft doesn't appear to block itself.
+      const reserved = await getReservedStock(orgId, itemId, wh.id, id);
+      rows.push({
+        warehouseId: wh.id,
+        warehouseName: wh.name,
+        isOrderWarehouse: wh.id === whId,
+        onHand,
+        reserved,
+        available: onHand - reserved,
+      });
+    }
+    availability.set(itemId, rows);
+  }
   res.json({
     ...(await fmt(s)),
     items: items.map((i) => ({
@@ -213,6 +279,7 @@ salesOrdersRouter.get("/sales-orders/:id", requireAuth, async (req, res) => {
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
       totalPrice: Number(i.totalPrice),
+      availability: i.itemId ? availability.get(i.itemId) ?? [] : [],
     })),
   });
 });
@@ -276,6 +343,11 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     ["confirmed", "in_production", "delivered"].includes(b.status);
   const becomingDead =
     b.status !== undefined && wasActive && ["cancelled", "draft"].includes(b.status);
+  const settings = await getSalesSettings(orgId);
+  // Reservations only apply to drafts. Anything else holds stock via ledger.
+  const willEndAsDraft = b.status !== undefined ? b.status === "draft" : prev.status === "draft";
+  const willBeCancelled =
+    b.status !== undefined ? b.status === "cancelled" : prev.status === "cancelled";
   try {
     await db.transaction(async (tx) => {
       // 1) Apply header updates inside the tx
@@ -361,13 +433,21 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
         const shortages: Array<{ itemId: number; needed: number; available: number }> = [];
         for (const [itemId, needed] of need) {
           const have = await getStockLevel(orgId, itemId, whId, tx);
-          if (have < needed) shortages.push({ itemId, needed, available: have });
+          // Reservations from *other* SOs eat into available stock too — a
+          // concurrent draft that's already reserved 5 units shouldn't be
+          // overwritten silently.
+          const reserved = await getReservedStock(orgId, itemId, whId, id, tx);
+          const available = have - reserved;
+          if (available < needed) shortages.push({ itemId, needed, available });
         }
-        if (shortages.length > 0) {
+        if (shortages.length > 0 && !settings.allowOverselling) {
           // Aborts the transaction and surfaces a structured 409 below.
           const err = new Error("INSUFFICIENT_STOCK");
           (err as unknown as { shortages: typeof shortages }).shortages = shortages;
           throw err;
+        }
+        if (shortages.length > 0) {
+          req.log.warn({ shortages, salesOrderId: id }, "SO confirmed with overselling allowed");
         }
         await postSOMovements({
           organizationId: orgId,
@@ -379,6 +459,37 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
           userId: req.user!.userId,
           executor: tx,
         });
+        // Real stock movement now holds the qty; soft-hold no longer needed.
+        await clearReservationsForSO(orgId, id, tx);
+      }
+      // Reservation lifecycle: only drafts can hold soft reservations, and
+      // only when the org has opted in. Cancelled SOs always clear.
+      if (willBeCancelled) {
+        await clearReservationsForSO(orgId, id, tx);
+      } else if (willEndAsDraft) {
+        if (settings.reserveStockOnDraft) {
+          const finalLines = (
+            await tx
+              .select()
+              .from(salesOrderItemsTable)
+              .where(eq(salesOrderItemsTable.salesOrderId, id))
+          ).map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
+          const [refreshed] = await tx
+            .select()
+            .from(salesOrdersTable)
+            .where(eq(salesOrdersTable.id, id));
+          const whId = await resolveSOWarehouse(orgId, refreshed.warehouseId ?? null);
+          await setReservationsForSO({
+            organizationId: orgId,
+            salesOrderId: id,
+            lines: finalLines,
+            warehouseId: whId,
+            executor: tx,
+          });
+        } else {
+          // Toggle was turned off mid-flight — drop any holdovers.
+          await clearReservationsForSO(orgId, id, tx);
+        }
       }
     });
   } catch (e) {
@@ -449,6 +560,25 @@ salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth,
         totalPrice: i.totalPrice,
       })),
     );
+  }
+  // Mirror the POST /sales-orders create path: when the org opts in to
+  // reserving stock on drafts, promote-from-quotation must also create
+  // soft holds for any linked lines so a concurrent SO can't double-book.
+  const settings = await getSalesSettings(orgId);
+  if (settings.reserveStockOnDraft && items.length > 0) {
+    const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
+    await db.transaction(async (tx) => {
+      await setReservationsForSO({
+        organizationId: orgId,
+        salesOrderId: s.id,
+        lines: items.map((i) => ({
+          itemId: i.itemId ?? null,
+          quantity: Number(i.quantity),
+        })),
+        warehouseId: whId,
+        executor: tx,
+      });
+    });
   }
   await logAction(req, "PROMOTE", "sales_order", s.id, `From quotation ${q.quotationNumber}`);
   res.status(201).json(await fmt(s));

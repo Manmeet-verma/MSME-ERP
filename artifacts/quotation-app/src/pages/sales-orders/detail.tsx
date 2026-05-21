@@ -86,6 +86,14 @@ export default function SalesOrderDetailPage() {
   }
   if (!order) return <div className="p-6">Loading...</div>;
   const itemMap = new Map(items.map((i) => [i.id, i]));
+  const orderWhId = order.warehouseId ?? null;
+  // Detect oversell up front so the confirm button can be visually warned.
+  const oversellLines = (order.items ?? []).filter((it) => {
+    if (!it.itemId) return false;
+    const av = it.availability?.find((a) => orderWhId ? a.warehouseId === orderWhId : a.isOrderWarehouse);
+    return av ? av.available < it.quantity : false;
+  });
+  const hasOversell = oversellLines.length > 0;
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
       <Link href="/sales-orders"><a className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-4 w-4" />Back</a></Link>
@@ -114,8 +122,16 @@ export default function SalesOrderDetailPage() {
                   <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
               </select>
-              <Button size="sm" className="gap-1" disabled={updateMut.isPending} onClick={() => setStatus("confirmed")}>
-                <CheckCircle className="h-4 w-4" />Confirm &amp; deduct stock
+              <Button
+                size="sm"
+                className="gap-1"
+                variant={hasOversell ? "destructive" : "default"}
+                disabled={updateMut.isPending}
+                onClick={() => setStatus("confirmed")}
+                title={hasOversell ? "Some lines exceed stock — server will block unless overselling is allowed" : undefined}
+              >
+                <CheckCircle className="h-4 w-4" />
+                {hasOversell ? "Confirm anyway" : "Confirm & deduct stock"}
               </Button>
               <Button size="sm" variant="outline" className="gap-1" disabled={updateMut.isPending} onClick={() => setStatus("cancelled")}>
                 <XCircle className="h-4 w-4" />Cancel
@@ -146,7 +162,7 @@ export default function SalesOrderDetailPage() {
             <tr>
               <th className="text-left p-3">Item</th>
               <th className="text-right p-3">Qty</th>
-              <th className="text-right p-3">Stock</th>
+              <th className="text-left p-3">Stock by warehouse</th>
               <th className="text-right p-3">Price</th>
               <th className="text-right p-3">Total</th>
             </tr>
@@ -154,12 +170,13 @@ export default function SalesOrderDetailPage() {
           <tbody>
             {(order.items ?? []).map((it) => {
               const linked = it.itemId ? itemMap.get(it.itemId) : null;
-              const stock = linked?.currentStock ?? null;
-              const enough = stock !== null && stock >= it.quantity;
+              const availability = it.availability ?? [];
+              const orderAv = availability.find((a) => orderWhId ? a.warehouseId === orderWhId : a.isOrderWarehouse);
+              const oversell = orderAv != null && orderAv.available < it.quantity;
               const editable = order.status === "draft";
               return (
-                <tr key={it.id} className="border-t border-border">
-                  <td className="p-3">
+                <tr key={it.id} className={`border-t border-border ${oversell ? "bg-destructive/5" : ""}`}>
+                  <td className="p-3 align-top">
                     <div>{it.description}</div>
                     {editable && (
                       <select
@@ -175,27 +192,54 @@ export default function SalesOrderDetailPage() {
                       </select>
                     )}
                   </td>
-                  <td className="p-3 text-right">{it.quantity}</td>
-                  <td className="p-3 text-right">
+                  <td className="p-3 text-right align-top">{it.quantity}</td>
+                  <td className="p-3 align-top">
                     {linked == null ? (
                       <span className="text-xs text-amber-500 inline-flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3" /> Unlinked
                       </span>
+                    ) : availability.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">No warehouses</span>
                     ) : (
-                      <span className={`inline-flex items-center gap-1 text-xs ${enough ? "text-emerald-500" : "text-amber-500"}`}>
-                        {enough ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                        {stock} {linked.unit}
-                      </span>
+                      <ul className="space-y-0.5">
+                        {availability.map((a) => {
+                          const enough = a.available >= it.quantity;
+                          const isOrderWh = orderWhId ? a.warehouseId === orderWhId : a.isOrderWarehouse;
+                          return (
+                            <li
+                              key={a.warehouseId}
+                              className={`text-xs inline-flex items-center gap-1 whitespace-nowrap ${isOrderWh ? "font-medium" : "text-muted-foreground"} ${isOrderWh && !enough ? "text-destructive" : isOrderWh && enough ? "text-emerald-500" : ""}`}
+                            >
+                              {isOrderWh && (enough ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />)}
+                              <span>{a.warehouseName}:</span>
+                              <span>{a.available} {linked.unit}</span>
+                              {a.reserved > 0 && (
+                                <span className="text-muted-foreground">({a.onHand} on hand · {a.reserved} held)</span>
+                              )}
+                              <span className="ml-1 flex-shrink-0 inline-block">{isOrderWh ? <span className="text-[10px] uppercase tracking-wide opacity-70">order wh</span> : null}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     )}
                   </td>
-                  <td className="p-3 text-right">{formatCurrency(it.unitPrice)}</td>
-                  <td className="p-3 text-right">{formatCurrency(it.totalPrice)}</td>
+                  <td className="p-3 text-right align-top">{formatCurrency(it.unitPrice)}</td>
+                  <td className="p-3 text-right align-top">{formatCurrency(it.totalPrice)}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      {hasOversell && order.status === "draft" && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm p-3 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <div>
+            <div className="font-medium">{oversellLines.length} line{oversellLines.length === 1 ? "" : "s"} exceed available stock in this warehouse.</div>
+            <div className="text-xs mt-0.5 opacity-90">Confirming will be blocked unless an owner enables “Allow overselling” in Settings → Organization.</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

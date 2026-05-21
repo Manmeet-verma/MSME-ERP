@@ -115,7 +115,11 @@ export const CreateOrganizationBody = zod.object({
   "gstNumber": zod.string().optional(),
   "state": zod.string().optional(),
   "address": zod.string().optional(),
-  "phone": zod.string().optional()
+  "phone": zod.string().optional(),
+  "salesSettings": zod.object({
+  "allowOverselling": zod.boolean(),
+  "reserveStockOnDraft": zod.boolean()
+}).optional()
 })
 
 
@@ -148,6 +152,10 @@ export const GetCurrentOrganizationResponse = zod.object({
   "accounting": zod.boolean(),
   "social": zod.boolean()
 }),
+  "salesSettings": zod.object({
+  "allowOverselling": zod.boolean(),
+  "reserveStockOnDraft": zod.boolean()
+}),
   "createdAt": zod.string()
 })
 
@@ -161,7 +169,11 @@ export const UpdateCurrentOrganizationBody = zod.object({
   "gstNumber": zod.string().optional(),
   "state": zod.string().optional(),
   "address": zod.string().optional(),
-  "phone": zod.string().optional()
+  "phone": zod.string().optional(),
+  "salesSettings": zod.object({
+  "allowOverselling": zod.boolean(),
+  "reserveStockOnDraft": zod.boolean()
+}).optional()
 })
 
 export const UpdateCurrentOrganizationResponse = zod.object({
@@ -189,6 +201,10 @@ export const UpdateCurrentOrganizationResponse = zod.object({
   "hr": zod.boolean(),
   "accounting": zod.boolean(),
   "social": zod.boolean()
+}),
+  "salesSettings": zod.object({
+  "allowOverselling": zod.boolean(),
+  "reserveStockOnDraft": zod.boolean()
 }),
   "createdAt": zod.string()
 })
@@ -233,6 +249,10 @@ export const UpdateOrganizationModulesResponse = zod.object({
   "hr": zod.boolean(),
   "accounting": zod.boolean(),
   "social": zod.boolean()
+}),
+  "salesSettings": zod.object({
+  "allowOverselling": zod.boolean(),
+  "reserveStockOnDraft": zod.boolean()
 }),
   "createdAt": zod.string()
 })
@@ -1665,7 +1685,15 @@ export const GetSalesOrderResponse = zod.object({
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
-  "totalPrice": zod.number()
+  "totalPrice": zod.number(),
+  "availability": zod.array(zod.object({
+  "warehouseId": zod.number(),
+  "warehouseName": zod.string(),
+  "isOrderWarehouse": zod.boolean(),
+  "onHand": zod.number(),
+  "reserved": zod.number(),
+  "available": zod.number()
+})).optional()
 })).optional()
 }))
 

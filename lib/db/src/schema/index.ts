@@ -19,6 +19,7 @@ export * from "./integrations";
 export * from "./warehouses";
 export * from "./items";
 export * from "./stock_movements";
+export * from "./stock_reservations";
 export * from "./vendors";
 export * from "./purchase_orders";
 export * from "./grn";

@@ -20,8 +20,14 @@ export const DEFAULT_LIMITS = {
   storageMB: 100,
 } as const;
 
+export const DEFAULT_SALES_SETTINGS = {
+  allowOverselling: false,
+  reserveStockOnDraft: false,
+} as const;
+
 export type OrgModules = Record<keyof typeof DEFAULT_MODULES, boolean>;
 export type OrgLimits = Record<keyof typeof DEFAULT_LIMITS, number>;
+export type OrgSalesSettings = Record<keyof typeof DEFAULT_SALES_SETTINGS, boolean>;
 
 export const organizationsTable = pgTable("organizations", {
   id: serial("id").primaryKey(),
@@ -30,6 +36,10 @@ export const organizationsTable = pgTable("organizations", {
   plan: text("plan", { enum: ["free", "starter", "pro"] }).notNull().default("free"),
   limits: jsonb("limits").$type<OrgLimits>().notNull().default(DEFAULT_LIMITS as unknown as OrgLimits),
   modules: jsonb("modules").$type<OrgModules>().notNull().default(DEFAULT_MODULES as unknown as OrgModules),
+  salesSettings: jsonb("sales_settings")
+    .$type<OrgSalesSettings>()
+    .notNull()
+    .default(DEFAULT_SALES_SETTINGS as unknown as OrgSalesSettings),
   industry: text("industry"),
   gstNumber: text("gst_number"),
   state: text("state"),
