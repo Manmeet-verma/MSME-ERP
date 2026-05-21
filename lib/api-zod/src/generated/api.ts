@@ -109,6 +109,10 @@ export const LogoutResponse = zod.object({
 /**
  * @summary Create a new organization (signed-in user becomes Owner)
  */
+export const createOrganizationBodyPayrollSettingsAutoRunDayMax = 28;
+
+
+
 export const CreateOrganizationBody = zod.object({
   "name": zod.string(),
   "industry": zod.string().optional(),
@@ -119,6 +123,11 @@ export const CreateOrganizationBody = zod.object({
   "salesSettings": zod.object({
   "allowOverselling": zod.boolean(),
   "reserveStockOnDraft": zod.boolean()
+}).optional(),
+  "payrollSettings": zod.object({
+  "autoRunEnabled": zod.boolean(),
+  "autoRunDay": zod.number().min(1).max(createOrganizationBodyPayrollSettingsAutoRunDayMax),
+  "emailPayslips": zod.boolean()
 }).optional()
 })
 
@@ -126,6 +135,10 @@ export const CreateOrganizationBody = zod.object({
 /**
  * @summary Get the active organization
  */
+export const getCurrentOrganizationResponsePayrollSettingsAutoRunDayMax = 28;
+
+
+
 export const GetCurrentOrganizationResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -156,6 +169,11 @@ export const GetCurrentOrganizationResponse = zod.object({
   "allowOverselling": zod.boolean(),
   "reserveStockOnDraft": zod.boolean()
 }),
+  "payrollSettings": zod.object({
+  "autoRunEnabled": zod.boolean(),
+  "autoRunDay": zod.number().min(1).max(getCurrentOrganizationResponsePayrollSettingsAutoRunDayMax),
+  "emailPayslips": zod.boolean()
+}),
   "createdAt": zod.string()
 })
 
@@ -163,6 +181,10 @@ export const GetCurrentOrganizationResponse = zod.object({
 /**
  * @summary Update the active organization
  */
+export const updateCurrentOrganizationBodyPayrollSettingsAutoRunDayMax = 28;
+
+
+
 export const UpdateCurrentOrganizationBody = zod.object({
   "name": zod.string().optional(),
   "industry": zod.string().optional(),
@@ -173,8 +195,17 @@ export const UpdateCurrentOrganizationBody = zod.object({
   "salesSettings": zod.object({
   "allowOverselling": zod.boolean(),
   "reserveStockOnDraft": zod.boolean()
+}).optional(),
+  "payrollSettings": zod.object({
+  "autoRunEnabled": zod.boolean(),
+  "autoRunDay": zod.number().min(1).max(updateCurrentOrganizationBodyPayrollSettingsAutoRunDayMax),
+  "emailPayslips": zod.boolean()
 }).optional()
 })
+
+export const updateCurrentOrganizationResponsePayrollSettingsAutoRunDayMax = 28;
+
+
 
 export const UpdateCurrentOrganizationResponse = zod.object({
   "id": zod.number(),
@@ -206,6 +237,11 @@ export const UpdateCurrentOrganizationResponse = zod.object({
   "allowOverselling": zod.boolean(),
   "reserveStockOnDraft": zod.boolean()
 }),
+  "payrollSettings": zod.object({
+  "autoRunEnabled": zod.boolean(),
+  "autoRunDay": zod.number().min(1).max(updateCurrentOrganizationResponsePayrollSettingsAutoRunDayMax),
+  "emailPayslips": zod.boolean()
+}),
   "createdAt": zod.string()
 })
 
@@ -223,6 +259,10 @@ export const UpdateOrganizationModulesBody = zod.object({
   "accounting": zod.boolean().optional(),
   "social": zod.boolean().optional()
 })
+
+export const updateOrganizationModulesResponsePayrollSettingsAutoRunDayMax = 28;
+
+
 
 export const UpdateOrganizationModulesResponse = zod.object({
   "id": zod.number(),
@@ -253,6 +293,11 @@ export const UpdateOrganizationModulesResponse = zod.object({
   "salesSettings": zod.object({
   "allowOverselling": zod.boolean(),
   "reserveStockOnDraft": zod.boolean()
+}),
+  "payrollSettings": zod.object({
+  "autoRunEnabled": zod.boolean(),
+  "autoRunDay": zod.number().min(1).max(updateOrganizationModulesResponsePayrollSettingsAutoRunDayMax),
+  "emailPayslips": zod.boolean()
 }),
   "createdAt": zod.string()
 })

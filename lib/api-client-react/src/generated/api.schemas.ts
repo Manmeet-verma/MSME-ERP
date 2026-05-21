@@ -117,6 +117,16 @@ export interface OrgSalesSettings {
   reserveStockOnDraft: boolean;
 }
 
+export interface OrgPayrollSettings {
+  autoRunEnabled: boolean;
+  /**
+     * @minimum 1
+     * @maximum 28
+     */
+  autoRunDay: number;
+  emailPayslips: boolean;
+}
+
 export interface Organization {
   id: number;
   name: string;
@@ -135,6 +145,7 @@ export interface Organization {
   limits: OrgLimits;
   modules: OrgModules;
   salesSettings: OrgSalesSettings;
+  payrollSettings: OrgPayrollSettings;
   createdAt: string;
 }
 
@@ -146,6 +157,7 @@ export interface OrganizationInput {
   address?: string;
   phone?: string;
   salesSettings?: OrgSalesSettings;
+  payrollSettings?: OrgPayrollSettings;
 }
 
 export interface OrganizationUpdate {
@@ -156,6 +168,7 @@ export interface OrganizationUpdate {
   address?: string;
   phone?: string;
   salesSettings?: OrgSalesSettings;
+  payrollSettings?: OrgPayrollSettings;
 }
 
 export interface CreateOrgResponse {

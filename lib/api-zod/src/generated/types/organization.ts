@@ -8,6 +8,7 @@
 import type { OrganizationPlan } from './organizationPlan';
 import type { OrgLimits } from './orgLimits';
 import type { OrgModules } from './orgModules';
+import type { OrgPayrollSettings } from './orgPayrollSettings';
 import type { OrgSalesSettings } from './orgSalesSettings';
 
 export interface Organization {
@@ -28,5 +29,6 @@ export interface Organization {
   limits: OrgLimits;
   modules: OrgModules;
   salesSettings: OrgSalesSettings;
+  payrollSettings: OrgPayrollSettings;
   createdAt: string;
 }

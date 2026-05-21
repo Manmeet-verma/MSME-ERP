@@ -25,6 +25,9 @@ export default function OrganizationSettingsPage() {
     address: "",
     allowOverselling: false,
     reserveStockOnDraft: false,
+    payrollAutoRunEnabled: false,
+    payrollAutoRunDay: 1,
+    payrollEmailPayslips: false,
   });
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export default function OrganizationSettingsPage() {
         address: org.address ?? "",
         allowOverselling: org.salesSettings?.allowOverselling ?? false,
         reserveStockOnDraft: org.salesSettings?.reserveStockOnDraft ?? false,
+        payrollAutoRunEnabled: org.payrollSettings?.autoRunEnabled ?? false,
+        payrollAutoRunDay: org.payrollSettings?.autoRunDay ?? 1,
+        payrollEmailPayslips: org.payrollSettings?.emailPayslips ?? false,
       });
       setCurrentOrg(org);
     }
@@ -67,7 +73,7 @@ export default function OrganizationSettingsPage() {
       </div>
 
       <div className="bg-card border border-card-border rounded-xl p-6">
-        <form onSubmit={(e) => { e.preventDefault(); if (canEdit) update.mutate({ data: { name: form.name, gstNumber: form.gstNumber || undefined, phone: form.phone || undefined, address: form.address || undefined, salesSettings: { allowOverselling: form.allowOverselling, reserveStockOnDraft: form.reserveStockOnDraft } } }); }} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); if (canEdit) update.mutate({ data: { name: form.name, gstNumber: form.gstNumber || undefined, phone: form.phone || undefined, address: form.address || undefined, salesSettings: { allowOverselling: form.allowOverselling, reserveStockOnDraft: form.reserveStockOnDraft }, payrollSettings: { autoRunEnabled: form.payrollAutoRunEnabled, autoRunDay: form.payrollAutoRunDay, emailPayslips: form.payrollEmailPayslips } } }); }} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="name">Business name</Label>
             <Input id="name" value={form.name} disabled={!canEdit}
@@ -125,6 +131,55 @@ export default function OrganizationSettingsPage() {
               </div>
             </label>
           </div>
+          <div className="pt-2 border-t border-border space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">Payroll automation</h3>
+              <p className="text-xs text-muted-foreground">Optional: have the system draft last month's payroll for you each month and email payslips to staff when you mark it paid.</p>
+            </div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                disabled={!canEdit}
+                checked={form.payrollAutoRunEnabled}
+                onChange={(e) => setForm((f) => ({ ...f, payrollAutoRunEnabled: e.target.checked }))}
+              />
+              <div>
+                <div className="text-sm font-medium">Auto-create monthly payroll run</div>
+                <div className="text-xs text-muted-foreground">On the chosen day of every month, a draft payroll run for the previous month is created automatically and waits in Payroll for your review.</div>
+              </div>
+            </label>
+            <div className="space-y-1.5 pl-7">
+              <Label htmlFor="payrollDay">Run on day of month (1–28)</Label>
+              <Input
+                id="payrollDay"
+                type="number"
+                min={1}
+                max={28}
+                className="max-w-[120px]"
+                disabled={!canEdit || !form.payrollAutoRunEnabled}
+                value={form.payrollAutoRunDay}
+                onChange={(e) => {
+                  const n = Math.min(28, Math.max(1, Math.round(Number(e.target.value) || 1)));
+                  setForm((f) => ({ ...f, payrollAutoRunDay: n }));
+                }}
+              />
+            </div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                disabled={!canEdit}
+                checked={form.payrollEmailPayslips}
+                onChange={(e) => setForm((f) => ({ ...f, payrollEmailPayslips: e.target.checked }))}
+              />
+              <div>
+                <div className="text-sm font-medium">Email payslips when marking a run paid</div>
+                <div className="text-xs text-muted-foreground">Sends each employee (with an email on file) their payslip link as soon as you mark the payroll run paid.</div>
+              </div>
+            </label>
+          </div>
+
           {canEdit && (
             <Button type="submit" disabled={update.isPending}>
               {update.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

@@ -25,9 +25,20 @@ export const DEFAULT_SALES_SETTINGS = {
   reserveStockOnDraft: false,
 } as const;
 
+export const DEFAULT_PAYROLL_SETTINGS = {
+  autoRunEnabled: false,
+  autoRunDay: 1,
+  emailPayslips: false,
+} as const;
+
 export type OrgModules = Record<keyof typeof DEFAULT_MODULES, boolean>;
 export type OrgLimits = Record<keyof typeof DEFAULT_LIMITS, number>;
 export type OrgSalesSettings = Record<keyof typeof DEFAULT_SALES_SETTINGS, boolean>;
+export type OrgPayrollSettings = {
+  autoRunEnabled: boolean;
+  autoRunDay: number;
+  emailPayslips: boolean;
+};
 
 export const organizationsTable = pgTable("organizations", {
   id: serial("id").primaryKey(),
@@ -40,6 +51,10 @@ export const organizationsTable = pgTable("organizations", {
     .$type<OrgSalesSettings>()
     .notNull()
     .default(DEFAULT_SALES_SETTINGS as unknown as OrgSalesSettings),
+  payrollSettings: jsonb("payroll_settings")
+    .$type<OrgPayrollSettings>()
+    .notNull()
+    .default(DEFAULT_PAYROLL_SETTINGS as unknown as OrgPayrollSettings),
   industry: text("industry"),
   gstNumber: text("gst_number"),
   state: text("state"),

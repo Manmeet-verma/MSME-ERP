@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, payrollRunsTable, payslipsTable, employeesTable, attendanceTable } from "@workspace/db";
+import { db, payrollRunsTable, payslipsTable, employeesTable, attendanceTable, emailsTable, organizationsTable } from "@workspace/db";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
+import { logger } from "../lib/logger";
 import { postJournal, reverseAndRepost } from "../lib/accounting";
 import PDFDocument from "pdfkit";
 
@@ -59,16 +60,18 @@ payrollRouter.get("/payroll-runs", requireAuth, async (req, res) => {
   res.json(rows.map(fmtRun));
 });
 
-payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const b = req.body ?? {};
-  const periodMonth = Number(b.periodMonth);
-  const periodYear = Number(b.periodYear);
-  if (!periodMonth || !periodYear || periodMonth < 1 || periodMonth > 12) {
-    res.status(400).json({ error: "periodMonth (1-12) and periodYear required" });
-    return;
-  }
-  // Compute attendance for the month
+/**
+ * Compute a payroll run for `orgId` for the given period. Inserts a payroll
+ * run row + a payslip per active employee, and returns the freshly-totalled
+ * run. Used by both the manual `POST /payroll-runs` route and the scheduler
+ * (lib/scheduler.ts → tickPayrollAutoRuns).
+ */
+export async function computePayrollRun(
+  orgId: number,
+  periodMonth: number,
+  periodYear: number,
+  notes: string | null = null,
+): Promise<typeof payrollRunsTable.$inferSelect> {
   const dim = daysInMonth(periodYear, periodMonth);
   const monthStart = `${periodYear}-${String(periodMonth).padStart(2, "0")}-01`;
   const monthEnd = `${periodYear}-${String(periodMonth).padStart(2, "0")}-${String(dim).padStart(2, "0")}`;
@@ -92,7 +95,6 @@ payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) 
     arr.push(a);
     byEmp.set(a.employeeId, arr);
   }
-  // Create the run
   const [run] = await db
     .insert(payrollRunsTable)
     .values({
@@ -100,7 +102,7 @@ payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) 
       periodMonth,
       periodYear,
       status: "computed",
-      notes: b.notes ?? null,
+      notes,
     })
     .returning();
   let totalGross = 0;
@@ -108,9 +110,6 @@ payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) 
   let totalNet = 0;
   for (const emp of employees) {
     const recs = byEmp.get(emp.id) ?? [];
-    // Days worked: present=1, half=0.5, leave/holiday/weekoff=1 (paid), absent=0
-    // If no records exist at all, assume all month present (so payroll works
-    // out of the box without forcing attendance entry).
     let worked = 0;
     if (recs.length === 0) {
       worked = dim;
@@ -163,7 +162,33 @@ payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) 
     })
     .where(eq(payrollRunsTable.id, run.id));
   const [u] = await db.select().from(payrollRunsTable).where(eq(payrollRunsTable.id, run.id));
-  await logAction(req, "CREATE", "payroll_run", run.id, `${periodMonth}/${periodYear}`);
+  return u;
+}
+
+payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) => {
+  const orgId = req.user!.organizationId;
+  const b = req.body ?? {};
+  const periodMonth = Number(b.periodMonth);
+  const periodYear = Number(b.periodYear);
+  if (!periodMonth || !periodYear || periodMonth < 1 || periodMonth > 12) {
+    res.status(400).json({ error: "periodMonth (1-12) and periodYear required" });
+    return;
+  }
+  // Ensure idempotency: don't allow two runs for the same period.
+  const [existing] = await db
+    .select()
+    .from(payrollRunsTable)
+    .where(and(
+      eq(payrollRunsTable.organizationId, orgId),
+      eq(payrollRunsTable.periodMonth, periodMonth),
+      eq(payrollRunsTable.periodYear, periodYear),
+    ));
+  if (existing) {
+    res.status(409).json({ error: `Payroll run already exists for ${periodMonth}/${periodYear}` });
+    return;
+  }
+  const u = await computePayrollRun(orgId, periodMonth, periodYear, b.notes ?? null);
+  await logAction(req, "CREATE", "payroll_run", u.id, `${periodMonth}/${periodYear}`);
   res.status(201).json(fmtRun(u));
 });
 
@@ -235,8 +260,71 @@ payrollRouter.post("/payroll-runs/:id/mark-paid", requireAuth, requireAdmin, asy
     { entryDate: now, memo: `Payroll ${run.periodMonth}/${run.periodYear}` },
   );
   await logAction(req, "MARK_PAID", "payroll_run", id);
-  res.json({ message: "Payroll marked paid" });
+
+  // Optionally email payslips to each employee.
+  let emailedCount = 0;
+  try {
+    const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, orgId));
+    if (org?.payrollSettings?.emailPayslips) {
+      emailedCount = await emailPayslipsForRun(orgId, id, req.user!.email, req.user!.userId);
+    }
+  } catch (err) {
+    logger.error({ err, runId: id }, "Failed to email payslips after mark-paid");
+  }
+  res.json({ message: "Payroll marked paid", emailedPayslips: emailedCount });
 });
+
+/**
+ * Record an outbound email per payslip in `emails` table. We don't have an
+ * SMTP relay configured for this workspace, so this mirrors the existing
+ * `POST /api/emails` pattern: rows are inserted with status `sent` so they
+ * appear in the email log + reports. The body links to the existing
+ * `/api/payslips/:id/pdf` route so recipients can fetch the PDF.
+ */
+export async function emailPayslipsForRun(
+  orgId: number,
+  runId: number,
+  fromEmail: string,
+  userId: number | null,
+): Promise<number> {
+  const [run] = await db.select().from(payrollRunsTable).where(eq(payrollRunsTable.id, runId));
+  if (!run) return 0;
+  const slips = await db.select().from(payslipsTable).where(eq(payslipsTable.payrollRunId, runId));
+  const emps = await db.select().from(employeesTable).where(eq(employeesTable.organizationId, orgId));
+  const empById = new Map(emps.map((e) => [e.id, e]));
+  const month = MONTHS[run.periodMonth];
+  const base = process.env.PUBLIC_APP_URL
+    || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : "");
+  let n = 0;
+  for (const s of slips) {
+    const emp = empById.get(s.employeeId);
+    if (!emp?.email) continue;
+    const subject = `Your payslip for ${month} ${run.periodYear}`;
+    const net = Number(s.net).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pdfUrl = base ? `${base}/api/payslips/${s.id}/pdf` : `/api/payslips/${s.id}/pdf`;
+    const body = `Hi ${emp.name},\n\n`
+      + `Your salary for ${month} ${run.periodYear} has been processed.\n\n`
+      + `Net pay: ₹ ${net}\n\n`
+      + `Download your payslip: ${pdfUrl}\n\n`
+      + `Regards,\nPayroll`;
+    const messageId = `<payslip.${s.id}.${Date.now()}@msme-pro>`;
+    await db.insert(emailsTable).values({
+      organizationId: orgId,
+      userId: userId ?? null,
+      direction: "outbound",
+      fromEmail,
+      toEmail: emp.email,
+      subject,
+      body,
+      status: "sent",
+      messageId,
+      threadId: messageId,
+      sentAt: new Date(),
+    });
+    n += 1;
+  }
+  return n;
+}
 
 const MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

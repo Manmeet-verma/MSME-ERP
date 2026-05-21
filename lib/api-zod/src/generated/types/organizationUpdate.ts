@@ -5,6 +5,7 @@
  * Multi-tenant SaaS quotation & CRM platform for MSMEs
  * OpenAPI spec version: 2.0.0
  */
+import type { OrgPayrollSettings } from './orgPayrollSettings';
 import type { OrgSalesSettings } from './orgSalesSettings';
 
 export interface OrganizationUpdate {
@@ -15,4 +16,5 @@ export interface OrganizationUpdate {
   address?: string;
   phone?: string;
   salesSettings?: OrgSalesSettings;
+  payrollSettings?: OrgPayrollSettings;
 }

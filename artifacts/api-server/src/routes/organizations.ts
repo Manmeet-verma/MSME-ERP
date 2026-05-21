@@ -8,7 +8,9 @@ import {
   usersTable,
   DEFAULT_LIMITS,
   DEFAULT_MODULES,
+  DEFAULT_PAYROLL_SETTINGS,
   type OrgModules,
+  type OrgPayrollSettings,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { requireAuth, requireUser, requireOwner, requireAdmin, signToken } from "../middlewares/auth";
@@ -92,6 +94,7 @@ function formatOrg(o: typeof organizationsTable.$inferSelect) {
     limits: o.limits,
     modules: o.modules,
     salesSettings: o.salesSettings,
+    payrollSettings: { ...DEFAULT_PAYROLL_SETTINGS, ...(o.payrollSettings ?? {}) },
     createdAt: o.createdAt.toISOString(),
   };
 }
@@ -109,7 +112,7 @@ orgRouter.get("/organizations/current", requireAuth, async (req, res) => {
 });
 
 orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req, res) => {
-  const { name, industry, gstNumber, state, address, phone, salesSettings } = req.body ?? {};
+  const { name, industry, gstNumber, state, address, phone, salesSettings, payrollSettings } = req.body ?? {};
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (industry !== undefined) updates.industry = industry;
@@ -127,6 +130,24 @@ orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req,
       ...(current?.salesSettings ?? {}),
       ...(salesSettings as Record<string, boolean>),
     };
+  }
+  if (payrollSettings !== undefined && typeof payrollSettings === "object" && payrollSettings !== null) {
+    const [current] = await db
+      .select({ payrollSettings: organizationsTable.payrollSettings })
+      .from(organizationsTable)
+      .where(eq(organizationsTable.id, req.user!.organizationId));
+    const incoming = payrollSettings as Partial<OrgPayrollSettings>;
+    const merged: OrgPayrollSettings = {
+      ...DEFAULT_PAYROLL_SETTINGS,
+      ...(current?.payrollSettings ?? {}),
+      ...incoming,
+    };
+    // Clamp autoRunDay to 1–28 to avoid month-edge cases.
+    const day = Math.round(Number(merged.autoRunDay));
+    merged.autoRunDay = Number.isFinite(day) ? Math.min(28, Math.max(1, day)) : 1;
+    merged.autoRunEnabled = Boolean(merged.autoRunEnabled);
+    merged.emailPayslips = Boolean(merged.emailPayslips);
+    updates.payrollSettings = merged;
   }
   const [org] = await db
     .update(organizationsTable)
