@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm install",
-  "buildCommand": "node artifacts/quotation-app/build.mjs",
+  "installCommand": "cd artifacts/quotation-app && npm install",
+  "buildCommand": "cd artifacts/quotation-app && npx vite build --config vite.config.ts",
   "outputDirectory": "artifacts/quotation-app/dist",
   "framework": null
 }

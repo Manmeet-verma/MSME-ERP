@@ -6,11 +6,6 @@
     "build": "node artifacts/quotation-app/build.mjs"
   },
   "private": true,
-  "workspaces": [
-    "artifacts/*",
-    "lib/*",
-    "lib/integrations/*"
-  ],
   "overrides": {
     "esbuild": "0.27.3"
   },
