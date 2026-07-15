@@ -2,15 +2,19 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "pnpm@10.12.4",
   "scripts": {
-    "build": "node artifacts/quotation-app/build.mjs",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "build": "node artifacts/quotation-app/build.mjs"
   },
   "private": true,
+  "workspaces": [
+    "artifacts/*",
+    "lib/*",
+    "lib/integrations/*"
+  ],
+  "overrides": {
+    "esbuild": "0.27.3"
+  },
   "devDependencies": {
-    "@esbuild/win32-x64": "0.27.3",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   }

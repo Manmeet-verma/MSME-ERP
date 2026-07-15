@@ -1,6 +1,6 @@
 {
-  "installCommand": "corepack enable && corepack prepare pnpm@10.12.4 --activate && pnpm install --no-frozen-lockfile",
-  "buildCommand": "bash -c 'export PORT=5173 BASE_PATH=/ NODE_ENV=production && cd artifacts/quotation-app && pnpm exec vite build --config vite.config.ts'",
+  "installCommand": "npm install",
+  "buildCommand": "bash -c 'export PORT=5173 BASE_PATH=/ NODE_ENV=production && cd artifacts/quotation-app && npx vite build --config vite.config.ts'",
   "outputDirectory": "artifacts/quotation-app/dist",
   "framework": null
 }
