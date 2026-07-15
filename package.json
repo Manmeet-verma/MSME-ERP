@@ -2,7 +2,7 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.12.4",
   "scripts": {
     "build": "node artifacts/quotation-app/build.mjs",
     "typecheck:libs": "tsc --build",
