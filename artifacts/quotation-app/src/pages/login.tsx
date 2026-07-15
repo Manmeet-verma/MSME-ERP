@@ -30,7 +30,7 @@ export default function LoginPage() {
           navigate("/onboarding");
         }
       },
-      onError(err) {
+      onError(err: Error) {
         toast({
           title: "Login failed",
           description: (err as { data?: { error?: string } })?.data?.error ?? "Invalid credentials",
