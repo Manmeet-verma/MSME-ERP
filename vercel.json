@@ -1,6 +1,6 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "bash -c 'export PORT=5173 BASE_PATH=/ NODE_ENV=production && cd artifacts/quotation-app && npx vite build --config vite.config.ts'",
+  "buildCommand": "node artifacts/quotation-app/build.mjs",
   "outputDirectory": "artifacts/quotation-app/dist",
   "framework": null
 }
