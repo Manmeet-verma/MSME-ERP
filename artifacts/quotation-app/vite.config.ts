@@ -31,7 +31,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
-      "@workspace/api-client-react": path.resolve(import.meta.dirname, "..", "..", "lib", "api-client-react", "src", "index.ts"),
+      "@workspace/api-client-react": path.resolve(import.meta.dirname, "src", "lib", "api-client-react", "index.ts"),
     },
     dedupe: ["react", "react-dom"],
   },
@@ -39,6 +39,9 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    commonjsOptions: {
+      include: [/node_modules/],
+    },
   },
   server: {
     port,
