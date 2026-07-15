@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install -g pnpm@9.15.0 && pnpm install --no-frozen-lockfile --ignore-scripts",
+  "installCommand": "npm install -g pnpm@9.15.0 && pnpm install --no-frozen-lockfile",
   "buildCommand": "node artifacts/quotation-app/build.mjs",
   "outputDirectory": "artifacts/quotation-app/dist",
   "framework": null

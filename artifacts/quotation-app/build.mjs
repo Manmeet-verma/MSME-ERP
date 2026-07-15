@@ -3,16 +3,30 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = resolve(__dirname, "../..");
 
 process.env.PORT = process.env.PORT || "5173";
 process.env.BASE_PATH = process.env.BASE_PATH || "/";
 process.env.NODE_ENV = "production";
 
-console.log("Building frontend...");
-execSync("npx vite build --config vite.config.ts", {
-  cwd: __dirname,
-  stdio: "inherit",
-  env: process.env,
-});
-console.log("Frontend build complete!");
+console.log("Building frontend from:", __dirname);
+
+const cmds = [
+  `node ${resolve(__dirname, "node_modules/.bin/vite")} build --config vite.config.ts`,
+  `node ${resolve(__dirname, "../../node_modules/.bin/vite")} build --config vite.config.ts`,
+  `pnpm exec vite build --config vite.config.ts`,
+  `npx vite build --config vite.config.ts`,
+];
+
+for (const cmd of cmds) {
+  try {
+    console.log("Trying:", cmd);
+    execSync(cmd, { cwd: __dirname, stdio: "inherit", env: process.env });
+    console.log("Build successful!");
+    process.exit(0);
+  } catch (e) {
+    console.log("Failed, trying next...");
+  }
+}
+
+console.error("All build commands failed!");
+process.exit(1);
