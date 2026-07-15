@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm install -g pnpm@latest && pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/quotation-app run build",
+  "installCommand": "corepack enable && corepack prepare pnpm@latest --activate && pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm run build",
   "outputDirectory": "artifacts/quotation-app/dist",
   "framework": null
 }
