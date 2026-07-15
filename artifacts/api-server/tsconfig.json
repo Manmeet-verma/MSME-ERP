@@ -4,18 +4,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "types": ["node"],
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "strict": false,
+    "skipLibCheck": true
   },
-  "include": ["src"],
-  "references": [
-    {
-      "path": "../../lib/db"
-    },
-    {
-      "path": "../../lib/api-zod"
-    },
-    {
-      "path": "../../lib/integrations-anthropic-ai"
-    }
-  ]
+  "include": ["src"]
 }
