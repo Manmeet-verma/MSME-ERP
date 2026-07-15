@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://msme-erp-api.onrender.com/api/:path*"
+      "destination": "https://msme-erp-api-3s11.onrender.com/api/:path*"
     }
   ]
 }
