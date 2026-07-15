@@ -1,4 +1,4 @@
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import { anthropic } from "./integrations-anthropic-ai";
 
 const MODEL = "claude-haiku-4-5";
 

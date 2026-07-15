@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { getTwilioClient } from "../lib/twilio";
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import { anthropic } from "../lib/integrations-anthropic-ai";
 import { logAction } from "../lib/auditLog";
 
 const db = () => getDb();

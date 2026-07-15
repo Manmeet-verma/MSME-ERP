@@ -2,8 +2,9 @@ services:
   - type: web
     name: msme-erp-api
     runtime: node
-    buildCommand: cd artifacts/api-server && npm install && npm run build
-    startCommand: cd artifacts/api-server && npm run start
+    rootDir: artifacts/api-server
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production

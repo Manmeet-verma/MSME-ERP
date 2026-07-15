@@ -12,8 +12,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@swc/helpers": "^0.5.21",
-    "@workspace/api-zod": "file:../../lib/api-zod",
-    "@workspace/integrations-anthropic-ai": "file:../../lib/integrations-anthropic-ai",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
