@@ -1,6 +1,6 @@
 {
+  "installCommand": "npm install -g pnpm@latest && pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/quotation-app run build",
-  "installCommand": "pnpm install --no-frozen-lockfile",
-  "outputDirectory": "artifacts/quotation-app/dist/public",
+  "outputDirectory": "artifacts/quotation-app/dist",
   "framework": null
 }
