@@ -1,6 +1,8 @@
-import { db, pushTokensTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { getDb } from "./firebase";
+import { FieldValue } from "firebase-admin/firestore";
 import { logger } from "./logger";
+
+const db = () => getDb();
 
 export interface PushPayload {
   title: string;
@@ -64,7 +66,6 @@ async function sendExpoBatch(tokens: string[], payload: PushPayload): Promise<{ 
 
 export async function sendPushToTokens(tokens: string[], payload: PushPayload): Promise<{ sent: number; failed: number }> {
   if (tokens.length === 0) return { sent: 0, failed: 0 };
-  // Expo supports up to 100 per batch.
   let sent = 0;
   let failed = 0;
   const invalid: string[] = [];
@@ -77,7 +78,17 @@ export async function sendPushToTokens(tokens: string[], payload: PushPayload): 
   }
   if (invalid.length > 0) {
     try {
-      await db.delete(pushTokensTable).where(inArray(pushTokensTable.token, invalid));
+      const writeBatch = db().batch();
+      for (const token of invalid) {
+        const snap = await db()
+          .collection("pushTokens")
+          .where("token", "==", token)
+          .get();
+        for (const doc of snap.docs) {
+          writeBatch.delete(doc.ref);
+        }
+      }
+      await writeBatch.commit();
     } catch (err) {
       logger.warn({ err }, "Failed to prune invalid push tokens");
     }
@@ -85,12 +96,18 @@ export async function sendPushToTokens(tokens: string[], payload: PushPayload): 
   return { sent, failed };
 }
 
-export async function sendPushToUser(userId: number, payload: PushPayload): Promise<{ sent: number; failed: number }> {
-  const rows = await db.select().from(pushTokensTable).where(eq(pushTokensTable.userId, userId));
-  return sendPushToTokens(rows.map((r) => r.token), payload);
+export async function sendPushToUser(userId: string, payload: PushPayload): Promise<{ sent: number; failed: number }> {
+  const snap = await db()
+    .collection("pushTokens")
+    .where("userId", "==", userId)
+    .get();
+  return sendPushToTokens(snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data().token as string), payload);
 }
 
-export async function sendPushToOrg(orgId: number, payload: PushPayload): Promise<{ sent: number; failed: number }> {
-  const rows = await db.select().from(pushTokensTable).where(eq(pushTokensTable.organizationId, orgId));
-  return sendPushToTokens(rows.map((r) => r.token), payload);
+export async function sendPushToOrg(orgId: string, payload: PushPayload): Promise<{ sent: number; failed: number }> {
+  const snap = await db()
+    .collection("pushTokens")
+    .where("organizationId", "==", orgId)
+    .get();
+  return sendPushToTokens(snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data().token as string), payload);
 }

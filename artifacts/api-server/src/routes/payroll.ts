@@ -1,48 +1,48 @@
 import { Router } from "express";
-import { db, payrollRunsTable, payslipsTable, employeesTable, attendanceTable, emailsTable, organizationsTable } from "@workspace/db";
-import { and, eq, desc, gte, lte } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { logger } from "../lib/logger";
-import { postJournal, reverseAndRepost } from "../lib/accounting";
+import { reverseAndRepost } from "../lib/accounting";
 import PDFDocument from "pdfkit";
 
+const db = () => getDb();
 const payrollRouter = Router();
 
-function fmtRun(r: typeof payrollRunsTable.$inferSelect) {
+function fmtRun(r: Record<string, unknown>) {
   return {
-    id: r.id,
-    periodMonth: r.periodMonth,
-    periodYear: r.periodYear,
-    status: r.status,
-    totalGross: Number(r.totalGross),
-    totalDeductions: Number(r.totalDeductions),
-    totalNet: Number(r.totalNet),
-    notes: r.notes ?? null,
-    paidAt: r.paidAt?.toISOString() ?? null,
-    createdAt: r.createdAt.toISOString(),
+    id: r.id as string,
+    periodMonth: r.periodMonth as number,
+    periodYear: r.periodYear as number,
+    status: r.status as string,
+    totalGross: Number(r.totalGross ?? 0),
+    totalDeductions: Number(r.totalDeductions ?? 0),
+    totalNet: Number(r.totalNet ?? 0),
+    notes: (r.notes as string) ?? null,
+    paidAt: (r.paidAt as string) ?? null,
+    createdAt: (r.createdAt as string) ?? new Date().toISOString(),
   };
 }
 
-function fmtSlip(s: typeof payslipsTable.$inferSelect) {
+function fmtSlip(s: Record<string, unknown>) {
   return {
-    id: s.id,
-    payrollRunId: s.payrollRunId,
-    employeeId: s.employeeId,
-    basic: Number(s.basic),
-    hra: Number(s.hra),
-    allowances: Number(s.allowances),
-    daysWorked: Number(s.daysWorked),
-    daysInMonth: s.daysInMonth,
-    lopAmount: Number(s.lopAmount),
-    pfAmount: Number(s.pfAmount),
-    esiAmount: Number(s.esiAmount),
-    otherDeductions: Number(s.otherDeductions),
-    gross: Number(s.gross),
-    deductions: Number(s.deductions),
-    net: Number(s.net),
-    status: s.status,
-    paidAt: s.paidAt?.toISOString() ?? null,
+    id: s.id as string,
+    payrollRunId: s.payrollRunId as string,
+    employeeId: s.employeeId as string,
+    basic: Number(s.basic ?? 0),
+    hra: Number(s.hra ?? 0),
+    allowances: Number(s.allowances ?? 0),
+    daysWorked: Number(s.daysWorked ?? 0),
+    daysInMonth: s.daysInMonth as number,
+    lopAmount: Number(s.lopAmount ?? 0),
+    pfAmount: Number(s.pfAmount ?? 0),
+    esiAmount: Number(s.esiAmount ?? 0),
+    otherDeductions: Number(s.otherDeductions ?? 0),
+    gross: Number(s.gross ?? 0),
+    deductions: Number(s.deductions ?? 0),
+    net: Number(s.net ?? 0),
+    status: s.status as string,
+    paidAt: (s.paidAt as string) ?? null,
   };
 }
 
@@ -52,76 +52,82 @@ function daysInMonth(year: number, month1: number) {
 
 payrollRouter.get("/payroll-runs", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(payrollRunsTable)
-    .where(eq(payrollRunsTable.organizationId, orgId))
-    .orderBy(desc(payrollRunsTable.periodYear), desc(payrollRunsTable.periodMonth));
+  const snap = await db().collection("payroll_runs")
+    .where("organizationId", "==", orgId)
+    .orderBy("periodYear", "desc")
+    .orderBy("periodMonth", "desc")
+    .get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(rows.map(fmtRun));
 });
 
 /**
  * Compute a payroll run for `orgId` for the given period. Inserts a payroll
  * run row + a payslip per active employee, and returns the freshly-totalled
- * run. Used by both the manual `POST /payroll-runs` route and the scheduler
- * (lib/scheduler.ts → tickPayrollAutoRuns).
+ * run.
  */
 export async function computePayrollRun(
-  orgId: number,
+  orgId: string,
   periodMonth: number,
   periodYear: number,
   notes: string | null = null,
-): Promise<typeof payrollRunsTable.$inferSelect> {
+): Promise<Record<string, unknown>> {
   const dim = daysInMonth(periodYear, periodMonth);
   const monthStart = `${periodYear}-${String(periodMonth).padStart(2, "0")}-01`;
   const monthEnd = `${periodYear}-${String(periodMonth).padStart(2, "0")}-${String(dim).padStart(2, "0")}`;
-  const employees = await db
-    .select()
-    .from(employeesTable)
-    .where(and(eq(employeesTable.organizationId, orgId), eq(employeesTable.status, "active")));
-  const att = await db
-    .select()
-    .from(attendanceTable)
-    .where(
-      and(
-        eq(attendanceTable.organizationId, orgId),
-        gte(attendanceTable.date, monthStart),
-        lte(attendanceTable.date, monthEnd),
-      ),
-    );
-  const byEmp = new Map<number, typeof att>();
-  for (const a of att) {
-    const arr = byEmp.get(a.employeeId) ?? [];
+
+  const empsSnap = await db().collection("employees")
+    .where("organizationId", "==", orgId)
+    .where("status", "==", "active")
+    .get();
+  const attSnap = await db().collection("attendance")
+    .where("organizationId", "==", orgId)
+    .where("date", ">=", monthStart)
+    .where("date", "<=", monthEnd)
+    .get();
+
+  const byEmp = new Map<string, FirebaseFirestore.QueryDocumentSnapshot[]>();
+  for (const a of attSnap.docs) {
+    const empId = a.data().employeeId as string;
+    const arr = byEmp.get(empId) ?? [];
     arr.push(a);
-    byEmp.set(a.employeeId, arr);
+    byEmp.set(empId, arr);
   }
-  const [run] = await db
-    .insert(payrollRunsTable)
-    .values({
-      organizationId: orgId,
-      periodMonth,
-      periodYear,
-      status: "computed",
-      notes,
-    })
-    .returning();
+
+  const now = new Date().toISOString();
+  const runRef = await db().collection("payroll_runs").add({
+    organizationId: orgId,
+    periodMonth,
+    periodYear,
+    status: "computed",
+    notes,
+    totalGross: "0",
+    totalDeductions: "0",
+    totalNet: "0",
+    createdAt: now,
+  });
+
   let totalGross = 0;
   let totalDed = 0;
   let totalNet = 0;
-  for (const emp of employees) {
-    const recs = byEmp.get(emp.id) ?? [];
+
+  for (const empDoc of empsSnap.docs) {
+    const emp = empDoc.data();
+    const empId = empDoc.id;
+    const recs = byEmp.get(empId) ?? [];
     let worked = 0;
     if (recs.length === 0) {
       worked = dim;
     } else {
       for (const r of recs) {
-        if (r.status === "present" || r.status === "leave" || r.status === "holiday" || r.status === "weekoff") worked += 1;
-        else if (r.status === "half") worked += 0.5;
+        const st = r.data().status as string;
+        if (st === "present" || st === "leave" || st === "holiday" || st === "weekoff") worked += 1;
+        else if (st === "half") worked += 0.5;
       }
     }
-    const basic = Number(emp.basic);
-    const hra = Number(emp.hra);
-    const allowances = Number(emp.allowances);
+    const basic = Number(emp.basic ?? 0);
+    const hra = Number(emp.hra ?? 0);
+    const allowances = Number(emp.allowances ?? 0);
     const fullGross = basic + hra + allowances;
     const perDay = fullGross / dim;
     const lopDays = Math.max(0, dim - worked);
@@ -129,13 +135,14 @@ export async function computePayrollRun(
     const grossThisMonth = Number((fullGross - lop).toFixed(2));
     const pf = emp.pfEnabled ? Number((basic * 0.12).toFixed(2)) : 0;
     const esi = emp.esiEnabled && grossThisMonth <= 21000 ? Number((grossThisMonth * 0.0075).toFixed(2)) : 0;
-    const other = Number(emp.otherDeductions);
+    const other = Number(emp.otherDeductions ?? 0);
     const deductions = Number((pf + esi + other).toFixed(2));
     const net = Number((grossThisMonth - deductions).toFixed(2));
-    await db.insert(payslipsTable).values({
+
+    await db().collection("payslips").add({
       organizationId: orgId,
-      payrollRunId: run.id,
-      employeeId: emp.id,
+      payrollRunId: runRef.id,
+      employeeId: empId,
       basic: basic.toFixed(2),
       hra: hra.toFixed(2),
       allowances: allowances.toFixed(2),
@@ -148,21 +155,23 @@ export async function computePayrollRun(
       gross: grossThisMonth.toFixed(2),
       deductions: deductions.toFixed(2),
       net: net.toFixed(2),
+      status: "computed",
+      createdAt: now,
     });
+
     totalGross += grossThisMonth;
     totalDed += deductions;
     totalNet += net;
   }
-  await db
-    .update(payrollRunsTable)
-    .set({
-      totalGross: totalGross.toFixed(2),
-      totalDeductions: totalDed.toFixed(2),
-      totalNet: totalNet.toFixed(2),
-    })
-    .where(eq(payrollRunsTable.id, run.id));
-  const [u] = await db.select().from(payrollRunsTable).where(eq(payrollRunsTable.id, run.id));
-  return u;
+
+  await db().collection("payroll_runs").doc(runRef.id).update({
+    totalGross: totalGross.toFixed(2),
+    totalDeductions: totalDed.toFixed(2),
+    totalNet: totalNet.toFixed(2),
+  });
+
+  const updated = await db().collection("payroll_runs").doc(runRef.id).get();
+  return { id: updated.id, ...updated.data()! };
 }
 
 payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) => {
@@ -174,79 +183,70 @@ payrollRouter.post("/payroll-runs", requireAuth, requireAdmin, async (req, res) 
     res.status(400).json({ error: "periodMonth (1-12) and periodYear required" });
     return;
   }
-  // Ensure idempotency: don't allow two runs for the same period.
-  const [existing] = await db
-    .select()
-    .from(payrollRunsTable)
-    .where(and(
-      eq(payrollRunsTable.organizationId, orgId),
-      eq(payrollRunsTable.periodMonth, periodMonth),
-      eq(payrollRunsTable.periodYear, periodYear),
-    ));
-  if (existing) {
+  // Ensure idempotency
+  const existingSnap = await db().collection("payroll_runs")
+    .where("organizationId", "==", orgId)
+    .where("periodMonth", "==", periodMonth)
+    .where("periodYear", "==", periodYear)
+    .get();
+  if (!existingSnap.empty) {
     res.status(409).json({ error: `Payroll run already exists for ${periodMonth}/${periodYear}` });
     return;
   }
   const u = await computePayrollRun(orgId, periodMonth, periodYear, b.notes ?? null);
-  await logAction(req, "CREATE", "payroll_run", u.id, `${periodMonth}/${periodYear}`);
+  await logAction(req, "CREATE", "payroll_run", u.id as string, `${periodMonth}/${periodYear}`);
   res.status(201).json(fmtRun(u));
 });
 
 payrollRouter.get("/payroll-runs/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [run] = await db
-    .select()
-    .from(payrollRunsTable)
-    .where(and(eq(payrollRunsTable.id, id), eq(payrollRunsTable.organizationId, orgId)));
-  if (!run) {
+  const id = req.params.id;
+  const runDoc = await db().collection("payroll_runs").doc(id).get();
+  if (!runDoc.exists || runDoc.data()?.organizationId !== orgId) {
     res.status(404).json({ error: "Payroll run not found" });
     return;
   }
-  const slips = await db
-    .select()
-    .from(payslipsTable)
-    .where(eq(payslipsTable.payrollRunId, id));
-  const emps = await db.select().from(employeesTable).where(eq(employeesTable.organizationId, orgId));
-  const emap = new Map(emps.map((e) => [e.id, e]));
+  const slipsSnap = await db().collection("payslips").where("payrollRunId", "==", id).get();
+  const empsSnap = await db().collection("employees").where("organizationId", "==", orgId).get();
+  const emap = new Map(empsSnap.docs.map((d) => [d.id, d.data()]));
   res.json({
-    ...fmtRun(run),
-    payslips: slips.map((s) => ({
-      ...fmtSlip(s),
-      employeeName: emap.get(s.employeeId)?.name ?? "",
-      employeeCode: emap.get(s.employeeId)?.employeeCode ?? "",
-    })),
+    ...fmtRun({ id: runDoc.id, ...runDoc.data()! }),
+    payslips: slipsSnap.docs.map((sDoc) => {
+      const s = sDoc.data();
+      return {
+        ...fmtSlip({ id: sDoc.id, ...s }),
+        employeeName: emap.get(s.employeeId as string)?.name ?? "",
+        employeeCode: emap.get(s.employeeId as string)?.employeeCode ?? "",
+      };
+    }),
   });
 });
 
 payrollRouter.post("/payroll-runs/:id/mark-paid", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [run] = await db
-    .select()
-    .from(payrollRunsTable)
-    .where(and(eq(payrollRunsTable.id, id), eq(payrollRunsTable.organizationId, orgId)));
-  if (!run) {
+  const id = req.params.id;
+  const runDoc = await db().collection("payroll_runs").doc(id).get();
+  if (!runDoc.exists || runDoc.data()?.organizationId !== orgId) {
     res.status(404).json({ error: "Payroll run not found" });
     return;
   }
-  const now = new Date();
-  await db
-    .update(payrollRunsTable)
-    .set({ status: "paid", paidAt: now })
-    .where(eq(payrollRunsTable.id, id));
-  await db
-    .update(payslipsTable)
-    .set({ status: "paid", paidAt: now })
-    .where(eq(payslipsTable.payrollRunId, id));
+  const runData = runDoc.data()!;
+  const now = new Date().toISOString();
+  await db().collection("payroll_runs").doc(id).update({ status: "paid", paidAt: now });
+
+  const slipsSnap = await db().collection("payslips").where("payrollRunId", "==", id).get();
+  for (const slipDoc of slipsSnap.docs) {
+    await slipDoc.ref.update({ status: "paid", paidAt: now });
+  }
+
   // Auto-post journal: Dr Salaries Expense, Cr Bank
-  const gross = Number(run.totalGross);
-  const deductions = Number(run.totalDeductions);
-  const net = Number(run.totalNet);
+  const gross = Number(runData.totalGross ?? 0);
+  const deductions = Number(runData.totalDeductions ?? 0);
+  const net = Number(runData.totalNet ?? 0);
   await reverseAndRepost(
     orgId,
     "payroll_run",
-    id,
+    id as unknown as number,
     async () => {
       const lines = [
         { accountCode: "5100", debit: gross, description: "Salaries (gross)" },
@@ -257,15 +257,15 @@ payrollRouter.post("/payroll-runs/:id/mark-paid", requireAuth, requireAdmin, asy
       }
       return lines;
     },
-    { entryDate: now, memo: `Payroll ${run.periodMonth}/${run.periodYear}` },
+    { entryDate: new Date(), memo: `Payroll ${runData.periodMonth}/${runData.periodYear}` },
   );
   await logAction(req, "MARK_PAID", "payroll_run", id);
 
-  // Optionally email payslips to each employee.
   let emailedCount = 0;
   try {
-    const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, orgId));
-    if (org?.payrollSettings?.emailPayslips) {
+    const orgDoc = await db().collection("organizations").doc(orgId).get();
+    const orgData = orgDoc.data();
+    if (orgData?.payrollSettings?.emailPayslips) {
       emailedCount = await emailPayslipsForRun(orgId, id, req.user!.email, req.user!.userId);
     }
   } catch (err) {
@@ -274,41 +274,36 @@ payrollRouter.post("/payroll-runs/:id/mark-paid", requireAuth, requireAdmin, asy
   res.json({ message: "Payroll marked paid", emailedPayslips: emailedCount });
 });
 
-/**
- * Record an outbound email per payslip in `emails` table. We don't have an
- * SMTP relay configured for this workspace, so this mirrors the existing
- * `POST /api/emails` pattern: rows are inserted with status `sent` so they
- * appear in the email log + reports. The body links to the existing
- * `/api/payslips/:id/pdf` route so recipients can fetch the PDF.
- */
 export async function emailPayslipsForRun(
-  orgId: number,
-  runId: number,
+  orgId: string,
+  runId: string,
   fromEmail: string,
-  userId: number | null,
+  userId: string | null,
 ): Promise<number> {
-  const [run] = await db.select().from(payrollRunsTable).where(eq(payrollRunsTable.id, runId));
-  if (!run) return 0;
-  const slips = await db.select().from(payslipsTable).where(eq(payslipsTable.payrollRunId, runId));
-  const emps = await db.select().from(employeesTable).where(eq(employeesTable.organizationId, orgId));
-  const empById = new Map(emps.map((e) => [e.id, e]));
-  const month = MONTHS[run.periodMonth];
+  const runDoc = await db().collection("payroll_runs").doc(runId).get();
+  if (!runDoc.exists) return 0;
+  const runData = runDoc.data()!;
+  const slipsSnap = await db().collection("payslips").where("payrollRunId", "==", runId).get();
+  const empsSnap = await db().collection("employees").where("organizationId", "==", orgId).get();
+  const empById = new Map(empsSnap.docs.map((d) => [d.id, d.data()]));
+  const month = MONTHS[runData.periodMonth as number];
   const base = process.env.PUBLIC_APP_URL
     || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : "");
   let n = 0;
-  for (const s of slips) {
-    const emp = empById.get(s.employeeId);
+  for (const sDoc of slipsSnap.docs) {
+    const s = sDoc.data();
+    const emp = empById.get(s.employeeId as string);
     if (!emp?.email) continue;
-    const subject = `Your payslip for ${month} ${run.periodYear}`;
-    const net = Number(s.net).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const pdfUrl = base ? `${base}/api/payslips/${s.id}/pdf` : `/api/payslips/${s.id}/pdf`;
+    const subject = `Your payslip for ${month} ${runData.periodYear}`;
+    const netPay = Number(s.net).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pdfUrl = base ? `${base}/api/payslips/${sDoc.id}/pdf` : `/api/payslips/${sDoc.id}/pdf`;
     const body = `Hi ${emp.name},\n\n`
-      + `Your salary for ${month} ${run.periodYear} has been processed.\n\n`
-      + `Net pay: ₹ ${net}\n\n`
+      + `Your salary for ${month} ${runData.periodYear} has been processed.\n\n`
+      + `Net pay: ₹ ${netPay}\n\n`
       + `Download your payslip: ${pdfUrl}\n\n`
       + `Regards,\nPayroll`;
-    const messageId = `<payslip.${s.id}.${Date.now()}@msme-pro>`;
-    await db.insert(emailsTable).values({
+    const messageId = `<payslip.${sDoc.id}.${Date.now()}@msme-pro>`;
+    await db().collection("emails").add({
       organizationId: orgId,
       userId: userId ?? null,
       direction: "outbound",
@@ -319,7 +314,7 @@ export async function emailPayslipsForRun(
       status: "sent",
       messageId,
       threadId: messageId,
-      sentAt: new Date(),
+      sentAt: new Date().toISOString(),
     });
     n += 1;
   }
@@ -330,11 +325,11 @@ const MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep
 
 function renderPayslip(
   doc: InstanceType<typeof PDFDocument>,
-  slip: typeof payslipsTable.$inferSelect,
-  emp: typeof employeesTable.$inferSelect | undefined,
-  run: typeof payrollRunsTable.$inferSelect,
+  slip: Record<string, unknown>,
+  emp: Record<string, unknown> | undefined,
+  run: Record<string, unknown>,
 ) {
-  const month = MONTHS[run.periodMonth];
+  const month = MONTHS[run.periodMonth as number];
   doc.fontSize(18).fillColor("black").text("Salary Slip", { align: "center" });
   doc.moveDown(0.4);
   doc.fontSize(11).fillColor("#555").text(`Pay period: ${month} ${run.periodYear}`, { align: "center" });
@@ -346,7 +341,7 @@ function renderPayslip(
   doc.text(`Code: ${emp?.employeeCode ?? ""}`, left + 280, y);
   y += 16;
   doc.text(`PAN: ${emp?.panNumber ?? "—"}`, left, y);
-  doc.text(`Bank: ${emp?.bankName ?? "—"} ${emp?.bankAccount ? `(${emp.bankAccount.slice(-4)})` : ""}`, left + 280, y);
+  doc.text(`Bank: ${emp?.bankName ?? "—"} ${emp?.bankAccount ? `(${String(emp.bankAccount).slice(-4)})` : ""}`, left + 280, y);
   y += 16;
   doc.text(`Days worked: ${Number(slip.daysWorked)} / ${slip.daysInMonth}`, left, y);
   doc.moveDown(2);
@@ -392,70 +387,73 @@ function renderPayslip(
 
 payrollRouter.get("/payslips/:id/pdf", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [slip] = await db
-    .select()
-    .from(payslipsTable)
-    .where(and(eq(payslipsTable.id, id), eq(payslipsTable.organizationId, orgId)));
-  if (!slip) {
+  const id = req.params.id;
+  const slipDoc = await db().collection("payslips").doc(id).get();
+  if (!slipDoc.exists || slipDoc.data()?.organizationId !== orgId) {
     res.status(404).json({ error: "Payslip not found" });
     return;
   }
-  const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, slip.employeeId));
-  const [run] = await db.select().from(payrollRunsTable).where(eq(payrollRunsTable.id, slip.payrollRunId));
-  const month = MONTHS[run.periodMonth];
+  const slipData = slipDoc.data()!;
+  const empDoc = await db().collection("employees").doc(slipData.employeeId as string).get();
+  const runDoc = await db().collection("payroll_runs").doc(slipData.payrollRunId as string).get();
+  const runData = runDoc.data()!;
+  const month = MONTHS[runData.periodMonth as number];
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `inline; filename="payslip-${emp?.employeeCode ?? id}-${month}-${run.periodYear}.pdf"`);
+  res.setHeader("Content-Disposition", `inline; filename="payslip-${(empDoc.data()?.employeeCode) ?? id}-${month}-${runData.periodYear}.pdf"`);
   const doc = new PDFDocument({ size: "A4", margin: 48 });
   doc.pipe(res);
-  renderPayslip(doc, slip, emp, run);
+  renderPayslip(doc, slipData, empDoc.data(), runData);
   doc.end();
 });
 
-// Bulk: single PDF containing all payslips for a run (one slip per page).
 payrollRouter.get("/payroll-runs/:id/payslips.pdf", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [run] = await db
-    .select()
-    .from(payrollRunsTable)
-    .where(and(eq(payrollRunsTable.id, id), eq(payrollRunsTable.organizationId, orgId)));
-  if (!run) { res.status(404).json({ error: "Run not found" }); return; }
-  const slips = await db.select().from(payslipsTable).where(eq(payslipsTable.payrollRunId, id));
-  if (slips.length === 0) { res.status(400).json({ error: "Run has no payslips" }); return; }
-  const emps = await db.select().from(employeesTable).where(eq(employeesTable.organizationId, orgId));
-  const empById = new Map(emps.map((e) => [e.id, e]));
+  const id = req.params.id;
+  const runDoc = await db().collection("payroll_runs").doc(id).get();
+  if (!runDoc.exists || runDoc.data()?.organizationId !== orgId) {
+    res.status(404).json({ error: "Run not found" });
+    return;
+  }
+  const runData = runDoc.data()!;
+  const slipsSnap = await db().collection("payslips").where("payrollRunId", "==", id).get();
+  if (slipsSnap.empty) {
+    res.status(400).json({ error: "Run has no payslips" });
+    return;
+  }
+  const empsSnap = await db().collection("employees").where("organizationId", "==", orgId).get();
+  const empById = new Map(empsSnap.docs.map((d) => [d.id, d.data()]));
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `attachment; filename="payslips-${MONTHS[run.periodMonth]}-${run.periodYear}.pdf"`);
+  res.setHeader("Content-Disposition", `attachment; filename="payslips-${MONTHS[runData.periodMonth as number]}-${runData.periodYear}.pdf"`);
   const doc = new PDFDocument({ size: "A4", margin: 48, autoFirstPage: false });
   doc.pipe(res);
-  for (let i = 0; i < slips.length; i++) {
+  for (const sDoc of slipsSnap.docs) {
     doc.addPage();
-    renderPayslip(doc, slips[i], empById.get(slips[i].employeeId), run);
+    renderPayslip(doc, sDoc.data(), empById.get(sDoc.data().employeeId as string), runData);
   }
   doc.end();
 });
 
-// Bulk: bank-friendly payments CSV for a run (employee, account, IFSC, net).
 payrollRouter.get("/payroll-runs/:id/payments.csv", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [run] = await db
-    .select()
-    .from(payrollRunsTable)
-    .where(and(eq(payrollRunsTable.id, id), eq(payrollRunsTable.organizationId, orgId)));
-  if (!run) { res.status(404).json({ error: "Run not found" }); return; }
-  const slips = await db.select().from(payslipsTable).where(eq(payslipsTable.payrollRunId, id));
-  const emps = await db.select().from(employeesTable).where(eq(employeesTable.organizationId, orgId));
-  const empById = new Map(emps.map((e) => [e.id, e]));
+  const id = req.params.id;
+  const runDoc = await db().collection("payroll_runs").doc(id).get();
+  if (!runDoc.exists || runDoc.data()?.organizationId !== orgId) {
+    res.status(404).json({ error: "Run not found" });
+    return;
+  }
+  const runData = runDoc.data()!;
+  const slipsSnap = await db().collection("payslips").where("payrollRunId", "==", id).get();
+  const empsSnap = await db().collection("employees").where("organizationId", "==", orgId).get();
+  const empById = new Map(empsSnap.docs.map((d) => [d.id, d.data()]));
   const esc = (v: unknown) => {
     const s = String(v ?? "");
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = ["Employee Code", "Employee Name", "Bank Name", "Account Number", "IFSC", "PAN", "Net Pay (INR)"];
   const lines = [header.join(",")];
-  for (const s of slips) {
-    const e = empById.get(s.employeeId);
+  for (const sDoc of slipsSnap.docs) {
+    const s = sDoc.data();
+    const e = empById.get(s.employeeId as string);
     lines.push([
       esc(e?.employeeCode),
       esc(e?.name),
@@ -467,11 +465,8 @@ payrollRouter.get("/payroll-runs/:id/payments.csv", requireAuth, async (req, res
     ].join(","));
   }
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="payroll-payments-${MONTHS[run.periodMonth]}-${run.periodYear}.csv"`);
+  res.setHeader("Content-Disposition", `attachment; filename="payroll-payments-${MONTHS[runData.periodMonth as number]}-${runData.periodYear}.csv"`);
   res.send(lines.join("\n"));
 });
-
-// Mark unused
-void postJournal;
 
 export default payrollRouter;

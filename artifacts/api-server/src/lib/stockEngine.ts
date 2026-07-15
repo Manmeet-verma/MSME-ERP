@@ -1,11 +1,7 @@
-import {
-  db,
-  stockMovementsTable,
-  stockReservationsTable,
-  itemsTable,
-  warehousesTable,
-} from "@workspace/db";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { getDb } from "./firebase";
+import { FieldValue } from "firebase-admin/firestore";
+
+const db = () => getDb();
 
 export type MovementReason =
   | "opening"
@@ -16,267 +12,227 @@ export type MovementReason =
   | "transfer_out"
   | "return";
 
-export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbOrTx = FirebaseFirestore.Transaction;
 
 export interface RecordMovementInput {
-  organizationId: number;
-  itemId: number;
-  warehouseId: number;
+  organizationId: string;
+  itemId: string;
+  warehouseId: string;
   direction: "in" | "out";
   quantity: number;
   unitCost?: number;
   reason: MovementReason;
   referenceType?: string;
-  referenceId?: number;
+  referenceId?: string;
   notes?: string;
-  createdById?: number | null;
-  /** Optional transaction handle. Defaults to top-level db. */
+  createdById?: string | null;
   executor?: DbOrTx;
 }
 
 export async function getStockLevel(
-  organizationId: number,
-  itemId: number,
-  warehouseId?: number,
+  organizationId: string,
+  itemId: string,
+  warehouseId?: string,
   executor?: DbOrTx,
 ): Promise<number> {
-  const exec = (executor ?? db) as typeof db;
-  const where = warehouseId
-    ? and(
-        eq(stockMovementsTable.organizationId, organizationId),
-        eq(stockMovementsTable.itemId, itemId),
-        eq(stockMovementsTable.warehouseId, warehouseId),
-      )
-    : and(
-        eq(stockMovementsTable.organizationId, organizationId),
-        eq(stockMovementsTable.itemId, itemId),
-      );
-  const [row] = await exec
-    .select({
-      qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
-    })
-    .from(stockMovementsTable)
-    .where(where);
-  return Number(row?.qty ?? 0);
+  let query: FirebaseFirestore.Query = db()
+    .collection("stockMovements")
+    .where("organizationId", "==", organizationId)
+    .where("itemId", "==", itemId);
+  if (warehouseId) {
+    query = query.where("warehouseId", "==", warehouseId);
+  }
+  const snap = await query.get();
+  let qty = 0;
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    const movementQty = Number(data.quantity);
+    qty += data.direction === "in" ? movementQty : -movementQty;
+  }
+  return qty;
 }
 
 export async function recordMovement(input: RecordMovementInput) {
-  // Ledger integrity: quantities are always strictly positive. The sign
-  // applied to stock math comes from `direction`, never from the magnitude.
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     throw new Error("Movement quantity must be a positive number");
   }
-  // Always run inside a transaction so we can hold a row lock on the item
-  // for the entire compute-and-write of the moving-average cost. If the
-  // caller didn't pass one, open one ourselves.
   if (!input.executor) {
-    return db.transaction((tx) => recordMovementInTx({ ...input, executor: tx }));
+    return db().runTransaction((tx: FirebaseFirestore.Transaction) => recordMovementInTx({ ...input, executor: tx }));
   }
   return recordMovementInTx(input);
 }
 
 async function recordMovementInTx(input: RecordMovementInput) {
-  const exec = input.executor as typeof db;
-  // Row-lock the item for the rest of the transaction so two simultaneous
-  // IN movements for the same item serialize their avg-cost updates and
-  // never read a stale current quantity / avg cost.
-  const [item] = await exec
-    .select()
-    .from(itemsTable)
-    .where(
-      and(
-        eq(itemsTable.id, input.itemId),
-        eq(itemsTable.organizationId, input.organizationId),
-      ),
-    )
-    .for("update");
-  if (!item) throw new Error("Item not found");
+  const tx = input.executor!;
 
-  const [warehouse] = await exec
-    .select()
-    .from(warehousesTable)
-    .where(
-      and(
-        eq(warehousesTable.id, input.warehouseId),
-        eq(warehousesTable.organizationId, input.organizationId),
-      ),
-    );
-  if (!warehouse) throw new Error("Warehouse not found");
+  const itemSnap = await db()
+    .collection("items")
+    .where("id", "==", input.itemId)
+    .where("organizationId", "==", input.organizationId)
+    .limit(1)
+    .get();
+  if (itemSnap.empty) throw new Error("Item not found");
+  const itemDoc = itemSnap.docs[0];
+  const item = itemDoc.data();
+
+  const warehouseSnap = await db()
+    .collection("warehouses")
+    .where("id", "==", input.warehouseId)
+    .where("organizationId", "==", input.organizationId)
+    .limit(1)
+    .get();
+  if (warehouseSnap.empty) throw new Error("Warehouse not found");
 
   const unitCost = input.unitCost ?? Number(item.avgCost);
 
-  const [m] = await exec
-    .insert(stockMovementsTable)
-    .values({
-      organizationId: input.organizationId,
-      itemId: input.itemId,
-      warehouseId: input.warehouseId,
-      direction: input.direction,
-      quantity: String(input.quantity),
-      unitCost: String(unitCost),
-      reason: input.reason,
-      referenceType: input.referenceType ?? null,
-      referenceId: input.referenceId ?? null,
-      notes: input.notes ?? null,
-      createdById: input.createdById ?? null,
-    })
-    .returning();
+  const movementRef = db().collection("stockMovements").doc();
+  tx.set(movementRef, {
+    organizationId: input.organizationId,
+    itemId: input.itemId,
+    warehouseId: input.warehouseId,
+    direction: input.direction,
+    quantity: String(input.quantity),
+    unitCost: String(unitCost),
+    reason: input.reason,
+    referenceType: input.referenceType ?? null,
+    referenceId: input.referenceId ?? null,
+    notes: input.notes ?? null,
+    createdById: input.createdById ?? null,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 
-  // Update moving average cost on IN movements with positive unitCost.
-  // Safe under concurrency because the item row is locked above; another
-  // concurrent recordMovement on the same item will block here until we
-  // commit, then see our IN row in its own sum.
   if (input.direction === "in" && unitCost > 0) {
-    const [row] = await exec
-      .select({
-        qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
-      })
-      .from(stockMovementsTable)
-      .where(
-        and(
-          eq(stockMovementsTable.organizationId, input.organizationId),
-          eq(stockMovementsTable.itemId, input.itemId),
-          sql`${stockMovementsTable.id} <> ${m.id}`,
-        ),
-      );
-    const currentQty = Number(row?.qty ?? 0);
+    const prevSnap = await db()
+      .collection("stockMovements")
+      .where("organizationId", "==", input.organizationId)
+      .where("itemId", "==", input.itemId)
+      .get();
+    let currentQty = 0;
+    for (const doc of prevSnap.docs) {
+      if (doc.id === movementRef.id) continue;
+      const d = doc.data();
+      const qty = Number(d.quantity);
+      currentQty += d.direction === "in" ? qty : -qty;
+    }
     const currentAvg = Number(item.avgCost);
     const newQty = currentQty + input.quantity;
-    const newAvg =
-      newQty > 0
-        ? (currentQty * currentAvg + input.quantity * unitCost) / newQty
-        : unitCost;
-    await exec
-      .update(itemsTable)
-      .set({ avgCost: newAvg.toFixed(4), updatedAt: new Date() })
-      .where(eq(itemsTable.id, input.itemId));
+    const newAvg = newQty > 0 ? (currentQty * currentAvg + input.quantity * unitCost) / newQty : unitCost;
+    tx.update(itemDoc.ref, {
+      avgCost: newAvg.toFixed(4),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   }
 
-  return m;
+  return { id: movementRef.id };
 }
 
-/**
- * Sum of currently-active reservations against (item, warehouse). Optionally
- * excludes the SO doing the asking (so an SO's own draft reservations don't
- * block its own confirmation).
- */
 export async function getReservedStock(
-  organizationId: number,
-  itemId: number,
-  warehouseId: number,
-  excludeSalesOrderId?: number,
+  organizationId: string,
+  itemId: string,
+  warehouseId: string,
+  excludeSalesOrderId?: string,
   executor?: DbOrTx,
 ): Promise<number> {
-  const exec = (executor ?? db) as typeof db;
-  const conds = [
-    eq(stockReservationsTable.organizationId, organizationId),
-    eq(stockReservationsTable.itemId, itemId),
-    eq(stockReservationsTable.warehouseId, warehouseId),
-  ];
+  let query: FirebaseFirestore.Query = db()
+    .collection("stockReservations")
+    .where("organizationId", "==", organizationId)
+    .where("itemId", "==", itemId)
+    .where("warehouseId", "==", warehouseId);
   if (excludeSalesOrderId !== undefined) {
-    conds.push(ne(stockReservationsTable.salesOrderId, excludeSalesOrderId));
+    query = query.where("salesOrderId", "!=", excludeSalesOrderId);
   }
-  const [row] = await exec
-    .select({
-      qty: sql<string>`coalesce(sum(${stockReservationsTable.quantity}),0)::text`,
-    })
-    .from(stockReservationsTable)
-    .where(and(...conds));
-  return Number(row?.qty ?? 0);
+  const snap = await query.get();
+  let qty = 0;
+  for (const doc of snap.docs) {
+    qty += Number(doc.data().quantity);
+  }
+  return qty;
 }
 
-/**
- * Stock on hand minus active reservations (other than excludeSalesOrderId).
- * This is what salespeople should see when deciding whether to commit.
- */
 export async function getAvailableStock(
-  organizationId: number,
-  itemId: number,
-  warehouseId: number,
-  excludeSalesOrderId?: number,
+  organizationId: string,
+  itemId: string,
+  warehouseId: string,
+  excludeSalesOrderId?: string,
   executor?: DbOrTx,
 ): Promise<{ onHand: number; reserved: number; available: number }> {
   const onHand = await getStockLevel(organizationId, itemId, warehouseId, executor);
-  const reserved = await getReservedStock(
-    organizationId,
-    itemId,
-    warehouseId,
-    excludeSalesOrderId,
-    executor,
-  );
+  const reserved = await getReservedStock(organizationId, itemId, warehouseId, excludeSalesOrderId, executor);
   return { onHand, reserved, available: onHand - reserved };
 }
 
-/**
- * Replace the reservation set for a SO. Lines without itemId/warehouseId are
- * ignored. Quantities are aggregated per (item, warehouse). Pass an empty
- * array to clear.
- */
 export async function setReservationsForSO(opts: {
-  organizationId: number;
-  salesOrderId: number;
-  lines: Array<{ itemId: number | null; quantity: number }>;
-  warehouseId: number;
+  organizationId: string;
+  salesOrderId: string;
+  lines: Array<{ itemId: string | null; quantity: number }>;
+  warehouseId: string;
   executor: DbOrTx;
 }): Promise<void> {
-  const exec = opts.executor as typeof db;
-  await exec
-    .delete(stockReservationsTable)
-    .where(
-      and(
-        eq(stockReservationsTable.organizationId, opts.organizationId),
-        eq(stockReservationsTable.salesOrderId, opts.salesOrderId),
-      ),
-    );
-  const agg = new Map<number, number>();
+  const tx = opts.executor;
+
+  const existingSnap = await db()
+    .collection("stockReservations")
+    .where("organizationId", "==", opts.organizationId)
+    .where("salesOrderId", "==", opts.salesOrderId)
+    .get();
+  for (const doc of existingSnap.docs) {
+    tx.delete(doc.ref);
+  }
+
+  const agg = new Map<string, number>();
   for (const l of opts.lines) {
     if (!l.itemId || !(l.quantity > 0)) continue;
     agg.set(l.itemId, (agg.get(l.itemId) ?? 0) + l.quantity);
   }
   if (agg.size === 0) return;
-  await exec.insert(stockReservationsTable).values(
-    Array.from(agg.entries()).map(([itemId, quantity]) => ({
+
+  for (const [itemId, quantity] of agg.entries()) {
+    const ref = db().collection("stockReservations").doc();
+    tx.set(ref, {
       organizationId: opts.organizationId,
       salesOrderId: opts.salesOrderId,
       itemId,
       warehouseId: opts.warehouseId,
       quantity: String(quantity),
-    })),
-  );
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
 }
 
 export async function clearReservationsForSO(
-  organizationId: number,
-  salesOrderId: number,
+  organizationId: string,
+  salesOrderId: string,
   executor: DbOrTx,
 ): Promise<void> {
-  const exec = executor as typeof db;
-  await exec
-    .delete(stockReservationsTable)
-    .where(
-      and(
-        eq(stockReservationsTable.organizationId, organizationId),
-        eq(stockReservationsTable.salesOrderId, salesOrderId),
-      ),
-    );
+  const tx = executor;
+  const snap = await db()
+    .collection("stockReservations")
+    .where("organizationId", "==", organizationId)
+    .where("salesOrderId", "==", salesOrderId)
+    .get();
+  for (const doc of snap.docs) {
+    tx.delete(doc.ref);
+  }
 }
 
-export async function ensureDefaultWarehouse(organizationId: number): Promise<number> {
-  const existing = await db
-    .select()
-    .from(warehousesTable)
-    .where(eq(warehousesTable.organizationId, organizationId));
-  if (existing.length > 0) {
-    const def = existing.find((w) => w.isDefault) ?? existing[0];
-    return def.id;
+export async function ensureDefaultWarehouse(organizationId: string): Promise<string> {
+  const snap = await db()
+    .collection("warehouses")
+    .where("organizationId", "==", organizationId)
+    .get();
+  if (!snap.empty) {
+    const defaultWh = snap.docs.find((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data().isDefault) ?? snap.docs[0];
+    return defaultWh.id;
   }
-  const [w] = await db
-    .insert(warehousesTable)
-    .values({
-      organizationId,
-      name: "Main Warehouse",
-      isDefault: true,
-    })
-    .returning();
-  return w.id;
+  const ref = db().collection("warehouses").doc();
+  await ref.set({
+    organizationId,
+    name: "Main Warehouse",
+    isDefault: true,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
 }

@@ -1,16 +1,28 @@
-import { db, quotationItemsTable, quotationAddonsTable, quotationsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { getDb } from "./firebase";
+import { FieldValue } from "firebase-admin/firestore";
 
-export async function recalcQuotation(quotationId: number): Promise<void> {
-  const items = await db.select().from(quotationItemsTable).where(eq(quotationItemsTable.quotationId, quotationId));
-  const addons = await db.select().from(quotationAddonsTable).where(eq(quotationAddonsTable.quotationId, quotationId));
+const db = () => getDb();
 
-  const itemsTotal = items.reduce((sum, item) => sum + Number(item.totalPrice), 0);
-  const addonsTotal = addons.reduce((sum, a) => sum + Number(a.totalPrice), 0);
+export async function recalcQuotation(quotationId: string): Promise<void> {
+  const itemsSnap = await db()
+    .collection("quotationItems")
+    .where("quotationId", "==", quotationId)
+    .get();
+  const addonsSnap = await db()
+    .collection("quotationAddons")
+    .where("quotationId", "==", quotationId)
+    .get();
+
+  const itemsTotal = itemsSnap.docs.reduce((sum: number, doc: FirebaseFirestore.QueryDocumentSnapshot) => sum + Number(doc.data().totalPrice), 0);
+  const addonsTotal = addonsSnap.docs.reduce((sum: number, doc: FirebaseFirestore.QueryDocumentSnapshot) => sum + Number(doc.data().totalPrice), 0);
   const subtotal = itemsTotal + addonsTotal;
 
-  const [quotation] = await db.select().from(quotationsTable).where(eq(quotationsTable.id, quotationId));
-  if (!quotation) return;
+  const quotSnap = await db()
+    .collection("quotations")
+    .doc(quotationId)
+    .get();
+  if (!quotSnap.exists) return;
+  const quotation = quotSnap.data()!;
 
   const discountPercent = Number(quotation.discountPercent);
   const taxPercent = Number(quotation.taxPercent);
@@ -18,13 +30,11 @@ export async function recalcQuotation(quotationId: number): Promise<void> {
   const taxAmount = (subtotal - discountAmount) * (taxPercent / 100);
   const total = subtotal - discountAmount + taxAmount;
 
-  await db.update(quotationsTable)
-    .set({
-      subtotal: subtotal.toFixed(2),
-      discountAmount: discountAmount.toFixed(2),
-      taxAmount: taxAmount.toFixed(2),
-      total: total.toFixed(2),
-      updatedAt: new Date(),
-    })
-    .where(eq(quotationsTable.id, quotationId));
+  await db().collection("quotations").doc(quotationId).update({
+    subtotal: subtotal.toFixed(2),
+    discountAmount: discountAmount.toFixed(2),
+    taxAmount: taxAmount.toFixed(2),
+    total: total.toFixed(2),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 }

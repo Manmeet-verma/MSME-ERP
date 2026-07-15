@@ -1,22 +1,35 @@
 import { Router } from "express";
 import crypto from "node:crypto";
-import {
-  db,
-  organizationsTable,
-  organizationMembersTable,
-  invitationsTable,
-  usersTable,
-  DEFAULT_LIMITS,
-  DEFAULT_MODULES,
-  DEFAULT_PAYROLL_SETTINGS,
-  type OrgModules,
-  type OrgPayrollSettings,
-} from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth, requireUser, requireOwner, requireAdmin, signToken } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 
+const db = () => getDb();
+
 const orgRouter = Router();
+
+const DEFAULT_LIMITS = {
+  clients: 100,
+  products: 100,
+  quotations: 100,
+  addons: 100,
+};
+
+const DEFAULT_MODULES = {
+  sales: true,
+  inventory: true,
+  payroll: false,
+  reports: true,
+};
+
+const DEFAULT_PAYROLL_SETTINGS = {
+  autoRunDay: 1,
+  autoRunEnabled: false,
+  emailPayslips: false,
+};
+
+type OrgModules = Partial<typeof DEFAULT_MODULES>;
+type OrgPayrollSettings = Partial<typeof DEFAULT_PAYROLL_SETTINGS>;
 
 function slugify(name: string): string {
   return (
@@ -32,8 +45,8 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let i = 1;
   while (true) {
-    const [row] = await db.select().from(organizationsTable).where(eq(organizationsTable.slug, slug));
-    if (!row) return slug;
+    const snap = await db().collection("organizations").where("slug", "==", slug).get();
+    if (snap.empty) return slug;
     i += 1;
     slug = `${base}-${i}`;
   }
@@ -47,40 +60,42 @@ orgRouter.post("/organizations", requireUser, async (req, res) => {
     return;
   }
   const slug = await ensureUniqueSlug(slugify(name));
-  const [org] = await db
-    .insert(organizationsTable)
-    .values({
-      name,
-      slug,
-      plan: "free",
-      industry: industry ?? null,
-      gstNumber: gstNumber ?? null,
-      state: state ?? null,
-      address: address ?? null,
-      phone: phone ?? null,
-      limits: { ...DEFAULT_LIMITS },
-      modules: { ...DEFAULT_MODULES },
-      createdById: req.user!.userId,
-    })
-    .returning();
-  await db.insert(organizationMembersTable).values({
-    organizationId: org.id,
+  const orgData = {
+    name,
+    slug,
+    plan: "free",
+    industry: industry ?? null,
+    gstNumber: gstNumber ?? null,
+    state: state ?? null,
+    address: address ?? null,
+    phone: phone ?? null,
+    limits: { ...DEFAULT_LIMITS },
+    modules: { ...DEFAULT_MODULES },
+    salesSettings: {},
+    payrollSettings: { ...DEFAULT_PAYROLL_SETTINGS },
+    createdById: req.user!.userId,
+    createdAt: new Date().toISOString(),
+  };
+  const orgRef = await db().collection("organizations").add(orgData);
+  await db().collection("organization_members").add({
+    organizationId: orgRef.id,
     userId: req.user!.userId,
     role: "owner",
+    joinedAt: new Date().toISOString(),
   });
   const token = signToken({
     userId: req.user!.userId,
     email: req.user!.email,
-    activeOrgId: org.id,
+    activeOrgId: orgRef.id,
   });
   res.status(201).json({
     token,
-    organization: formatOrg(org),
+    organization: formatOrg({ id: orgRef.id, ...orgData }),
     role: "owner",
   });
 });
 
-function formatOrg(o: typeof organizationsTable.$inferSelect) {
+function formatOrg(o: any) {
   return {
     id: o.id,
     name: o.name,
@@ -95,20 +110,17 @@ function formatOrg(o: typeof organizationsTable.$inferSelect) {
     modules: o.modules,
     salesSettings: o.salesSettings,
     payrollSettings: { ...DEFAULT_PAYROLL_SETTINGS, ...(o.payrollSettings ?? {}) },
-    createdAt: o.createdAt.toISOString(),
+    createdAt: o.createdAt,
   };
 }
 
 orgRouter.get("/organizations/current", requireAuth, async (req, res) => {
-  const [org] = await db
-    .select()
-    .from(organizationsTable)
-    .where(eq(organizationsTable.id, req.user!.organizationId));
-  if (!org) {
+  const snap = await db().collection("organizations").doc(req.user!.organizationId).get();
+  if (!snap.exists) {
     res.status(404).json({ error: "Organization not found" });
     return;
   }
-  res.json(formatOrg(org));
+  res.json(formatOrg({ id: snap.id, ...snap.data() }));
 });
 
 orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req, res) => {
@@ -121,21 +133,16 @@ orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req,
   if (address !== undefined) updates.address = address;
   if (phone !== undefined) updates.phone = phone;
   if (salesSettings !== undefined && typeof salesSettings === "object" && salesSettings !== null) {
-    // Merge so partial updates don't drop unrelated flags.
-    const [current] = await db
-      .select({ salesSettings: organizationsTable.salesSettings })
-      .from(organizationsTable)
-      .where(eq(organizationsTable.id, req.user!.organizationId));
+    const currentSnap = await db().collection("organizations").doc(req.user!.organizationId).get();
+    const current = currentSnap.data();
     updates.salesSettings = {
       ...(current?.salesSettings ?? {}),
       ...(salesSettings as Record<string, boolean>),
     };
   }
   if (payrollSettings !== undefined && typeof payrollSettings === "object" && payrollSettings !== null) {
-    const [current] = await db
-      .select({ payrollSettings: organizationsTable.payrollSettings })
-      .from(organizationsTable)
-      .where(eq(organizationsTable.id, req.user!.organizationId));
+    const currentSnap = await db().collection("organizations").doc(req.user!.organizationId).get();
+    const current = currentSnap.data();
     const incoming = payrollSettings as Partial<OrgPayrollSettings>;
     const merged: OrgPayrollSettings = {
       ...DEFAULT_PAYROLL_SETTINGS,
@@ -149,11 +156,9 @@ orgRouter.patch("/organizations/current", requireAuth, requireAdmin, async (req,
     merged.emailPayslips = Boolean(merged.emailPayslips);
     updates.payrollSettings = merged;
   }
-  const [org] = await db
-    .update(organizationsTable)
-    .set(updates)
-    .where(eq(organizationsTable.id, req.user!.organizationId))
-    .returning();
+  await db().collection("organizations").doc(req.user!.organizationId).update(updates);
+  const updatedSnap = await db().collection("organizations").doc(req.user!.organizationId).get();
+  const org = { id: updatedSnap.id, ...updatedSnap.data() };
   await logAction(req, "UPDATE", "organization", org.id, "Updated organization profile");
   res.json(formatOrg(org));
 });
@@ -165,16 +170,12 @@ orgRouter.put("/organizations/current/modules", requireAuth, requireOwner, async
     res.status(400).json({ error: "modules object required" });
     return;
   }
-  const [current] = await db
-    .select()
-    .from(organizationsTable)
-    .where(eq(organizationsTable.id, req.user!.organizationId));
-  const merged: OrgModules = { ...current.modules, ...modules };
-  const [org] = await db
-    .update(organizationsTable)
-    .set({ modules: merged })
-    .where(eq(organizationsTable.id, req.user!.organizationId))
-    .returning();
+  const currentSnap = await db().collection("organizations").doc(req.user!.organizationId).get();
+  const current = currentSnap.data();
+  const merged: OrgModules = { ...current?.modules, ...modules };
+  await db().collection("organizations").doc(req.user!.organizationId).update({ modules: merged });
+  const updatedSnap = await db().collection("organizations").doc(req.user!.organizationId).get();
+  const org = { id: updatedSnap.id, ...updatedSnap.data() };
   await logAction(req, "UPDATE", "organization_modules", org.id, JSON.stringify(modules));
   res.json(formatOrg(org));
 });
@@ -182,20 +183,27 @@ orgRouter.put("/organizations/current/modules", requireAuth, requireOwner, async
 // ── Members ────────────────────────────────────────────────────────────────
 
 orgRouter.get("/organizations/current/members", requireAuth, async (req, res) => {
-  const rows = await db
-    .select({
-      id: organizationMembersTable.id,
-      userId: usersTable.id,
-      name: usersTable.name,
-      email: usersTable.email,
-      role: organizationMembersTable.role,
-      joinedAt: organizationMembersTable.joinedAt,
-      lastLogin: usersTable.lastLogin,
-      isActive: usersTable.isActive,
-    })
-    .from(organizationMembersTable)
-    .innerJoin(usersTable, eq(usersTable.id, organizationMembersTable.userId))
-    .where(eq(organizationMembersTable.organizationId, req.user!.organizationId));
+  const memberSnap = await db()
+    .collection("organization_members")
+    .where("organizationId", "==", req.user!.organizationId)
+    .get();
+  const members = memberSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const rows = await Promise.all(
+    members.map(async (m: any) => {
+      const userSnap = await db().collection("users").doc(m.userId).get();
+      const user = userSnap.data();
+      return {
+        id: m.id,
+        userId: m.userId,
+        name: user?.name ?? null,
+        email: user?.email ?? null,
+        role: m.role,
+        isActive: user?.isActive ?? null,
+        lastLogin: user?.lastLogin ?? null,
+        joinedAt: m.joinedAt,
+      };
+    }),
+  );
   res.json(
     rows.map((r) => ({
       id: r.id,
@@ -204,8 +212,8 @@ orgRouter.get("/organizations/current/members", requireAuth, async (req, res) =>
       email: r.email,
       role: r.role,
       isActive: r.isActive,
-      lastLogin: r.lastLogin?.toISOString() ?? null,
-      joinedAt: r.joinedAt.toISOString(),
+      lastLogin: r.lastLogin ?? null,
+      joinedAt: r.joinedAt,
     })),
   );
 });
@@ -216,7 +224,7 @@ orgRouter.patch(
   requireAdmin,
   async (req, res) => {
     const { role } = req.body ?? {};
-    const targetUserId = Number(req.params.userId);
+    const targetUserId = req.params.userId;
     if (!role || !["owner", "admin", "sales", "viewer"].includes(role)) {
       res.status(400).json({ error: "Invalid role" });
       return;
@@ -229,30 +237,23 @@ orgRouter.patch(
       res.status(403).json({ error: "Owner cannot self-demote. Transfer ownership first." });
       return;
     }
-    const [existing] = await db
-      .select()
-      .from(organizationMembersTable)
-      .where(
-        and(
-          eq(organizationMembersTable.organizationId, req.user!.organizationId),
-          eq(organizationMembersTable.userId, targetUserId),
-        ),
-      );
-    if (!existing) {
+    const existingSnap = await db()
+      .collection("organization_members")
+      .where("organizationId", "==", req.user!.organizationId)
+      .where("userId", "==", targetUserId)
+      .get();
+    if (existingSnap.empty) {
       res.status(404).json({ error: "Member not found" });
       return;
     }
+    const existingDoc = existingSnap.docs[0];
+    const existing = existingDoc.data();
     if (existing.role === "owner" && req.user!.role !== "owner") {
       res.status(403).json({ error: "Only the owner can change the owner's role" });
       return;
     }
-    const [member] = await db
-      .update(organizationMembersTable)
-      .set({ role })
-      .where(eq(organizationMembersTable.id, existing.id))
-      .returning();
-    await logAction(req, "UPDATE", "member", targetUserId, `Role changed to ${role}`);
-    res.json({ id: member.id, userId: member.userId, role: member.role });
+    await db().collection("organization_members").doc(existingDoc.id).update({ role });
+    res.json({ id: existingDoc.id, userId: targetUserId, role });
   },
 );
 
@@ -261,31 +262,27 @@ orgRouter.delete(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    const targetUserId = Number(req.params.userId);
+    const targetUserId = req.params.userId;
     if (targetUserId === req.user!.userId) {
       res.status(400).json({ error: "Cannot remove yourself. Transfer ownership first." });
       return;
     }
-    const [target] = await db
-      .select()
-      .from(organizationMembersTable)
-      .where(
-        and(
-          eq(organizationMembersTable.organizationId, req.user!.organizationId),
-          eq(organizationMembersTable.userId, targetUserId),
-        ),
-      );
-    if (!target) {
+    const targetSnap = await db()
+      .collection("organization_members")
+      .where("organizationId", "==", req.user!.organizationId)
+      .where("userId", "==", targetUserId)
+      .get();
+    if (targetSnap.empty) {
       res.status(404).json({ error: "Member not found" });
       return;
     }
+    const targetDoc = targetSnap.docs[0];
+    const target = targetDoc.data();
     if (target.role === "owner") {
       res.status(403).json({ error: "Cannot remove the owner" });
       return;
     }
-    await db
-      .delete(organizationMembersTable)
-      .where(eq(organizationMembersTable.id, target.id));
+    await db().collection("organization_members").doc(targetDoc.id).delete();
     await logAction(req, "DELETE", "member", targetUserId, "Removed member");
     res.json({ message: "Member removed" });
   },
@@ -294,19 +291,20 @@ orgRouter.delete(
 // ── Invitations ────────────────────────────────────────────────────────────
 
 orgRouter.get("/organizations/current/invitations", requireAuth, requireAdmin, async (req, res) => {
-  const rows = await db
-    .select()
-    .from(invitationsTable)
-    .where(eq(invitationsTable.organizationId, req.user!.organizationId));
+  const snap = await db()
+    .collection("invitations")
+    .where("organizationId", "==", req.user!.organizationId)
+    .get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(
-    rows.map((i) => ({
+    rows.map((i: any) => ({
       id: i.id,
       email: i.email,
       role: i.role,
       token: i.token,
-      acceptedAt: i.acceptedAt?.toISOString() ?? null,
-      expiresAt: i.expiresAt.toISOString(),
-      createdAt: i.createdAt.toISOString(),
+      acceptedAt: i.acceptedAt ?? null,
+      expiresAt: i.expiresAt,
+      createdAt: i.createdAt,
     })),
   );
 });
@@ -322,27 +320,27 @@ orgRouter.post("/organizations/current/invitations", requireAuth, requireAdmin, 
     return;
   }
   const token = crypto.randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const [inv] = await db
-    .insert(invitationsTable)
-    .values({
-      organizationId: req.user!.organizationId,
-      email: String(email).trim().toLowerCase(),
-      role,
-      token,
-      invitedById: req.user!.userId,
-      expiresAt,
-    })
-    .returning();
-  await logAction(req, "CREATE", "invitation", inv.id, `Invited ${email} as ${role}`);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const invData = {
+    organizationId: req.user!.organizationId,
+    email: String(email).trim().toLowerCase(),
+    role,
+    token,
+    invitedById: req.user!.userId,
+    expiresAt,
+    acceptedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+  const invRef = await db().collection("invitations").add(invData);
+  await logAction(req, "CREATE", "invitation", invRef.id, `Invited ${email} as ${role}`);
   res.status(201).json({
-    id: inv.id,
-    email: inv.email,
-    role: inv.role,
-    token: inv.token,
-    acceptUrl: `/accept-invite/${inv.token}`,
-    expiresAt: inv.expiresAt.toISOString(),
-    createdAt: inv.createdAt.toISOString(),
+    id: invRef.id,
+    email: invData.email,
+    role: invData.role,
+    token: invData.token,
+    acceptUrl: `/accept-invite/${invData.token}`,
+    expiresAt: invData.expiresAt,
+    createdAt: invData.createdAt,
   });
 });
 
@@ -351,64 +349,60 @@ orgRouter.delete(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    await db
-      .delete(invitationsTable)
-      .where(
-        and(
-          eq(invitationsTable.id, Number(req.params.id)),
-          eq(invitationsTable.organizationId, req.user!.organizationId),
-        ),
-      );
+    const invSnap = await db()
+      .collection("invitations")
+      .where("organizationId", "==", req.user!.organizationId)
+      .get();
+    const invDoc = invSnap.docs.find((d) => d.id === req.params.id);
+    if (invDoc) {
+      await db().collection("invitations").doc(invDoc.id).delete();
+    }
     res.json({ message: "Invitation revoked" });
   },
 );
 
 /** Public: look up an invitation by token (used by the accept-invite page). */
 orgRouter.get("/invitations/:token", async (req, res) => {
-  const [inv] = await db
-    .select({
-      id: invitationsTable.id,
-      email: invitationsTable.email,
-      role: invitationsTable.role,
-      token: invitationsTable.token,
-      acceptedAt: invitationsTable.acceptedAt,
-      expiresAt: invitationsTable.expiresAt,
-      organizationId: invitationsTable.organizationId,
-      organizationName: organizationsTable.name,
-    })
-    .from(invitationsTable)
-    .innerJoin(organizationsTable, eq(organizationsTable.id, invitationsTable.organizationId))
-    .where(eq(invitationsTable.token, String(req.params.token)));
-  if (!inv) {
+  const invSnap = await db()
+    .collection("invitations")
+    .where("token", "==", String(req.params.token))
+    .get();
+  if (invSnap.empty) {
     res.status(404).json({ error: "Invitation not found" });
     return;
   }
+  const invDoc = invSnap.docs[0];
+  const inv = invDoc.data();
+  const orgSnap = await db().collection("organizations").doc(inv.organizationId).get();
+  const org = orgSnap.data();
   res.json({
     email: inv.email,
     role: inv.role,
     organizationId: inv.organizationId,
-    organizationName: inv.organizationName,
+    organizationName: org?.name ?? null,
     accepted: !!inv.acceptedAt,
-    expired: inv.expiresAt < new Date(),
-    expiresAt: inv.expiresAt.toISOString(),
+    expired: new Date(inv.expiresAt) < new Date(),
+    expiresAt: inv.expiresAt,
   });
 });
 
 /** Accept an invitation; requires the user to be signed in. */
 orgRouter.post("/invitations/:token/accept", requireUser, async (req, res) => {
-  const [inv] = await db
-    .select()
-    .from(invitationsTable)
-    .where(eq(invitationsTable.token, String(req.params.token)));
-  if (!inv) {
+  const invSnap = await db()
+    .collection("invitations")
+    .where("token", "==", String(req.params.token))
+    .get();
+  if (invSnap.empty) {
     res.status(404).json({ error: "Invitation not found" });
     return;
   }
+  const invDoc = invSnap.docs[0];
+  const inv = invDoc.data();
   if (inv.acceptedAt) {
     res.status(400).json({ error: "Invitation already accepted" });
     return;
   }
-  if (inv.expiresAt < new Date()) {
+  if (new Date(inv.expiresAt) < new Date()) {
     res.status(400).json({ error: "Invitation expired" });
     return;
   }
@@ -417,27 +411,21 @@ orgRouter.post("/invitations/:token/accept", requireUser, async (req, res) => {
     return;
   }
   // Idempotent: if already a member, just mark accepted.
-  const [existing] = await db
-    .select()
-    .from(organizationMembersTable)
-    .where(
-      and(
-        eq(organizationMembersTable.organizationId, inv.organizationId),
-        eq(organizationMembersTable.userId, req.user!.userId),
-      ),
-    );
-  if (!existing) {
-    await db.insert(organizationMembersTable).values({
+  const existingSnap = await db()
+    .collection("organization_members")
+    .where("organizationId", "==", inv.organizationId)
+    .where("userId", "==", req.user!.userId)
+    .get();
+  if (existingSnap.empty) {
+    await db().collection("organization_members").add({
       organizationId: inv.organizationId,
       userId: req.user!.userId,
       role: inv.role,
       invitedById: inv.invitedById ?? null,
+      joinedAt: new Date().toISOString(),
     });
   }
-  await db
-    .update(invitationsTable)
-    .set({ acceptedAt: new Date() })
-    .where(eq(invitationsTable.id, inv.id));
+  await db().collection("invitations").doc(invDoc.id).update({ acceptedAt: new Date().toISOString() });
 
   const token = signToken({
     userId: req.user!.userId,

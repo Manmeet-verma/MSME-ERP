@@ -1,5 +1,3 @@
-import type { Lead } from "@workspace/db";
-
 export type LeadPriority = "hot" | "warm" | "cold";
 
 export interface ScoreResult {
@@ -8,15 +6,15 @@ export interface ScoreResult {
   nextAction: string;
 }
 
-/**
- * Rule-based lead scoring. Score 0..100.
- * - Budget > 100k → +30, > 25k → +15
- * - Has phone → +15
- * - Has email → +10
- * - Source = indiamart → +10
- * - Status (contacted/qualified) → +15 / +25
- * - Recently contacted (<7d) → +10
- */
+export interface Lead {
+  budget?: number | string | null;
+  phone?: string | null;
+  email?: string | null;
+  source?: string;
+  status?: string;
+  lastContactedAt?: string | null;
+}
+
 export function scoreLead(lead: Partial<Lead>): ScoreResult {
   let score = 30;
   const budget = lead.budget ? Number(lead.budget) : 0;

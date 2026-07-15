@@ -1,14 +1,15 @@
 import { Router } from "express";
-import { db, callsTable, leadsTable, leadActivitiesTable, usersTable } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { getTwilioClient } from "../lib/twilio";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { logAction } from "../lib/auditLog";
 
+const db = () => getDb();
+
 const callsRouter = Router();
 
-function fmt(c: typeof callsTable.$inferSelect, leadName: string | null, userName: string | null) {
+function fmt(c: Record<string, any>, leadName: string | null, userName: string | null) {
   return {
     id: c.id,
     leadId: c.leadId ?? null,
@@ -25,9 +26,9 @@ function fmt(c: typeof callsTable.$inferSelect, leadName: string | null, userNam
     transcript: c.transcript ?? null,
     aiSummary: c.aiSummary ?? null,
     notes: c.notes ?? null,
-    startedAt: c.startedAt?.toISOString() ?? null,
-    endedAt: c.endedAt?.toISOString() ?? null,
-    createdAt: c.createdAt.toISOString(),
+    startedAt: c.startedAt ?? null,
+    endedAt: c.endedAt ?? null,
+    createdAt: c.createdAt ?? new Date().toISOString(),
   };
 }
 
@@ -40,15 +41,24 @@ function normalizePhone(p: string): string {
 
 callsRouter.get("/calls", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const leadIdQ = req.query.leadId ? Number(req.query.leadId) : null;
-  const rows = await db
-    .select({ c: callsTable, leadName: leadsTable.name, userName: usersTable.name })
-    .from(callsTable)
-    .leftJoin(leadsTable, eq(callsTable.leadId, leadsTable.id))
-    .leftJoin(usersTable, eq(callsTable.userId, usersTable.id))
-    .where(eq(callsTable.organizationId, orgId))
-    .orderBy(desc(callsTable.createdAt));
-  let result = rows.map((r) => fmt(r.c, r.leadName ?? null, r.userName ?? null));
+  const leadIdQ = req.query.leadId ? String(req.query.leadId) : null;
+  const snap = await db().collection("calls").where("organizationId", "==", orgId).get();
+  let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  // Fetch lead and user names
+  const leadIds = [...new Set(rows.map((r) => r.leadId).filter(Boolean))];
+  const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+  const leadMap: Record<string, string> = {};
+  const userMap: Record<string, string> = {};
+  for (const lid of leadIds) {
+    const leadSnap = await db().collection("leads").doc(lid).get();
+    if (leadSnap.exists) leadMap[lid] = leadSnap.data()!.name;
+  }
+  for (const uid of userIds) {
+    const userSnap = await db().collection("users").doc(uid).get();
+    if (userSnap.exists) userMap[uid] = userSnap.data()!.name;
+  }
+  let result = rows.map((r) => fmt(r, r.leadId ? leadMap[r.leadId] ?? null : null, r.userId ? userMap[r.userId] ?? null : null));
   if (leadIdQ) result = result.filter((c) => c.leadId === leadIdQ);
   res.json(result);
 });
@@ -64,10 +74,9 @@ callsRouter.post("/calls/initiate", requireAuth, async (req, res) => {
   const agent = normalizePhone(agentNumber);
   const twilio = await getTwilioClient();
   let twilioSid: string | null = null;
-  let status: typeof callsTable.$inferInsert["status"] = "queued";
+  let status = "queued";
   if (twilio) {
     try {
-      // Call the agent first; once they pick up, TwiML dials the lead.
       const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting you to your customer.</Say><Dial>${to}</Dial></Response>`;
       const call = await twilio.client.calls.create({
         from: twilio.fromNumber,
@@ -78,91 +87,85 @@ callsRouter.post("/calls/initiate", requireAuth, async (req, res) => {
       status = "ringing";
     } catch (e) {
       status = "failed";
-      const [c] = await db
-        .insert(callsTable)
-        .values({
-          organizationId: orgId,
-          leadId: leadId ?? null,
-          userId: req.user!.userId,
-          direction: "outbound",
-          fromNumber: agent,
-          toNumber: to,
-          status,
-          notes: `Twilio error: ${(e as Error).message}`,
-        })
-        .returning();
-      res.status(502).json(fmt(c, null, null));
+      const docRef = await db().collection("calls").add({
+        organizationId: orgId,
+        leadId: leadId ?? null,
+        userId: req.user!.userId,
+        direction: "outbound",
+        fromNumber: agent,
+        toNumber: to,
+        status,
+        notes: `Twilio error: ${(e as Error).message}`,
+        createdAt: new Date().toISOString(),
+      });
+      res.status(502).json(fmt({ id: docRef.id, status }, null, null));
       return;
     }
   } else {
     status = "failed";
   }
-  const [c] = await db
-    .insert(callsTable)
-    .values({
-      organizationId: orgId,
-      leadId: leadId ?? null,
-      userId: req.user!.userId,
-      direction: "outbound",
-      fromNumber: agent,
-      toNumber: to,
-      status,
-      twilioSid,
-      startedAt: new Date(),
-      notes: !twilio ? "Twilio integration not configured" : null,
-    })
-    .returning();
+  const now = new Date().toISOString();
+  const docRef = await db().collection("calls").add({
+    organizationId: orgId,
+    leadId: leadId ?? null,
+    userId: req.user!.userId,
+    direction: "outbound",
+    fromNumber: agent,
+    toNumber: to,
+    status,
+    twilioSid,
+    startedAt: now,
+    notes: !twilio ? "Twilio integration not configured" : null,
+    createdAt: now,
+  });
   if (leadId) {
-    await db.insert(leadActivitiesTable).values({
+    await db().collection("lead_activities").add({
       organizationId: orgId,
       leadId,
       type: "call",
       title: `Call initiated to ${to}`,
       userId: req.user!.userId,
+      createdAt: new Date().toISOString(),
     });
-    await db
-      .update(leadsTable)
-      .set({ lastContactedAt: new Date() })
-      .where(eq(leadsTable.id, leadId));
+    await db().collection("leads").doc(leadId).update({
+      lastContactedAt: new Date().toISOString(),
+    });
   }
-  await logAction(req, "INITIATE_CALL", "call", c.id, twilio ? `Twilio SID ${twilioSid}` : "twilio unavailable");
-  res.status(201).json(fmt(c, null, null));
+  await logAction(req, "INITIATE_CALL", "call", docRef.id, twilio ? `Twilio SID ${twilioSid}` : "twilio unavailable");
+  res.status(201).json(fmt({ id: docRef.id, startedAt: now, status }, null, null));
 });
 
 callsRouter.patch("/calls/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
+  const id = req.params.id;
+  const existingSnap = await db().collection("calls").doc(id).get();
+  if (!existingSnap.exists || existingSnap.data()!.organizationId !== orgId) {
+    res.status(404).json({ error: "Call not found" });
+    return;
+  }
   const updates: Record<string, unknown> = {};
   for (const f of ["notes", "transcript", "status"] as const) {
     if (req.body?.[f] !== undefined) updates[f] = req.body[f];
   }
   if (req.body?.durationSec !== undefined) {
     updates.durationSec = Number(req.body.durationSec);
-    updates.endedAt = new Date();
+    updates.endedAt = new Date().toISOString();
   }
-  const [c] = await db
-    .update(callsTable)
-    .set(updates)
-    .where(and(eq(callsTable.id, id), eq(callsTable.organizationId, orgId)))
-    .returning();
-  if (!c) {
-    res.status(404).json({ error: "Call not found" });
-    return;
-  }
+  await db().collection("calls").doc(id).update(updates);
+  const updatedSnap = await db().collection("calls").doc(id).get();
+  const c = { id: updatedSnap.id, ...updatedSnap.data() };
   res.json(fmt(c, null, null));
 });
 
 callsRouter.post("/calls/:id/summarize", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [c] = await db
-    .select()
-    .from(callsTable)
-    .where(and(eq(callsTable.id, id), eq(callsTable.organizationId, orgId)));
-  if (!c) {
+  const id = req.params.id;
+  const snap = await db().collection("calls").doc(id).get();
+  if (!snap.exists || snap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Call not found" });
     return;
   }
+  const c = snap.data()!;
   const transcript = c.transcript || c.notes;
   if (!transcript) {
     res.status(400).json({ error: "No transcript or notes to summarize" });
@@ -180,11 +183,9 @@ callsRouter.post("/calls/:id/summarize", requireAuth, async (req, res) => {
       ],
     });
     const summary = msg.content[0]?.type === "text" ? msg.content[0].text : "";
-    const [updated] = await db
-      .update(callsTable)
-      .set({ aiSummary: summary })
-      .where(eq(callsTable.id, id))
-      .returning();
+    await db().collection("calls").doc(id).update({ aiSummary: summary });
+    const updatedSnap = await db().collection("calls").doc(id).get();
+    const updated = { id: updatedSnap.id, ...updatedSnap.data() };
     res.json(fmt(updated, null, null));
   } catch (e) {
     res.status(502).json({ error: "AI summary failed: " + (e as Error).message });

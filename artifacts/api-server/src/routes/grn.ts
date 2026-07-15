@@ -1,17 +1,10 @@
 import { Router } from "express";
-import {
-  db,
-  grnTable,
-  grnItemsTable,
-  purchaseOrdersTable,
-  purchaseOrderItemsTable,
-  itemsTable,
-  warehousesTable,
-} from "@workspace/db";
-import { and, eq, desc, inArray, sql } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { recordMovement } from "../lib/stockEngine";
+
+const db = () => getDb();
 
 const grnRouter = Router();
 
@@ -20,34 +13,48 @@ function genNumber() {
   return `GRN-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-${Math.floor(Math.random() * 9000) + 1000}`;
 }
 
-async function fmt(g: typeof grnTable.$inferSelect) {
-  const items = await db.select().from(grnItemsTable).where(eq(grnItemsTable.grnId, g.id));
-  const itemIds = items.map((i) => i.itemId);
-  const itemsMap = itemIds.length
-    ? new Map(
-        (await db.select().from(itemsTable).where(inArray(itemsTable.id, itemIds))).map((it) => [
-          it.id,
-          it,
-        ]),
-      )
-    : new Map();
-  const wh = g.warehouseId
-    ? (await db.select().from(warehousesTable).where(eq(warehousesTable.id, g.warehouseId)))[0]
-    : null;
-  const po = g.purchaseOrderId
-    ? (await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, g.purchaseOrderId)))[0]
-    : null;
+async function fmt(g: any) {
+  const itemsSnap = await db()
+    .collection("grn_items")
+    .where("grnId", "==", g.id)
+    .get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  const itemIds = items.map((i) => i.itemId).filter((x): x is string => x != null);
+  const itemsMap = new Map<string, any>();
+  if (itemIds.length > 0) {
+    const itemsSnap2 = await db()
+      .collection("items")
+      .where("__name__", "in", itemIds)
+      .get();
+    for (const d of itemsSnap2.docs) {
+      itemsMap.set(d.id, { id: d.id, ...d.data() });
+    }
+  }
+
+  let warehouseName: string | null = null;
+  if (g.warehouseId) {
+    const whDoc = await db().collection("warehouses").doc(g.warehouseId).get();
+    if (whDoc.exists) warehouseName = whDoc.data()!.name as string;
+  }
+
+  let poNumber: string | null = null;
+  if (g.purchaseOrderId) {
+    const poDoc = await db().collection("purchase_orders").doc(g.purchaseOrderId).get();
+    if (poDoc.exists) poNumber = poDoc.data()!.poNumber as string;
+  }
+
   return {
     id: g.id,
     grnNumber: g.grnNumber,
     purchaseOrderId: g.purchaseOrderId ?? null,
-    poNumber: po?.poNumber ?? null,
+    poNumber,
     warehouseId: g.warehouseId,
-    warehouseName: wh?.name ?? null,
-    receivedAt: g.receivedAt.toISOString(),
+    warehouseName,
+    receivedAt: g.receivedAt,
     notes: g.notes ?? null,
     items: items.map((i) => {
-      const it = itemsMap.get(i.itemId);
+      const it = i.itemId ? itemsMap.get(i.itemId) : null;
       return {
         id: i.id,
         poItemId: i.poItemId ?? null,
@@ -58,22 +65,30 @@ async function fmt(g: typeof grnTable.$inferSelect) {
         unitCost: Number(i.unitCost),
       };
     }),
-    createdAt: g.createdAt.toISOString(),
+    createdAt: g.createdAt,
   };
 }
 
 grnRouter.get("/grn", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const poId = req.query.purchaseOrderId ? Number(req.query.purchaseOrderId) : null;
-  const rows = await db
-    .select()
-    .from(grnTable)
-    .where(
-      poId
-        ? and(eq(grnTable.organizationId, orgId), eq(grnTable.purchaseOrderId, poId))
-        : eq(grnTable.organizationId, orgId),
-    )
-    .orderBy(desc(grnTable.createdAt));
+  const poId = req.query.purchaseOrderId as string | undefined;
+
+  let snapshot;
+  if (poId) {
+    snapshot = await db()
+      .collection("grn")
+      .where("organizationId", "==", orgId)
+      .where("purchaseOrderId", "==", poId)
+      .get();
+  } else {
+    snapshot = await db()
+      .collection("grn")
+      .where("organizationId", "==", orgId)
+      .get();
+  }
+
+  const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
   res.json(await Promise.all(rows.map(fmt)));
 });
 
@@ -84,72 +99,60 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
     res.status(400).json({ error: "warehouseId and items required" });
     return;
   }
-  // Validate warehouse belongs to org
-  const [wh] = await db
-    .select()
-    .from(warehousesTable)
-    .where(and(eq(warehousesTable.id, b.warehouseId), eq(warehousesTable.organizationId, orgId)));
-  if (!wh) {
+
+  const whDoc = await db().collection("warehouses").doc(b.warehouseId).get();
+  if (!whDoc.exists || whDoc.data()!.organizationId !== orgId) {
     res.status(400).json({ error: "Invalid warehouse" });
     return;
   }
-  // Validate PO belongs to org (if provided)
-  let poItemIds: number[] = [];
+
+  let poItemIds: string[] = [];
   if (b.purchaseOrderId) {
-    const [po] = await db
-      .select()
-      .from(purchaseOrdersTable)
-      .where(
-        and(
-          eq(purchaseOrdersTable.id, b.purchaseOrderId),
-          eq(purchaseOrdersTable.organizationId, orgId),
-        ),
-      );
-    if (!po) {
+    const poDoc = await db().collection("purchase_orders").doc(b.purchaseOrderId).get();
+    if (!poDoc.exists || poDoc.data()!.organizationId !== orgId) {
       res.status(400).json({ error: "Invalid purchase order" });
       return;
     }
-    poItemIds = (
-      await db
-        .select({ id: purchaseOrderItemsTable.id })
-        .from(purchaseOrderItemsTable)
-        .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId))
-    ).map((p) => p.id);
+    const poItemsSnap = await db()
+      .collection("purchase_order_items")
+      .where("purchaseOrderId", "==", b.purchaseOrderId)
+      .get();
+    poItemIds = poItemsSnap.docs.map((d) => d.id);
   }
-  // Validate all itemIds belong to org and any provided poItemIds belong to the given PO
+
   const incomingItems = b.items as Array<{
-    poItemId?: number;
-    itemId: number;
+    poItemId?: string;
+    itemId: string;
     quantity: number;
     unitCost: number;
   }>;
   const itemIdsToCheck = Array.from(new Set(incomingItems.map((i) => i.itemId)));
   if (itemIdsToCheck.length > 0) {
-    const ownedItems = await db
-      .select({ id: itemsTable.id })
-      .from(itemsTable)
-      .where(
-        and(eq(itemsTable.organizationId, orgId), inArray(itemsTable.id, itemIdsToCheck)),
-      );
-    if (ownedItems.length !== itemIdsToCheck.length) {
+    const ownedItemsSnap = await db()
+      .collection("items")
+      .where("organizationId", "==", orgId)
+      .where("__name__", "in", itemIdsToCheck)
+      .get();
+    if (ownedItemsSnap.size !== itemIdsToCheck.length) {
       res.status(400).json({ error: "One or more items not found in this organization" });
       return;
     }
   }
-  // Build pending-qty map + itemId map per PO line so we can block both
-  // over-receipt AND item mismatches between a GRN line and its PO line.
-  const poLinePending = new Map<number, number>();
-  const poLineItem = new Map<number, number | null>();
+
+  const poLinePending = new Map<string, number>();
+  const poLineItem = new Map<string, string | null>();
   if (b.purchaseOrderId && poItemIds.length > 0) {
-    const poLines = await db
-      .select()
-      .from(purchaseOrderItemsTable)
-      .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId));
-    for (const p of poLines) {
-      poLinePending.set(p.id, Number(p.quantity) - Number(p.receivedQuantity));
-      poLineItem.set(p.id, p.itemId ?? null);
+    const poLinesSnap = await db()
+      .collection("purchase_order_items")
+      .where("purchaseOrderId", "==", b.purchaseOrderId)
+      .get();
+    for (const d of poLinesSnap.docs) {
+      const data = d.data();
+      poLinePending.set(d.id, Number(data.quantity) - Number(data.receivedQuantity));
+      poLineItem.set(d.id, data.itemId ?? null);
     }
   }
+
   for (const it of incomingItems) {
     if (it.poItemId && !poItemIds.includes(it.poItemId)) {
       res.status(400).json({ error: "Invalid PO line reference" });
@@ -182,36 +185,36 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
         });
         return;
       }
-      // Reserve so two lines targeting the same PO row cannot collectively over-receive.
       poLinePending.set(it.poItemId, pending - it.quantity);
     }
   }
-  // Wrap GRN header + items + stock movements + PO updates in a single
-  // transaction so partial failures cannot leave the ledger inconsistent.
-  let g: typeof grnTable.$inferSelect;
+
+  let g: any;
   try {
-    g = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(grnTable)
-        .values({
-          organizationId: orgId,
-          grnNumber: genNumber(),
-          purchaseOrderId: b.purchaseOrderId ?? null,
-          warehouseId: b.warehouseId,
-          receivedAt: b.receivedAt ? new Date(b.receivedAt) : new Date(),
-          notes: b.notes ?? null,
-          createdById: req.user!.userId,
-        })
-        .returning();
+    g = await db().runTransaction(async (tx) => {
+      const now = new Date().toISOString();
+      const grnRef = db().collection("grn").doc();
+      tx.set(grnRef, {
+        organizationId: orgId,
+        grnNumber: genNumber(),
+        purchaseOrderId: b.purchaseOrderId ?? null,
+        warehouseId: b.warehouseId,
+        receivedAt: b.receivedAt ?? now,
+        notes: b.notes ?? null,
+        createdById: req.user!.userId,
+        createdAt: now,
+      });
 
       for (const it of incomingItems) {
-        await tx.insert(grnItemsTable).values({
-          grnId: created.id,
+        const grnItemRef = db().collection("grn_items").doc();
+        tx.set(grnItemRef, {
+          grnId: grnRef.id,
           poItemId: it.poItemId ?? null,
           itemId: it.itemId,
           quantity: String(it.quantity),
           unitCost: String(it.unitCost),
         });
+
         await recordMovement({
           organizationId: orgId,
           itemId: it.itemId,
@@ -221,37 +224,40 @@ grnRouter.post("/grn", requireAuth, async (req, res) => {
           unitCost: it.unitCost,
           reason: "purchase",
           referenceType: "grn",
-          referenceId: created.id,
+          referenceId: grnRef.id,
           createdById: req.user!.userId,
           executor: tx,
         });
+
         if (it.poItemId) {
-          await tx
-            .update(purchaseOrderItemsTable)
-            .set({
-              receivedQuantity: sql`${purchaseOrderItemsTable.receivedQuantity} + ${it.quantity}`,
-            })
-            .where(eq(purchaseOrderItemsTable.id, it.poItemId));
+          const poItemRef = db().collection("purchase_order_items").doc(it.poItemId);
+          const poItemSnap = await tx.get(poItemRef);
+          const poItemData = poItemSnap.data()!;
+          tx.update(poItemRef, {
+            receivedQuantity: String(Number(poItemData.receivedQuantity) + it.quantity),
+          });
         }
       }
 
       if (b.purchaseOrderId) {
-        const poItems = await tx
-          .select()
-          .from(purchaseOrderItemsTable)
-          .where(eq(purchaseOrderItemsTable.purchaseOrderId, b.purchaseOrderId));
+        const poItemsSnap = await db()
+          .collection("purchase_order_items")
+          .where("purchaseOrderId", "==", b.purchaseOrderId)
+          .get();
+        const poItems = poItemsSnap.docs.map((d) => d.data());
         const allReceived = poItems.every(
           (p) => Number(p.receivedQuantity) >= Number(p.quantity),
         );
         const anyReceived = poItems.some((p) => Number(p.receivedQuantity) > 0);
         const newStatus = allReceived ? "received" : anyReceived ? "partial" : "sent";
-        await tx
-          .update(purchaseOrdersTable)
-          .set({ status: newStatus, updatedAt: new Date() })
-          .where(eq(purchaseOrdersTable.id, b.purchaseOrderId));
+        tx.update(db().collection("purchase_orders").doc(b.purchaseOrderId), {
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+        });
       }
 
-      return created;
+      const snap = await tx.get(grnRef);
+      return { id: grnRef.id, ...snap.data()! };
     });
   } catch (e) {
     req.log.error({ err: e }, "GRN transaction failed");

@@ -1,18 +1,9 @@
 import { Router } from "express";
-import {
-  db,
-  aiInsightsTable,
-  invoicesTable,
-  leadsTable,
-  clientsTable,
-  quotationsTable,
-  tasksTable,
-  itemsTable,
-  stockMovementsTable,
-} from "@workspace/db";
-import { and, eq, sql, desc } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { aiDailyInsights, aiPlanNlSearch, type DashboardSnapshot, type NlSearchPlan } from "../lib/ai";
+
+const db = () => getDb();
 
 const aiRouter = Router();
 
@@ -25,11 +16,14 @@ aiRouter.get("/ai/insights", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const forDate = String(req.query.date ?? todayKey());
   // Cache hit?
-  const [cached] = await db
-    .select()
-    .from(aiInsightsTable)
-    .where(and(eq(aiInsightsTable.organizationId, orgId), eq(aiInsightsTable.forDate, forDate)));
-  if (cached && req.query.refresh !== "1") {
+  const cachedSnap = await db()
+    .collection("ai_insights")
+    .where("organizationId", "==", orgId)
+    .where("forDate", "==", forDate)
+    .limit(1)
+    .get();
+  if (!cachedSnap.empty && req.query.refresh !== "1") {
+    const cached = cachedSnap.docs[0].data();
     res.json({
       forDate: cached.forDate,
       insights: cached.insights,
@@ -40,61 +34,48 @@ aiRouter.get("/ai/insights", requireAuth, async (req, res) => {
   }
   // Build snapshot
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekAgo = new Date(now.getTime() - 7 * 86400000);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  async function countWhere(table: { organizationId: typeof leadsTable.organizationId }, conds: ReturnType<typeof eq>) {
-    const [r] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(table as unknown as typeof leadsTable)
-      .where(conds);
-    return Number(r?.c ?? 0);
-  }
+  // Leads
+  const leadsSnap = await db().collection("leads").where("organizationId", "==", orgId).get();
+  const allLeads = leadsSnap.docs.map((d) => d.data());
+  const newLeadsToday = allLeads.filter((l) => (l.createdAt as string) >= startOfDay).length;
+  const hotLeads = allLeads.filter((l) => l.priority === "hot").length;
 
-  const [newLeadsToday] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(leadsTable)
-    .where(and(eq(leadsTable.organizationId, orgId), sql`${leadsTable.createdAt} >= ${startOfDay}`));
-  const [hotLeads] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(leadsTable)
-    .where(and(eq(leadsTable.organizationId, orgId), eq(leadsTable.priority, "hot")));
-  const [invoicesUnpaid] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), sql`${invoicesTable.status} not in ('paid','cancelled','draft')`));
-  const [overdueRow] = await db
-    .select({ s: sql<string>`coalesce(sum(${invoicesTable.total} - ${invoicesTable.amountPaid}),0)::text` })
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), eq(invoicesTable.status, "overdue")));
-  const [openTasks] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(tasksTable)
-    .where(and(eq(tasksTable.organizationId, orgId), eq(tasksTable.status, "open")));
-  const [quotesWeek] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(quotationsTable)
-    .where(and(eq(quotationsTable.organizationId, orgId), sql`${quotationsTable.createdAt} >= ${weekAgo}`));
-  const [revRow] = await db
-    .select({ s: sql<string>`coalesce(sum(${invoicesTable.amountPaid}),0)::text` })
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), sql`${invoicesTable.updatedAt} >= ${monthStart}`));
+  // Invoices
+  const invSnap = await db().collection("invoices").where("organizationId", "==", orgId).get();
+  const allInvoices = invSnap.docs.map((d) => d.data());
+  const invoicesUnpaid = allInvoices.filter((i) => !["paid", "cancelled", "draft"].includes(i.status)).length;
+  const overdueAmount = allInvoices
+    .filter((i) => i.status === "overdue")
+    .reduce((s, i) => s + (Number(i.total) - Number(i.amountPaid)), 0);
+
+  // Tasks
+  const tasksSnap = await db().collection("tasks").where("organizationId", "==", orgId).get();
+  const openTasks = tasksSnap.docs.filter((d) => d.data().status === "open").length;
+
+  // Quotations
+  const quotesSnap = await db().collection("quotations").where("organizationId", "==", orgId).get();
+  const quotesWeek = quotesSnap.docs.filter((d) => (d.data().createdAt as string) >= weekAgo).length;
+
+  // Revenue (invoices updated this month)
+  const revenueThisMonth = allInvoices
+    .filter((i) => (i.updatedAt as string) >= monthStart)
+    .reduce((s, i) => s + Number(i.amountPaid), 0);
 
   // Stock
-  const items = await db
-    .select()
-    .from(itemsTable)
-    .where(and(eq(itemsTable.organizationId, orgId), eq(itemsTable.isActive, true)));
-  const stocks = await db
-    .select({
-      itemId: stockMovementsTable.itemId,
-      qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
-    })
-    .from(stockMovementsTable)
-    .where(eq(stockMovementsTable.organizationId, orgId))
-    .groupBy(stockMovementsTable.itemId);
-  const stockMap = new Map(stocks.map((s) => [s.itemId, Number(s.qty)]));
+  const itemsSnap = await db().collection("items").where("organizationId", "==", orgId).where("isActive", "==", true).get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const stocksSnap = await db().collection("stock_movements").where("organizationId", "==", orgId).get();
+  const stockMovements = stocksSnap.docs.map((d) => d.data());
+  const stockMap = new Map<string, number>();
+  for (const s of stockMovements) {
+    const itemId = s.itemId as string;
+    const current = stockMap.get(itemId) ?? 0;
+    stockMap.set(itemId, current + (s.direction === "in" ? Number(s.quantity) : -Number(s.quantity)));
+  }
   let lowStockItems = 0;
   let stockValue = 0;
   for (const i of items) {
@@ -105,35 +86,34 @@ aiRouter.get("/ai/insights", requireAuth, async (req, res) => {
   }
 
   // Lead source breakdown
-  const sourceRows = await db
-    .select({
-      source: leadsTable.source,
-      total: sql<number>`count(*)::int`,
-      won: sql<number>`count(*) filter (where ${leadsTable.status} = 'won')::int`,
-    })
-    .from(leadsTable)
-    .where(eq(leadsTable.organizationId, orgId))
-    .groupBy(leadsTable.source);
+  const sourceMap = new Map<string, { total: number; won: number }>();
+  for (const l of allLeads) {
+    const src = l.source as string;
+    const entry = sourceMap.get(src) ?? { total: 0, won: 0 };
+    entry.total += 1;
+    if (l.status === "won") entry.won += 1;
+    sourceMap.set(src, entry);
+  }
   let topSource = "";
   let topConv = 0;
-  for (const s of sourceRows) {
-    const conv = s.total > 0 ? (s.won / s.total) * 100 : 0;
+  for (const [src, entry] of sourceMap) {
+    const conv = entry.total > 0 ? (entry.won / entry.total) * 100 : 0;
     if (conv > topConv) {
       topConv = conv;
-      topSource = s.source;
+      topSource = src;
     }
   }
 
   const snap: DashboardSnapshot = {
-    newLeadsToday: Number(newLeadsToday?.c ?? 0),
-    hotLeads: Number(hotLeads?.c ?? 0),
+    newLeadsToday,
+    hotLeads,
     callsThisWeek: 0,
     emailsSentThisWeek: 0,
-    quotationsSentThisWeek: Number(quotesWeek?.c ?? 0),
-    invoicesUnpaid: Number(invoicesUnpaid?.c ?? 0),
-    revenueThisMonth: Number(revRow?.s ?? 0),
-    overdueAmount: Number(overdueRow?.s ?? 0),
-    openTasks: Number(openTasks?.c ?? 0),
+    quotationsSentThisWeek: quotesWeek,
+    invoicesUnpaid,
+    revenueThisMonth,
+    overdueAmount,
+    openTasks,
     lowStockItems,
     openPurchaseOrders: 0,
     stockValue,
@@ -142,19 +122,30 @@ aiRouter.get("/ai/insights", requireAuth, async (req, res) => {
   };
 
   const insights = await aiDailyInsights(snap);
-  const [row] = await db
-    .insert(aiInsightsTable)
-    .values({
+  // Upsert: check existing
+  const existingSnap = await db()
+    .collection("ai_insights")
+    .where("organizationId", "==", orgId)
+    .where("forDate", "==", forDate)
+    .limit(1)
+    .get();
+  let row: Record<string, unknown>;
+  if (!existingSnap.empty) {
+    const doc = existingSnap.docs[0];
+    await doc.ref.update({ insights, metricsSnapshot: snap as unknown as Record<string, number>, createdAt: new Date().toISOString() });
+    const updated = await doc.ref.get();
+    row = { id: updated.id, ...updated.data() };
+  } else {
+    const ref = await db().collection("ai_insights").add({
       organizationId: orgId,
       forDate,
       insights,
       metricsSnapshot: snap as unknown as Record<string, number>,
-    })
-    .onConflictDoUpdate({
-      target: [aiInsightsTable.organizationId, aiInsightsTable.forDate],
-      set: { insights, metricsSnapshot: snap as unknown as Record<string, number>, createdAt: new Date() },
-    })
-    .returning();
+      createdAt: new Date().toISOString(),
+    });
+    const s = await ref.get();
+    row = { id: s.id, ...s.data() };
+  }
   res.json({
     forDate: row.forDate,
     insights: row.insights,
@@ -176,18 +167,15 @@ aiRouter.post("/ai/nl-search", requireAuth, async (req, res) => {
   const limit = 25;
   try {
     if (plan.entity === "invoices") {
-      const rows = await db
-        .select()
-        .from(invoicesTable)
-        .where(eq(invoicesTable.organizationId, orgId))
-        .orderBy(desc(invoicesTable.createdAt))
-        .limit(200);
+      const snap = await db().collection("invoices").where("organizationId", "==", orgId).limit(200).get();
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
       results = rows
         .filter((r) => (plan.filters.status ? r.status === plan.filters.status : true))
         .filter((r) => (plan.filters.minTotal ? Number(r.total) >= Number(plan.filters.minTotal) : true))
         .filter((r) => (plan.filters.maxTotal ? Number(r.total) <= Number(plan.filters.maxTotal) : true))
         .filter((r) => (plan.filters.overdueOnly ? r.status === "overdue" : true))
-        .filter((r) => (plan.filters.clientId ? r.clientId === Number(plan.filters.clientId) : true))
+        .filter((r) => (plan.filters.clientId ? r.clientId === plan.filters.clientId : true))
         .slice(0, limit)
         .map((r) => ({
           id: r.id,
@@ -195,16 +183,13 @@ aiRouter.post("/ai/nl-search", requireAuth, async (req, res) => {
           status: r.status,
           total: Number(r.total),
           amountPaid: Number(r.amountPaid),
-          dueAt: r.dueDate?.toISOString() ?? null,
+          dueAt: (r.dueDate as string) ?? null,
           link: `/invoices/${r.id}`,
         }));
     } else if (plan.entity === "leads") {
-      const rows = await db
-        .select()
-        .from(leadsTable)
-        .where(eq(leadsTable.organizationId, orgId))
-        .orderBy(desc(leadsTable.createdAt))
-        .limit(200);
+      const snap = await db().collection("leads").where("organizationId", "==", orgId).limit(200).get();
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
       results = rows
         .filter((r) => (plan.filters.status ? r.status === plan.filters.status : true))
         .filter((r) => (plan.filters.priority ? r.priority === plan.filters.priority : true))
@@ -220,23 +205,17 @@ aiRouter.post("/ai/nl-search", requireAuth, async (req, res) => {
           link: `/leads/${r.id}`,
         }));
     } else if (plan.entity === "clients") {
-      const rows = await db
-        .select()
-        .from(clientsTable)
-        .where(eq(clientsTable.organizationId, orgId))
-        .orderBy(desc(clientsTable.createdAt))
-        .limit(200);
+      const snap = await db().collection("clients").where("organizationId", "==", orgId).limit(200).get();
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
       results = rows
         .filter((r) => (plan.filters.state ? r.state === plan.filters.state : true))
         .slice(0, limit)
         .map((r) => ({ id: r.id, name: r.name, company: r.company, email: r.email, link: `/clients` }));
     } else if (plan.entity === "quotations") {
-      const rows = await db
-        .select()
-        .from(quotationsTable)
-        .where(eq(quotationsTable.organizationId, orgId))
-        .orderBy(desc(quotationsTable.createdAt))
-        .limit(200);
+      const snap = await db().collection("quotations").where("organizationId", "==", orgId).limit(200).get();
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
       results = rows
         .filter((r) => (plan.filters.status ? r.status === plan.filters.status : true))
         .filter((r) => (plan.filters.minTotal ? Number(r.total) >= Number(plan.filters.minTotal) : true))
@@ -250,32 +229,25 @@ aiRouter.post("/ai/nl-search", requireAuth, async (req, res) => {
           link: `/quotations/${r.id}`,
         }));
     } else if (plan.entity === "tasks") {
-      const rows = await db
-        .select()
-        .from(tasksTable)
-        .where(eq(tasksTable.organizationId, orgId))
-        .orderBy(desc(tasksTable.createdAt))
-        .limit(200);
+      const snap = await db().collection("tasks").where("organizationId", "==", orgId).limit(200).get();
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
       results = rows
         .filter((r) => (plan.filters.status ? r.status === plan.filters.status : true))
         .filter((r) => (plan.filters.priority ? r.priority === plan.filters.priority : true))
         .slice(0, limit)
         .map((r) => ({ id: r.id, title: r.title, status: r.status, priority: r.priority, link: `/tasks` }));
     } else if (plan.entity === "items") {
-      const rows = await db
-        .select()
-        .from(itemsTable)
-        .where(eq(itemsTable.organizationId, orgId))
-        .limit(200);
-      const stocksAll = await db
-        .select({
-          itemId: stockMovementsTable.itemId,
-          qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
-        })
-        .from(stockMovementsTable)
-        .where(eq(stockMovementsTable.organizationId, orgId))
-        .groupBy(stockMovementsTable.itemId);
-      const m = new Map(stocksAll.map((s) => [s.itemId, Number(s.qty)]));
+      const snap = await db().collection("items").where("organizationId", "==", orgId).limit(200).get();
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const stocksAllSnap = await db().collection("stock_movements").where("organizationId", "==", orgId).get();
+      const stockMovements = stocksAllSnap.docs.map((d) => d.data());
+      const m = new Map<string, number>();
+      for (const s of stockMovements) {
+        const itemId = s.itemId as string;
+        const current = m.get(itemId) ?? 0;
+        m.set(itemId, current + (s.direction === "in" ? Number(s.quantity) : -Number(s.quantity)));
+      }
       results = rows
         .filter((r) => (plan.filters.category ? r.category === plan.filters.category : true))
         .filter((r) => {

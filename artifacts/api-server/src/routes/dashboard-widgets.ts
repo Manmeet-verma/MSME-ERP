@@ -1,87 +1,65 @@
 import { Router } from "express";
-import {
-  db,
-  leadsTable,
-  callsTable,
-  emailsTable,
-  quotationsTable,
-  invoicesTable,
-  paymentsTable,
-  tasksTable,
-  itemsTable,
-  stockMovementsTable,
-  purchaseOrdersTable,
-} from "@workspace/db";
-import { and, eq, gte, sql, ne, inArray } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
+
+const db = () => getDb();
 
 const dashboardWidgetsRouter = Router();
 
 dashboardWidgetsRouter.get("/dashboard/widgets", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekAgo = new Date(now.getTime() - 7 * 86400000);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  const [newLeadsToday] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(leadsTable)
-    .where(and(eq(leadsTable.organizationId, orgId), gte(leadsTable.createdAt, startOfDay)));
-  const [hotLeads] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(leadsTable)
-    .where(and(eq(leadsTable.organizationId, orgId), eq(leadsTable.priority, "hot")));
-  const [callsThisWeek] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(callsTable)
-    .where(and(eq(callsTable.organizationId, orgId), gte(callsTable.createdAt, weekAgo)));
-  const [emailsSentThisWeek] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(emailsTable)
-    .where(and(eq(emailsTable.organizationId, orgId), gte(emailsTable.createdAt, weekAgo), eq(emailsTable.direction, "outbound")));
-  const [quotationsSentThisWeek] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(quotationsTable)
-    .where(and(eq(quotationsTable.organizationId, orgId), gte(quotationsTable.createdAt, weekAgo)));
-  const [invoicesUnpaid] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(invoicesTable)
-    .where(
-      and(
-        eq(invoicesTable.organizationId, orgId),
-        ne(invoicesTable.status, "paid"),
-        ne(invoicesTable.status, "cancelled"),
-        ne(invoicesTable.status, "draft"),
-      ),
-    );
-  const [revenueRow] = await db
-    .select({ s: sql<string>`coalesce(sum(${paymentsTable.amount}),0)::text` })
-    .from(paymentsTable)
-    .where(and(eq(paymentsTable.organizationId, orgId), gte(paymentsTable.paidAt, monthStart)));
-  const [overdueRow] = await db
-    .select({ s: sql<string>`coalesce(sum(${invoicesTable.total} - ${invoicesTable.amountPaid}),0)::text` })
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), eq(invoicesTable.status, "overdue")));
-  const [openTasks] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(tasksTable)
-    .where(and(eq(tasksTable.organizationId, orgId), eq(tasksTable.status, "open")));
+  // Leads
+  const leadsSnap = await db().collection("leads").where("organizationId", "==", orgId).get();
+  const allLeads = leadsSnap.docs.map((d) => d.data());
+  const newLeadsToday = allLeads.filter((l) => (l.createdAt as string) >= startOfDay).length;
+  const hotLeads = allLeads.filter((l) => l.priority === "hot").length;
 
-  // R3 — Low stock items
-  const items = await db
-    .select()
-    .from(itemsTable)
-    .where(and(eq(itemsTable.organizationId, orgId), eq(itemsTable.isActive, true)));
-  const stocks = await db
-    .select({
-      itemId: stockMovementsTable.itemId,
-      qty: sql<string>`coalesce(sum(case when ${stockMovementsTable.direction} = 'in' then ${stockMovementsTable.quantity} else -${stockMovementsTable.quantity} end),0)::text`,
-    })
-    .from(stockMovementsTable)
-    .where(eq(stockMovementsTable.organizationId, orgId))
-    .groupBy(stockMovementsTable.itemId);
-  const stockMap = new Map(stocks.map((s) => [s.itemId, Number(s.qty)]));
+  // Calls
+  const callsSnap = await db().collection("calls").where("organizationId", "==", orgId).where("createdAt", ">=", weekAgo).get();
+  const callsThisWeek = callsSnap.size;
+
+  // Emails
+  const emailsSnap = await db().collection("emails").where("organizationId", "==", orgId).where("direction", "==", "outbound").where("createdAt", ">=", weekAgo).get();
+  const emailsSentThisWeek = emailsSnap.size;
+
+  // Quotations
+  const quotesSnap = await db().collection("quotations").where("organizationId", "==", orgId).where("createdAt", ">=", weekAgo).get();
+  const quotationsSentThisWeek = quotesSnap.size;
+
+  // Invoices
+  const invSnap = await db().collection("invoices").where("organizationId", "==", orgId).get();
+  const allInvoices = invSnap.docs.map((d) => d.data());
+  const invoicesUnpaid = allInvoices.filter((i) => i.status !== "paid" && i.status !== "cancelled" && i.status !== "draft").length;
+
+  // Revenue
+  const paySnap = await db().collection("payments").where("organizationId", "==", orgId).where("paidAt", ">=", monthStart).get();
+  const revenueThisMonth = paySnap.docs.reduce((s, d) => s + Number(d.data().amount), 0);
+
+  // Overdue
+  const overdueAmount = allInvoices
+    .filter((i) => i.status === "overdue")
+    .reduce((s, i) => s + (Number(i.total) - Number(i.amountPaid)), 0);
+
+  // Tasks
+  const tasksSnap = await db().collection("tasks").where("organizationId", "==", orgId).where("status", "==", "open").get();
+  const openTasks = tasksSnap.size;
+
+  // Stock
+  const itemsSnap = await db().collection("items").where("organizationId", "==", orgId).where("isActive", "==", true).get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const stocksSnap = await db().collection("stock_movements").where("organizationId", "==", orgId).get();
+  const stockMovements = stocksSnap.docs.map((d) => d.data());
+  const stockMap = new Map<string, number>();
+  for (const s of stockMovements) {
+    const itemId = s.itemId as string;
+    const current = stockMap.get(itemId) ?? 0;
+    stockMap.set(itemId, current + (s.direction === "in" ? Number(s.quantity) : -Number(s.quantity)));
+  }
   let lowStockItems = 0;
   let stockValue = 0;
   for (const i of items) {
@@ -90,28 +68,23 @@ dashboardWidgetsRouter.get("/dashboard/widgets", requireAuth, async (req, res) =
     if (thr > 0 && q <= thr) lowStockItems += 1;
     if (q > 0) stockValue += q * Number(i.avgCost);
   }
-  const [openPOs] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(purchaseOrdersTable)
-    .where(
-      and(
-        eq(purchaseOrdersTable.organizationId, orgId),
-        inArray(purchaseOrdersTable.status, ["draft", "sent", "partial"]),
-      ),
-    );
+
+  // Purchase Orders
+  const poSnap = await db().collection("purchase_orders").where("organizationId", "==", orgId).get();
+  const openPOs = poSnap.docs.filter((d) => ["draft", "sent", "partial"].includes(d.data().status)).length;
 
   res.json({
-    newLeadsToday: Number(newLeadsToday?.c ?? 0),
-    hotLeads: Number(hotLeads?.c ?? 0),
-    callsThisWeek: Number(callsThisWeek?.c ?? 0),
-    emailsSentThisWeek: Number(emailsSentThisWeek?.c ?? 0),
-    quotationsSentThisWeek: Number(quotationsSentThisWeek?.c ?? 0),
-    invoicesUnpaid: Number(invoicesUnpaid?.c ?? 0),
-    revenueThisMonth: Number(revenueRow?.s ?? 0),
-    overdueAmount: Number(overdueRow?.s ?? 0),
-    openTasks: Number(openTasks?.c ?? 0),
+    newLeadsToday,
+    hotLeads,
+    callsThisWeek,
+    emailsSentThisWeek,
+    quotationsSentThisWeek,
+    invoicesUnpaid,
+    revenueThisMonth,
+    overdueAmount,
+    openTasks,
     lowStockItems,
-    openPurchaseOrders: Number(openPOs?.c ?? 0),
+    openPurchaseOrders: openPOs,
     stockValue,
   });
 });

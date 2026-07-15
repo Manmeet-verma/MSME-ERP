@@ -1,15 +1,16 @@
 import { Router } from "express";
-import { db, quotationsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { getTwilioClient } from "../lib/twilio";
+
+const db = () => getDb();
 
 const smsRouter = Router();
 
 smsRouter.post("/quotations/:id/send-sms", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
+  const id = req.params.id;
   const { phone, message } = req.body ?? {};
   if (!phone || !message) {
     res.status(400).json({ error: "phone and message are required" });
@@ -22,11 +23,8 @@ smsRouter.post("/quotations/:id/send-sms", requireAuth, async (req, res) => {
       .json({ error: "SMS service not configured. Please connect Twilio in the integrations panel." });
     return;
   }
-  const [q] = await db
-    .select()
-    .from(quotationsTable)
-    .where(and(eq(quotationsTable.id, id), eq(quotationsTable.organizationId, orgId)));
-  if (!q) {
+  const qSnap = await db().collection("quotations").doc(id).get();
+  if (!qSnap.exists || qSnap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Quotation not found" });
     return;
   }

@@ -1,55 +1,52 @@
 import { Router } from "express";
-import {
-  db,
-  socialAccountsTable,
-  socialPostsTable,
-  socialPostResultsTable,
-  SOCIAL_PLATFORMS,
-  type SocialPlatform,
-} from "@workspace/db";
-import { and, eq, desc, gte, lte } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { aiDraftSocialPost, aiRewriteTone } from "../lib/ai";
 
+const db = () => getDb();
+
+const SOCIAL_PLATFORMS = ["facebook", "instagram", "linkedin"] as const;
+type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
 const socialRouter = Router();
 
-function fmtAccount(a: typeof socialAccountsTable.$inferSelect) {
+function fmtAccount(a: Record<string, unknown>) {
   return {
-    id: a.id,
-    platform: a.platform,
-    externalId: a.externalId,
-    accountName: a.accountName,
-    status: a.status,
-    expiresAt: a.expiresAt?.toISOString() ?? null,
-    metadata: a.metadata ?? {},
-    createdAt: a.createdAt.toISOString(),
-    updatedAt: a.updatedAt.toISOString(),
+    id: a.id as string,
+    platform: a.platform as string,
+    externalId: a.externalId as string,
+    accountName: a.accountName as string,
+    status: a.status as string,
+    expiresAt: (a.expiresAt as string) ?? null,
+    metadata: (a.metadata as Record<string, unknown>) ?? {},
+    createdAt: a.createdAt as string,
+    updatedAt: a.updatedAt as string,
   };
 }
 
-function fmtPost(p: typeof socialPostsTable.$inferSelect, results: (typeof socialPostResultsTable.$inferSelect)[] = []) {
+function fmtPost(p: Record<string, unknown>, results: Record<string, unknown>[] = []) {
   return {
-    id: p.id,
-    content: p.content,
-    mediaUrls: p.mediaUrls ?? [],
-    platforms: p.platforms ?? [],
-    variants: p.variants ?? {},
-    status: p.status,
-    scheduledAt: p.scheduledAt?.toISOString() ?? null,
-    publishedAt: p.publishedAt?.toISOString() ?? null,
-    context: p.context ?? {},
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
+    id: p.id as string,
+    content: p.content as string,
+    mediaUrls: (p.mediaUrls as string[]) ?? [],
+    platforms: (p.platforms as string[]) ?? [],
+    variants: (p.variants as Record<string, string>) ?? {},
+    status: p.status as string,
+    scheduledAt: (p.scheduledAt as string) ?? null,
+    publishedAt: (p.publishedAt as string) ?? null,
+    context: (p.context as Record<string, unknown>) ?? {},
+    createdAt: p.createdAt as string,
+    updatedAt: p.updatedAt as string,
     results: results.map((r) => ({
-      id: r.id,
-      platform: r.platform,
-      status: r.status,
-      externalId: r.externalId ?? null,
-      externalUrl: r.externalUrl ?? null,
-      error: r.error ?? null,
-      publishedAt: r.publishedAt?.toISOString() ?? null,
-      metrics: r.metrics ?? {},
+      id: r.id as string,
+      platform: r.platform as string,
+      status: r.status as string,
+      externalId: (r.externalId as string) ?? null,
+      externalUrl: (r.externalUrl as string) ?? null,
+      error: (r.error as string) ?? null,
+      publishedAt: (r.publishedAt as string) ?? null,
+      metrics: (r.metrics as Record<string, number>) ?? {},
     })),
   };
 }
@@ -57,65 +54,62 @@ function fmtPost(p: typeof socialPostsTable.$inferSelect, results: (typeof socia
 // ── Accounts ──
 socialRouter.get("/social/accounts", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db.select().from(socialAccountsTable).where(eq(socialAccountsTable.organizationId, orgId));
+  const snap = await db().collection("social_accounts").where("organizationId", "==", orgId).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(rows.map(fmtAccount));
 });
 
 socialRouter.post("/social/accounts", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const { platform, externalId, accountName, accessToken, refreshToken, expiresAt, metadata } = req.body ?? {};
-  if (!platform || !SOCIAL_PLATFORMS.includes(platform) || !externalId || !accountName || !accessToken) {
+  if (!platform || !(SOCIAL_PLATFORMS as readonly string[]).includes(platform) || !externalId || !accountName || !accessToken) {
     res.status(400).json({ error: "platform, externalId, accountName, accessToken required" });
     return;
   }
-  const [existing] = await db
-    .select()
-    .from(socialAccountsTable)
-    .where(
-      and(
-        eq(socialAccountsTable.organizationId, orgId),
-        eq(socialAccountsTable.platform, platform),
-        eq(socialAccountsTable.externalId, externalId),
-      ),
-    );
-  let row;
-  if (existing) {
-    [row] = await db
-      .update(socialAccountsTable)
-      .set({
-        accountName,
-        accessToken,
-        refreshToken: refreshToken ?? null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-        status: "active",
-        metadata: metadata ?? {},
-        updatedAt: new Date(),
-      })
-      .where(eq(socialAccountsTable.id, existing.id))
-      .returning();
+  const existingSnap = await db()
+    .collection("social_accounts")
+    .where("organizationId", "==", orgId)
+    .where("platform", "==", platform)
+    .where("externalId", "==", externalId)
+    .limit(1)
+    .get();
+  let row: Record<string, unknown>;
+  if (!existingSnap.empty) {
+    const doc = existingSnap.docs[0];
+    await doc.ref.update({
+      accountName,
+      accessToken,
+      refreshToken: refreshToken ?? null,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      status: "active",
+      metadata: metadata ?? {},
+      updatedAt: new Date().toISOString(),
+    });
+    const updated = await doc.ref.get();
+    row = { id: updated.id, ...updated.data() };
   } else {
-    [row] = await db
-      .insert(socialAccountsTable)
-      .values({
-        organizationId: orgId,
-        platform,
-        externalId,
-        accountName,
-        accessToken,
-        refreshToken: refreshToken ?? null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-        status: "active",
-        metadata: metadata ?? {},
-      })
-      .returning();
+    const ref = await db().collection("social_accounts").add({
+      organizationId: orgId,
+      platform,
+      externalId,
+      accountName,
+      accessToken,
+      refreshToken: refreshToken ?? null,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      status: "active",
+      metadata: metadata ?? {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const snap = await ref.get();
+    row = { id: snap.id, ...snap.data() };
   }
-  await logAction(req, "CONNECT", "social_account", row.id, `Platform ${platform}`);
+  await logAction(req, "CONNECT", "social_account", row.id as string, `Platform ${platform}`);
   res.status(201).json(fmtAccount(row));
 });
 
 // ── OAuth ──
-// State store keyed by short random token → { orgId, platform, userId, createdAt }
-const oauthStates = new Map<string, { orgId: number; platform: SocialPlatform; userId: number; createdAt: number }>();
+const oauthStates = new Map<string, { orgId: string; platform: SocialPlatform; userId: string; createdAt: number }>();
 function newStateToken() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -196,7 +190,6 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
     return;
   }
   try {
-    // Exchange code → access token
     const body = new URLSearchParams({
       client_id: cfg.clientId,
       client_secret: cfg.clientSecret,
@@ -222,11 +215,10 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
     let accessToken = tokenData.access_token;
     let externalId = "";
     let accountName = "";
-    let expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null;
+    let expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null;
     const metadata: Record<string, unknown> = { connectedVia: "oauth" };
 
     if (platform === "facebook" || platform === "instagram") {
-      // Step 1: Exchange short-lived user token for a long-lived one (~60 days).
       try {
         const llParams = new URLSearchParams({
           grant_type: "fb_exchange_token",
@@ -238,11 +230,9 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
         if (ll.ok) {
           const lld = (await ll.json()) as { access_token?: string; expires_in?: number };
           if (lld.access_token) accessToken = lld.access_token;
-          if (lld.expires_in) expiresAt = new Date(Date.now() + lld.expires_in * 1000);
+          if (lld.expires_in) expiresAt = new Date(Date.now() + lld.expires_in * 1000).toISOString();
         }
-      } catch { /* fall through with short-lived */ }
-      // Step 2: Discover Pages; Page access tokens derived from long-lived user
-      // tokens are themselves long-lived (effectively non-expiring for Pages).
+      } catch { /* fall through */ }
       const pagesResp = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${encodeURIComponent(accessToken)}&fields=id,name,access_token,instagram_business_account`);
       const pagesData = (await pagesResp.json()) as { data?: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }> };
       const page = pagesData.data?.[0];
@@ -250,7 +240,7 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
         res.status(400).send("No Facebook Pages found on this account. Create or get admin access to a Page first.");
         return;
       }
-      accessToken = page.access_token; // page access token (long-lived)
+      accessToken = page.access_token;
       metadata.fbPageId = page.id;
       metadata.fbPageName = page.name;
       if (platform === "facebook") {
@@ -265,9 +255,6 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
         accountName = `${page.name} (IG)`;
       }
     } else {
-      // LinkedIn Page connection. Use the OpenID profile only to get the human
-      // who authorised the app, then resolve a Page (organization) the user
-      // administers via /v2/organizationAcls.
       const meResp = await fetch("https://api.linkedin.com/v2/userinfo", { headers: { Authorization: `Bearer ${accessToken}` } });
       const me = (await meResp.json()) as { sub?: string; name?: string };
       const aclResp = await fetch(
@@ -287,7 +274,6 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
         }
       }
       if (!externalId) {
-        // Fallback to personal profile when user isn't an org admin.
         if (!me.sub) {
           res.status(502).send("Could not load LinkedIn profile or any LinkedIn Pages.");
           return;
@@ -301,24 +287,24 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
     }
 
     // Upsert account
-    const [existing] = await db
-      .select()
-      .from(socialAccountsTable)
-      .where(and(
-        eq(socialAccountsTable.organizationId, stateEntry.orgId),
-        eq(socialAccountsTable.platform, platform),
-        eq(socialAccountsTable.externalId, externalId),
-      ));
-    if (existing) {
-      await db.update(socialAccountsTable)
-        .set({ accessToken, accountName, refreshToken: tokenData.refresh_token ?? null, expiresAt, status: "active", updatedAt: new Date() })
-        .where(eq(socialAccountsTable.id, existing.id));
+    const existingSnap = await db()
+      .collection("social_accounts")
+      .where("organizationId", "==", stateEntry.orgId)
+      .where("platform", "==", platform)
+      .where("externalId", "==", externalId)
+      .limit(1)
+      .get();
+    if (!existingSnap.empty) {
+      const doc = existingSnap.docs[0];
+      await doc.ref.update({ accessToken, accountName, refreshToken: tokenData.refresh_token ?? null, expiresAt, status: "active", updatedAt: new Date().toISOString() });
     } else {
-      await db.insert(socialAccountsTable).values({
+      await db().collection("social_accounts").add({
         organizationId: stateEntry.orgId,
         platform, externalId, accountName, accessToken,
         refreshToken: tokenData.refresh_token ?? null,
         expiresAt, status: "active", metadata,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -330,13 +316,10 @@ socialRouter.get("/social/oauth/:platform/callback", async (req, res) => {
 
 socialRouter.delete("/social/accounts/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  // Best-effort revocation at the provider, then delete locally.
-  const [acct] = await db
-    .select()
-    .from(socialAccountsTable)
-    .where(and(eq(socialAccountsTable.id, id), eq(socialAccountsTable.organizationId, orgId)));
-  if (acct) {
+  const id = req.params.id;
+  const docSnap = await db().collection("social_accounts").doc(id).get();
+  if (docSnap.exists && docSnap.data()!.organizationId === orgId) {
+    const acct = docSnap.data()!;
     try {
       if (acct.platform === "facebook" || acct.platform === "instagram") {
         await fetch(
@@ -358,28 +341,26 @@ socialRouter.delete("/social/accounts/:id", requireAuth, async (req, res) => {
     } catch (e) {
       req.log?.warn?.({ err: e }, "Provider revocation failed");
     }
+    await docSnap.ref.delete();
   }
-  await db
-    .delete(socialAccountsTable)
-    .where(and(eq(socialAccountsTable.id, id), eq(socialAccountsTable.organizationId, orgId)));
   await logAction(req, "DISCONNECT", "social_account", id);
   res.json({ message: "Account disconnected" });
 });
 
-// Refresh a single post's per-platform engagement metrics from each provider.
+// Refresh metrics
 socialRouter.post("/social/posts/:id/refresh-metrics", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [post] = await db
-    .select()
-    .from(socialPostsTable)
-    .where(and(eq(socialPostsTable.id, id), eq(socialPostsTable.organizationId, orgId)));
-  if (!post) {
+  const id = req.params.id;
+  const postSnap = await db().collection("social_posts").doc(id).get();
+  if (!postSnap.exists || postSnap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Post not found" });
     return;
   }
-  const results = await db.select().from(socialPostResultsTable).where(eq(socialPostResultsTable.postId, id));
-  const accounts = await db.select().from(socialAccountsTable).where(eq(socialAccountsTable.organizationId, orgId));
+  const postData = postSnap.data()!;
+  const resultsSnap = await db().collection("social_post_results").where("postId", "==", id).get();
+  const results = resultsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const accountsSnap = await db().collection("social_accounts").where("organizationId", "==", orgId).get();
+  const accounts = accountsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   for (const r of results) {
     if (!r.externalId || r.status !== "posted") continue;
     const acct = accounts.find((a) => a.platform === r.platform);
@@ -410,7 +391,6 @@ socialRouter.post("/social/posts/:id/refresh-metrics", requireAuth, async (req, 
           const d = (await fr.json()) as { like_count?: number; comments_count?: number };
           metrics = { likes: d.like_count ?? 0, comments: d.comments_count ?? 0 };
         }
-        // Best-effort impressions/reach via insights
         const ins = await fetch(
           `https://graph.facebook.com/v19.0/${encodeURIComponent(r.externalId)}/insights?metric=impressions,reach&access_token=${encodeURIComponent(acct.accessToken)}`,
           { signal: AbortSignal.timeout(10_000) },
@@ -435,42 +415,36 @@ socialRouter.post("/social/posts/:id/refresh-metrics", requireAuth, async (req, 
           };
         }
       }
-      await db.update(socialPostResultsTable).set({ metrics }).where(eq(socialPostResultsTable.id, r.id));
+      await db().collection("social_post_results").doc(r.id).update({ metrics });
     } catch (e) {
       req.log?.warn?.({ err: e, platform: r.platform }, "Metrics fetch failed");
     }
   }
-  const refreshed = await db.select().from(socialPostResultsTable).where(eq(socialPostResultsTable.postId, id));
-  res.json(fmtPost(post, refreshed));
+  const refreshed = await db().collection("social_post_results").where("postId", "==", id).get();
+  const refreshedRows = refreshed.docs.map((d) => ({ id: d.id, ...d.data() }));
+  res.json(fmtPost({ id: postSnap.id, ...postData }, refreshedRows));
 });
 
 // ── Posts ──
 socialRouter.get("/social/posts", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const from = req.query.from ? new Date(String(req.query.from)) : null;
-  const to = req.query.to ? new Date(String(req.query.to)) : null;
-  const filters = [eq(socialPostsTable.organizationId, orgId)];
-  if (from) filters.push(gte(socialPostsTable.createdAt, from));
-  if (to) filters.push(lte(socialPostsTable.createdAt, to));
-  const rows = await db
-    .select()
-    .from(socialPostsTable)
-    .where(and(...filters))
-    .orderBy(desc(socialPostsTable.createdAt));
-  const ids = rows.map((r) => r.id);
-  const results = ids.length
-    ? await db
-        .select()
-        .from(socialPostResultsTable)
-        .where(eq(socialPostResultsTable.organizationId, orgId))
-    : [];
-  const resultsByPost = new Map<number, (typeof results)>();
-  for (const r of results) {
-    const arr = resultsByPost.get(r.postId) ?? [];
+  const from = req.query.from ? new Date(String(req.query.from)).toISOString() : null;
+  const to = req.query.to ? new Date(String(req.query.to)).toISOString() : null;
+  let q: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db().collection("social_posts").where("organizationId", "==", orgId);
+  if (from) q = q.where("createdAt", ">=", from);
+  if (to) q = q.where("createdAt", "<=", to);
+  const snap = await q.get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
+  const resultsSnap = await db().collection("social_post_results").where("organizationId", "==", orgId).get();
+  const allResults = resultsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const resultsByPost = new Map<string, Record<string, unknown>[]>();
+  for (const r of allResults) {
+    const arr = resultsByPost.get(r.postId as string) ?? [];
     arr.push(r);
-    resultsByPost.set(r.postId, arr);
+    resultsByPost.set(r.postId as string, arr);
   }
-  res.json(rows.map((r) => fmtPost(r, resultsByPost.get(r.id) ?? [])));
+  res.json(rows.map((r) => fmtPost(r, resultsByPost.get(r.id as string) ?? [])));
 });
 
 socialRouter.post("/social/posts", requireAuth, async (req, res) => {
@@ -481,53 +455,52 @@ socialRouter.post("/social/posts", requireAuth, async (req, res) => {
     return;
   }
   const validPlatforms = platforms.filter((p: string) => (SOCIAL_PLATFORMS as readonly string[]).includes(p));
-  const [row] = await db
-    .insert(socialPostsTable)
-    .values({
-      organizationId: orgId,
-      content,
-      mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : [],
-      platforms: validPlatforms as SocialPlatform[],
-      variants: variants ?? {},
-      status: status === "scheduled" || scheduledAt ? "scheduled" : "draft",
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      context: context ?? {},
-      createdById: req.user!.userId,
-    })
-    .returning();
-  await logAction(req, "CREATE", "social_post", row.id);
-  res.status(201).json(fmtPost(row));
+  const ref = await db().collection("social_posts").add({
+    organizationId: orgId,
+    content,
+    mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : [],
+    platforms: validPlatforms,
+    variants: variants ?? {},
+    status: status === "scheduled" || scheduledAt ? "scheduled" : "draft",
+    scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+    context: context ?? {},
+    createdById: req.user!.userId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const snap = await ref.get();
+  await logAction(req, "CREATE", "social_post", ref.id);
+  res.status(201).json(fmtPost({ id: snap.id, ...snap.data() }));
 });
 
 socialRouter.patch("/social/posts/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  const id = req.params.id;
+  const docSnap = await db().collection("social_posts").doc(id).get();
+  if (!docSnap.exists || docSnap.data()!.organizationId !== orgId) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   for (const f of ["content", "platforms", "variants", "mediaUrls", "context", "status"] as const) {
     if (req.body?.[f] !== undefined) updates[f] = req.body[f];
   }
   if (req.body?.scheduledAt !== undefined) {
-    updates.scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt) : null;
+    updates.scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt).toISOString() : null;
     if (req.body.scheduledAt && !updates.status) updates.status = "scheduled";
   }
-  const [row] = await db
-    .update(socialPostsTable)
-    .set(updates)
-    .where(and(eq(socialPostsTable.id, id), eq(socialPostsTable.organizationId, orgId)))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Post not found" });
-    return;
-  }
-  res.json(fmtPost(row));
+  await db().collection("social_posts").doc(id).update(updates);
+  const updatedSnap = await db().collection("social_posts").doc(id).get();
+  res.json(fmtPost({ id: updatedSnap.id, ...updatedSnap.data() }));
 });
 
 socialRouter.delete("/social/posts/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  await db
-    .delete(socialPostsTable)
-    .where(and(eq(socialPostsTable.id, id), eq(socialPostsTable.organizationId, orgId)));
+  const id = req.params.id;
+  const docSnap = await db().collection("social_posts").doc(id).get();
+  if (docSnap.exists && docSnap.data()!.organizationId === orgId) {
+    await docSnap.ref.delete();
+  }
   res.json({ message: "Post deleted" });
 });
 
@@ -572,17 +545,14 @@ async function publishToPlatform(
   platform: SocialPlatform,
   content: string,
   mediaUrls: string[],
-  account: typeof socialAccountsTable.$inferSelect,
+  account: Record<string, unknown>,
 ): Promise<{ ok: boolean; externalId?: string; externalUrl?: string; error?: string }> {
-  // Best-effort live publish. If creds look like placeholders or the call fails,
-  // we surface the error per-platform without crashing the worker.
   try {
     if (platform === "facebook") {
-      // Facebook Page feed: optional `link` for first media URL.
       const payload: Record<string, unknown> = { message: content, access_token: account.accessToken };
       if (mediaUrls[0]) payload.link = mediaUrls[0];
       const r = await fetch(
-        `https://graph.facebook.com/v19.0/${encodeURIComponent(account.externalId)}/feed`,
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(account.externalId as string)}/feed`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -595,11 +565,10 @@ async function publishToPlatform(
         return { ok: false, error: txt.slice(0, 500) };
       }
       const data = (await r.json()) as { id?: string };
-      const id = data.id ?? "";
-      return { ok: true, externalId: id, externalUrl: id ? `https://facebook.com/${id}` : undefined };
+      const extId = data.id ?? "";
+      return { ok: true, externalId: extId, externalUrl: extId ? `https://facebook.com/${extId}` : undefined };
     }
     if (platform === "instagram") {
-      // Instagram Graph REQUIRES a public image_url (or video_url) to create a container.
       const imageUrl = mediaUrls.find((u) => /\.(jpe?g|png|webp)(\?|$)/i.test(u)) ?? mediaUrls[0];
       if (!imageUrl) {
         return { ok: false, error: "Instagram posts require at least one public image URL (jpg/png)." };
@@ -607,10 +576,10 @@ async function publishToPlatform(
       const containerParams = new URLSearchParams({
         image_url: imageUrl,
         caption: content,
-        access_token: account.accessToken,
+        access_token: account.accessToken as string,
       });
       const c = await fetch(
-        `https://graph.facebook.com/v19.0/${encodeURIComponent(account.externalId)}/media?${containerParams.toString()}`,
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(account.externalId as string)}/media?${containerParams.toString()}`,
         { method: "POST", signal: AbortSignal.timeout(20_000) },
       );
       if (!c.ok) {
@@ -619,10 +588,9 @@ async function publishToPlatform(
       }
       const cd = (await c.json()) as { id?: string };
       if (!cd.id) return { ok: false, error: "Instagram did not return a container id" };
-      // Poll the container until status_code === 'FINISHED' (best effort, max ~10s)
       for (let i = 0; i < 5; i++) {
         const s = await fetch(
-          `https://graph.facebook.com/v19.0/${encodeURIComponent(cd.id)}?fields=status_code&access_token=${encodeURIComponent(account.accessToken)}`,
+          `https://graph.facebook.com/v19.0/${encodeURIComponent(cd.id)}?fields=status_code&access_token=${encodeURIComponent(account.accessToken as string)}`,
         );
         if (s.ok) {
           const sd = (await s.json()) as { status_code?: string };
@@ -633,9 +601,9 @@ async function publishToPlatform(
         }
         await new Promise((r) => setTimeout(r, 2_000));
       }
-      const publishParams = new URLSearchParams({ creation_id: cd.id, access_token: account.accessToken });
+      const publishParams = new URLSearchParams({ creation_id: cd.id, access_token: account.accessToken as string });
       const p = await fetch(
-        `https://graph.facebook.com/v19.0/${encodeURIComponent(account.externalId)}/media_publish?${publishParams.toString()}`,
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(account.externalId as string)}/media_publish?${publishParams.toString()}`,
         { method: "POST", signal: AbortSignal.timeout(15_000) },
       );
       if (!p.ok) {
@@ -646,12 +614,9 @@ async function publishToPlatform(
       return { ok: true, externalId: pd.id ?? "" };
     }
     if (platform === "linkedin") {
-      // LinkedIn UGC: author is `urn:li:person:{sub}` for personal posts (OpenID) or
-      // `urn:li:organization:{id}` for Page posts. Our OAuth flow stores the URN sub
-      // for personal accounts; org URNs are also supported via manual entry.
-      const author = account.externalId.startsWith("urn:")
-        ? account.externalId
-        : account.externalId.match(/^[0-9]+$/)
+      const author = (account.externalId as string).startsWith("urn:")
+        ? account.externalId as string
+        : (account.externalId as string).match(/^[0-9]+$/)
           ? `urn:li:organization:${account.externalId}`
           : `urn:li:person:${account.externalId}`;
       const r = await fetch("https://api.linkedin.com/v2/ugcPosts", {
@@ -678,17 +643,15 @@ async function publishToPlatform(
         const txt = await r.text().catch(() => `HTTP ${r.status}`);
         return { ok: false, error: txt.slice(0, 500) };
       }
-      // LinkedIn returns the new post URN in the `x-restli-id` header (or `x-linkedin-id`)
-      // and sometimes mirrors it in the JSON body. Prefer the header, fall back to JSON.
       const headerId = r.headers.get("x-restli-id") ?? r.headers.get("x-linkedin-id") ?? "";
       let bodyId = "";
       try {
         const j = (await r.json()) as { id?: string };
         bodyId = j.id ?? "";
       } catch { /* empty body is fine */ }
-      const externalId = headerId || bodyId;
-      const externalUrl = externalId ? `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}` : undefined;
-      return { ok: true, externalId, externalUrl };
+      const extId = headerId || bodyId;
+      const extUrl = extId ? `https://www.linkedin.com/feed/update/${encodeURIComponent(extId)}` : undefined;
+      return { ok: true, externalId: extId, externalUrl: extUrl };
     }
     return { ok: false, error: "Unknown platform" };
   } catch (e) {
@@ -696,35 +659,35 @@ async function publishToPlatform(
   }
 }
 
-export async function publishPost(orgId: number, postId: number): Promise<void> {
-  const [post] = await db
-    .select()
-    .from(socialPostsTable)
-    .where(and(eq(socialPostsTable.id, postId), eq(socialPostsTable.organizationId, orgId)));
-  if (!post) return;
-  await db
-    .update(socialPostsTable)
-    .set({ status: "publishing", updatedAt: new Date() })
-    .where(eq(socialPostsTable.id, postId));
-  const accounts = await db
-    .select()
-    .from(socialAccountsTable)
-    .where(and(eq(socialAccountsTable.organizationId, orgId), eq(socialAccountsTable.status, "active")));
+export async function publishPost(orgId: string, postId: string): Promise<void> {
+  const postSnap = await db().collection("social_posts").doc(postId).get();
+  if (!postSnap.exists || postSnap.data()!.organizationId !== orgId) return;
+  const postData = postSnap.data()!;
+  await db().collection("social_posts").doc(postId).update({ status: "publishing", updatedAt: new Date().toISOString() });
+  const accountsSnap = await db()
+    .collection("social_accounts")
+    .where("organizationId", "==", orgId)
+    .where("status", "==", "active")
+    .get();
+  const accounts = accountsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const results: { platform: SocialPlatform; ok: boolean; externalId?: string; externalUrl?: string; error?: string }[] = [];
-  for (const platform of post.platforms as SocialPlatform[]) {
+  for (const platform of postData.platforms as SocialPlatform[]) {
     const acct = accounts.find((a) => a.platform === platform);
-    const text = (post.variants as Record<string, string>)[platform] ?? post.content;
+    const text = (postData.variants as Record<string, string>)[platform] ?? postData.content;
     if (!acct) {
       results.push({ platform, ok: false, error: `No connected ${platform} account` });
       continue;
     }
-    const r = await publishToPlatform(platform, text, (post.mediaUrls as string[]) ?? [], acct);
+    const r = await publishToPlatform(platform, text, (postData.mediaUrls as string[]) ?? [], acct);
     results.push({ platform, ...r });
   }
   // Replace previous results for this post.
-  await db.delete(socialPostResultsTable).where(eq(socialPostResultsTable.postId, postId));
+  const oldResults = await db().collection("social_post_results").where("postId", "==", postId).get();
+  for (const doc of oldResults.docs) {
+    await doc.ref.delete();
+  }
   for (const r of results) {
-    await db.insert(socialPostResultsTable).values({
+    await db().collection("social_post_results").add({
       postId,
       organizationId: orgId,
       platform: r.platform,
@@ -732,49 +695,48 @@ export async function publishPost(orgId: number, postId: number): Promise<void> 
       externalId: r.externalId ?? null,
       externalUrl: r.externalUrl ?? null,
       error: r.error ?? null,
-      publishedAt: r.ok ? new Date() : null,
+      publishedAt: r.ok ? new Date().toISOString() : null,
+      createdAt: new Date().toISOString(),
     });
   }
   const okCount = results.filter((r) => r.ok).length;
   const status = okCount === results.length ? "posted" : okCount === 0 ? "failed" : "partial";
-  await db
-    .update(socialPostsTable)
-    .set({ status, publishedAt: okCount > 0 ? new Date() : null, updatedAt: new Date() })
-    .where(eq(socialPostsTable.id, postId));
+  await db().collection("social_posts").doc(postId).update({
+    status,
+    publishedAt: okCount > 0 ? new Date().toISOString() : null,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 socialRouter.post("/social/posts/:id/publish", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
+  const id = req.params.id;
   await publishPost(orgId, id);
-  const [row] = await db
-    .select()
-    .from(socialPostsTable)
-    .where(and(eq(socialPostsTable.id, id), eq(socialPostsTable.organizationId, orgId)));
-  const results = await db.select().from(socialPostResultsTable).where(eq(socialPostResultsTable.postId, id));
-  if (!row) {
+  const postSnap = await db().collection("social_posts").doc(id).get();
+  if (!postSnap.exists || postSnap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Post not found" });
     return;
   }
+  const row = { id: postSnap.id, ...postSnap.data() };
+  const resultsSnap = await db().collection("social_post_results").where("postId", "==", id).get();
+  const results = resultsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   await logAction(req, "PUBLISH", "social_post", id, `Status ${row.status}`);
   res.json(fmtPost(row, results));
 });
 
 socialRouter.get("/social/calendar", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(socialPostsTable)
-    .where(eq(socialPostsTable.organizationId, orgId))
-    .orderBy(desc(socialPostsTable.scheduledAt));
+  const snap = await db().collection("social_posts").where("organizationId", "==", orgId).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => ((b.scheduledAt as string) ?? "").localeCompare((a.scheduledAt as string) ?? ""));
   res.json(
     rows.map((p) => ({
       id: p.id,
-      content: p.content.slice(0, 80),
-      platforms: p.platforms ?? [],
-      status: p.status,
-      scheduledAt: p.scheduledAt?.toISOString() ?? null,
-      publishedAt: p.publishedAt?.toISOString() ?? null,
+      content: (p.content as string).slice(0, 80),
+      platforms: (p.platforms as string[]) ?? [],
+      status: p.status as string,
+      scheduledAt: (p.scheduledAt as string) ?? null,
+      publishedAt: (p.publishedAt as string) ?? null,
     })),
   );
 });

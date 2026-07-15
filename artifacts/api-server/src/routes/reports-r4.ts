@@ -1,27 +1,11 @@
 import { Router } from "express";
-import {
-  db,
-  invoicesTable,
-  invoiceItemsTable,
-  paymentsTable,
-  purchaseOrdersTable,
-  purchaseOrderItemsTable,
-  vendorsTable,
-  itemsTable,
-  clientsTable,
-  leadsTable,
-  emailsTable,
-  socialPostsTable,
-  socialPostResultsTable,
-  campaignsTable,
-  campaignRecipientsTable,
-  quotationsTable,
-} from "@workspace/db";
-import { and, eq, sql, gte, lte, inArray } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 import type { Response } from "express";
+
+const db = () => getDb();
 
 const reportsR4Router = Router();
 
@@ -76,7 +60,6 @@ function sendPdf(res: Response, name: string, label: string, rows: Array<Record<
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const colWidth = pageWidth / headers.length;
   const lineHeight = 14;
-  // Header row
   doc.fontSize(9).fillColor("white");
   let x = doc.page.margins.left;
   const y = doc.y;
@@ -88,7 +71,6 @@ function sendPdf(res: Response, name: string, label: string, rows: Array<Record<
   }
   doc.fillColor("black");
   doc.moveDown(0.5);
-  // Data rows
   let rowY = y + lineHeight + 2;
   doc.fontSize(8);
   for (const r of rows) {
@@ -136,17 +118,20 @@ function respond(
 reportsR4Router.get("/reports/sales-register", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const { from, to } = parseDateRange(req);
-  const rows = await db
-    .select()
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), gte(invoicesTable.issueDate, from), lte(invoicesTable.issueDate, to)))
-    .orderBy(invoicesTable.issueDate);
-  const clientRows = await db.select().from(clientsTable).where(eq(clientsTable.organizationId, orgId));
-  const cmap = new Map(clientRows.map((c) => [c.id, c]));
+  const invSnap = await db().collection("invoices").where("organizationId", "==", orgId).get();
+  const rows = invSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((r) => {
+      const issue = r.issueDate as string;
+      return issue >= from.toISOString() && issue <= to.toISOString();
+    });
+  rows.sort((a, b) => ((a.issueDate as string) ?? "").localeCompare((b.issueDate as string) ?? ""));
+  const clientSnap = await db().collection("clients").where("organizationId", "==", orgId).get();
+  const cmap = new Map(clientSnap.docs.map((d) => [d.id, d.data()]));
   const data = rows.map((r) => ({
     invoiceNumber: r.invoiceNumber,
-    issueDate: r.issueDate.toISOString().slice(0, 10),
-    clientName: r.clientId ? cmap.get(r.clientId)?.name ?? "" : "",
+    issueDate: (r.issueDate as string)?.slice(0, 10),
+    clientName: r.clientId ? (cmap.get(r.clientId as string)?.name as string) ?? "" : "",
     status: r.status,
     subtotal: Number(r.subtotal),
     cgst: Number(r.cgst),
@@ -162,17 +147,20 @@ reportsR4Router.get("/reports/sales-register", requireAuth, async (req, res) => 
 reportsR4Router.get("/reports/purchase-register", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const { from, to } = parseDateRange(req);
-  const rows = await db
-    .select()
-    .from(purchaseOrdersTable)
-    .where(and(eq(purchaseOrdersTable.organizationId, orgId), gte(purchaseOrdersTable.createdAt, from), lte(purchaseOrdersTable.createdAt, to)))
-    .orderBy(purchaseOrdersTable.createdAt);
-  const vendorRows = await db.select().from(vendorsTable).where(eq(vendorsTable.organizationId, orgId));
-  const vmap = new Map(vendorRows.map((v) => [v.id, v]));
+  const poSnap = await db().collection("purchase_orders").where("organizationId", "==", orgId).get();
+  const rows = poSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((r) => {
+      const created = r.createdAt as string;
+      return created >= from.toISOString() && created <= to.toISOString();
+    });
+  rows.sort((a, b) => ((a.createdAt as string) ?? "").localeCompare((b.createdAt as string) ?? ""));
+  const vendorSnap = await db().collection("vendors").where("organizationId", "==", orgId).get();
+  const vmap = new Map(vendorSnap.docs.map((d) => [d.id, d.data()]));
   const data = rows.map((r) => ({
     poNumber: r.poNumber,
-    date: r.createdAt.toISOString().slice(0, 10),
-    vendorName: r.vendorId ? vmap.get(r.vendorId)?.name ?? "" : "",
+    date: (r.createdAt as string)?.slice(0, 10),
+    vendorName: r.vendorId ? (vmap.get(r.vendorId as string)?.name as string) ?? "" : "",
     status: r.status,
     subtotal: Number(r.subtotal),
     taxAmount: Number(r.taxAmount),
@@ -183,21 +171,22 @@ reportsR4Router.get("/reports/purchase-register", requireAuth, async (req, res) 
 
 reportsR4Router.get("/reports/customer-ageing", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), sql`${invoicesTable.status} not in ('paid','cancelled','draft')`));
-  const clientRows = await db.select().from(clientsTable).where(eq(clientsTable.organizationId, orgId));
-  const cmap = new Map(clientRows.map((c) => [c.id, c]));
+  const invSnap = await db().collection("invoices").where("organizationId", "==", orgId).get();
+  const rows = invSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const clientSnap = await db().collection("clients").where("organizationId", "==", orgId).get();
+  const cmap = new Map(clientSnap.docs.map((d) => [d.id, d.data()]));
   const now = Date.now();
-  const buckets = new Map<number, { clientId: number; clientName: string; current: number; days30: number; days60: number; days90: number; daysOver90: number; total: number }>();
+  const buckets = new Map<string, { clientId: string; clientName: string; current: number; days30: number; days60: number; days90: number; daysOver90: number; total: number }>();
   for (const inv of rows) {
+    if (["paid", "cancelled", "draft"].includes(inv.status as string)) continue;
     const balance = Number(inv.total) - Number(inv.amountPaid);
     if (balance <= 0) continue;
-    const cid = inv.clientId ?? 0;
-    const cname = cmap.get(cid)?.name ?? "Unknown";
-    const ref = inv.dueDate?.getTime() ?? inv.issueDate.getTime();
-    const ageDays = Math.max(0, Math.floor((now - ref) / 86400000));
+    const cid = (inv.clientId as string) ?? "0";
+    const cname = (cmap.get(cid)?.name as string) ?? "Unknown";
+    const dueStr = inv.dueDate as string | undefined;
+    const issueStr = inv.issueDate as string;
+    const refTime = dueStr ? new Date(dueStr).getTime() : new Date(issueStr).getTime();
+    const ageDays = Math.max(0, Math.floor((now - refTime) / 86400000));
     const b = buckets.get(cid) ?? { clientId: cid, clientName: cname, current: 0, days30: 0, days60: 0, days90: 0, daysOver90: 0, total: 0 };
     if (ageDays <= 0) b.current += balance;
     else if (ageDays <= 30) b.days30 += balance;
@@ -212,79 +201,82 @@ reportsR4Router.get("/reports/customer-ageing", requireAuth, async (req, res) =>
 
 reportsR4Router.get("/reports/top-items", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  // Aggregate sold quantities/revenue from invoice_items joined to invoices.
-  const orgInvoices = await db
-    .select({ id: invoicesTable.id })
-    .from(invoicesTable)
-    .where(and(eq(invoicesTable.organizationId, orgId), sql`${invoicesTable.status} <> 'cancelled'`));
-  const invIds = orgInvoices.map((r) => r.id);
-  if (invIds.length === 0) {
+  const invSnap = await db().collection("invoices").where("organizationId", "==", orgId).get();
+  const orgInvoices = invSnap.docs.filter((d) => d.data().status !== "cancelled");
+  const invIds = new Set(orgInvoices.map((d) => d.id));
+  if (invIds.size === 0) {
     respond(req, res, "top-items", [], "Top items");
     return;
   }
-  const items = await db
-    .select({
-      description: invoiceItemsTable.description,
-      qty: sql<string>`coalesce(sum(${invoiceItemsTable.quantity}),0)::text`,
-      revenue: sql<string>`coalesce(sum(${invoiceItemsTable.totalPrice}),0)::text`,
-    })
-    .from(invoiceItemsTable)
-    .where(inArray(invoiceItemsTable.invoiceId, invIds))
-    .groupBy(invoiceItemsTable.description)
-    .orderBy(sql`sum(${invoiceItemsTable.totalPrice}) desc`)
-    .limit(20);
+  const allQiSnap = await db().collection("invoice_items").get();
+  const items = allQiSnap.docs
+    .map((d) => d.data())
+    .filter((r) => invIds.has(r.invoiceId as string));
+  // Group by description
+  const descMap = new Map<string, { qty: number; revenue: number }>();
+  for (const i of items) {
+    const desc = i.description as string;
+    const entry = descMap.get(desc) ?? { qty: 0, revenue: 0 };
+    entry.qty += Number(i.quantity ?? 0);
+    entry.revenue += Number(i.totalPrice ?? 0);
+    descMap.set(desc, entry);
+  }
+  const sorted = Array.from(descMap.entries())
+    .map(([name, v]) => ({ name, ...v }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 20);
   respond(
     req,
     res,
     "top-items",
-    items.map((i) => ({ name: i.description, quantity: Number(i.qty), revenue: Number(i.revenue) })),
+    sorted.map((i) => ({ name: i.name, quantity: i.qty, revenue: i.revenue })),
     "Top items",
   );
 });
 
 reportsR4Router.get("/reports/lead-source-roi", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select({
-      source: leadsTable.source,
-      total: sql<number>`count(*)::int`,
-      won: sql<number>`count(*) filter (where ${leadsTable.status} = 'won')::int`,
-      lost: sql<number>`count(*) filter (where ${leadsTable.status} = 'lost')::int`,
-    })
-    .from(leadsTable)
-    .where(eq(leadsTable.organizationId, orgId))
-    .groupBy(leadsTable.source);
-  // Revenue per source: sum invoice amountPaid for clients converted from each source.
-  const wonLeads = await db
-    .select()
-    .from(leadsTable)
-    .where(and(eq(leadsTable.organizationId, orgId), eq(leadsTable.status, "won")));
-  const clientIds = wonLeads.map((l) => l.convertedClientId).filter(Boolean) as number[];
-  let invs: Array<{ clientId: number | null; amountPaid: unknown }> = [];
+  const leadsSnap = await db().collection("leads").where("organizationId", "==", orgId).get();
+  const allLeads = leadsSnap.docs.map((d) => d.data());
+  // Source breakdown
+  const sourceMap = new Map<string, { total: number; won: number; lost: number }>();
+  for (const l of allLeads) {
+    const src = l.source as string;
+    const entry = sourceMap.get(src) ?? { total: 0, won: 0, lost: 0 };
+    entry.total += 1;
+    if (l.status === "won") entry.won += 1;
+    if (l.status === "lost") entry.lost += 1;
+    sourceMap.set(src, entry);
+  }
+  // Revenue per source
+  const wonLeads = allLeads.filter((l) => l.status === "won");
+  const clientIds = wonLeads.map((l) => l.convertedClientId).filter(Boolean) as string[];
+  const invMap = new Map<string, number>();
   if (clientIds.length) {
-    invs = await db
-      .select({ clientId: invoicesTable.clientId, amountPaid: invoicesTable.amountPaid })
-      .from(invoicesTable)
-      .where(and(eq(invoicesTable.organizationId, orgId), inArray(invoicesTable.clientId, clientIds)));
+    const invSnap = await db().collection("invoices").where("organizationId", "==", orgId).get();
+    for (const d of invSnap.docs) {
+      const inv = d.data();
+      if (clientIds.includes(inv.clientId as string)) {
+        invMap.set(inv.clientId as string, (invMap.get(inv.clientId as string) ?? 0) + Number(inv.amountPaid));
+      }
+    }
   }
   const revBySource = new Map<string, number>();
   for (const l of wonLeads) {
-    const revFromClient = invs
-      .filter((i) => i.clientId === l.convertedClientId)
-      .reduce((s, i) => s + Number(i.amountPaid), 0);
-    revBySource.set(l.source, (revBySource.get(l.source) ?? 0) + revFromClient);
+    const rev = invMap.get(l.convertedClientId as string) ?? 0;
+    revBySource.set(l.source as string, (revBySource.get(l.source as string) ?? 0) + rev);
   }
   respond(
     req,
     res,
     "lead-source-roi",
-    rows.map((r) => ({
-      source: r.source,
-      total: Number(r.total),
-      won: Number(r.won),
-      lost: Number(r.lost),
-      conversionPct: r.total > 0 ? Math.round((r.won / r.total) * 100) : 0,
-      revenue: revBySource.get(r.source) ?? 0,
+    Array.from(sourceMap.entries()).map(([source, v]) => ({
+      source,
+      total: v.total,
+      won: v.won,
+      lost: v.lost,
+      conversionPct: v.total > 0 ? Math.round((v.won / v.total) * 100) : 0,
+      revenue: revBySource.get(source) ?? 0,
     })),
     "Lead source ROI",
   );
@@ -292,33 +284,29 @@ reportsR4Router.get("/reports/lead-source-roi", requireAuth, async (req, res) =>
 
 reportsR4Router.get("/reports/social-engagement", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const posts = await db
-    .select()
-    .from(socialPostsTable)
-    .where(eq(socialPostsTable.organizationId, orgId));
-  const results = await db
-    .select()
-    .from(socialPostResultsTable)
-    .where(eq(socialPostResultsTable.organizationId, orgId));
-  const byPost = new Map<number, typeof results>();
-  for (const r of results) {
-    const arr = byPost.get(r.postId) ?? [];
+  const postsSnap = await db().collection("social_posts").where("organizationId", "==", orgId).get();
+  const posts = postsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const resultsSnap = await db().collection("social_post_results").where("organizationId", "==", orgId).get();
+  const allResults = resultsSnap.docs.map((d) => d.data());
+  const byPost = new Map<string, Record<string, unknown>[]>();
+  for (const r of allResults) {
+    const arr = byPost.get(r.postId as string) ?? [];
     arr.push(r);
-    byPost.set(r.postId, arr);
+    byPost.set(r.postId as string, arr);
   }
   const data = posts
     .filter((p) => p.status === "posted" || p.status === "partial")
     .map((p) => {
-      const r = byPost.get(p.id) ?? [];
-      const likes = r.reduce((s, x) => s + Number(x.metrics?.likes ?? 0), 0);
-      const comments = r.reduce((s, x) => s + Number(x.metrics?.comments ?? 0), 0);
-      const shares = r.reduce((s, x) => s + Number(x.metrics?.shares ?? 0), 0);
-      const impressions = r.reduce((s, x) => s + Number(x.metrics?.impressions ?? 0), 0);
+      const r = byPost.get(p.id as string) ?? [];
+      const likes = r.reduce((s, x) => s + Number((x.metrics as Record<string, number>)?.likes ?? 0), 0);
+      const comments = r.reduce((s, x) => s + Number((x.metrics as Record<string, number>)?.comments ?? 0), 0);
+      const shares = r.reduce((s, x) => s + Number((x.metrics as Record<string, number>)?.shares ?? 0), 0);
+      const impressions = r.reduce((s, x) => s + Number((x.metrics as Record<string, number>)?.impressions ?? 0), 0);
       return {
         id: p.id,
-        content: p.content.slice(0, 60),
-        platforms: (p.platforms ?? []).join(", "),
-        publishedAt: p.publishedAt?.toISOString() ?? null,
+        content: (p.content as string).slice(0, 60),
+        platforms: ((p.platforms as string[]) ?? []).join(", "),
+        publishedAt: (p.publishedAt as string) ?? null,
         likes,
         comments,
         shares,
@@ -330,22 +318,20 @@ reportsR4Router.get("/reports/social-engagement", requireAuth, async (req, res) 
 
 reportsR4Router.get("/reports/email-performance", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  // Campaigns
-  const campaigns = await db
-    .select()
-    .from(campaignsTable)
-    .where(eq(campaignsTable.organizationId, orgId));
-  const recs = await db.select().from(campaignRecipientsTable).where(eq(campaignRecipientsTable.organizationId, orgId));
+  const campaignsSnap = await db().collection("campaigns").where("organizationId", "==", orgId).get();
+  const campaigns = campaignsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const recsSnap = await db().collection("campaign_recipients").where("organizationId", "==", orgId).get();
+  const recs = recsSnap.docs.map((d) => d.data());
   const data = campaigns.map((c) => {
     const r = recs.filter((x) => x.campaignId === c.id);
-    const sent = r.filter((x) => x.status === "sent" || x.status === "opened" || x.status === "clicked").length;
-    const opened = r.filter((x) => x.status === "opened" || x.status === "clicked").length;
+    const sent = r.filter((x) => ["sent", "opened", "clicked"].includes(x.status as string)).length;
+    const opened = r.filter((x) => ["opened", "clicked"].includes(x.status as string)).length;
     const clicked = r.filter((x) => x.status === "clicked").length;
     return {
       campaignId: c.id,
       name: c.name,
       subject: c.subject,
-      sentAt: c.sentAt?.toISOString() ?? null,
+      sentAt: (c.sentAt as string) ?? null,
       sent,
       opened,
       clicked,
@@ -353,15 +339,9 @@ reportsR4Router.get("/reports/email-performance", requireAuth, async (req, res) 
       clickRate: sent > 0 ? Math.round((clicked / sent) * 100) : 0,
     };
   });
-  // Direct emails (transactional)
-  const [tot] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(emailsTable)
-    .where(and(eq(emailsTable.organizationId, orgId), eq(emailsTable.direction, "outbound")));
-  const [op] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(emailsTable)
-    .where(and(eq(emailsTable.organizationId, orgId), eq(emailsTable.direction, "outbound"), eq(emailsTable.status, "opened")));
+  const emailsSnap = await db().collection("emails").where("organizationId", "==", orgId).where("direction", "==", "outbound").get();
+  const tot = emailsSnap.size;
+  const op = emailsSnap.docs.filter((d) => d.data().status === "opened").length;
   respond(req, res, "email-performance", [
     ...data,
     {
@@ -369,16 +349,15 @@ reportsR4Router.get("/reports/email-performance", requireAuth, async (req, res) 
       name: "(transactional)",
       subject: "All non-campaign sent emails",
       sentAt: null,
-      sent: Number(tot?.c ?? 0),
-      opened: Number(op?.c ?? 0),
+      sent: tot,
+      opened: op,
       clicked: 0,
-      openRate: Number(tot?.c ?? 0) > 0 ? Math.round((Number(op?.c ?? 0) / Number(tot?.c ?? 0)) * 100) : 0,
+      openRate: tot > 0 ? Math.round((op / tot) * 100) : 0,
       clickRate: 0,
     },
   ], "Email performance");
 });
 
-// Index of available reports — used by the unified Reports page.
 reportsR4Router.get("/reports/catalog", requireAuth, async (_req, res) => {
   res.json([
     { key: "sales-register", label: "Sales register", description: "Invoice-by-invoice register with GST split.", path: "/reports/sales-register" },
@@ -390,11 +369,5 @@ reportsR4Router.get("/reports/catalog", requireAuth, async (_req, res) => {
     { key: "email-performance", label: "Email performance", description: "Open and click rates per campaign.", path: "/reports/email-performance" },
   ]);
 });
-
-// Mark unused imports as used (avoids TS6133 if tree-shaken).
-void paymentsTable;
-void purchaseOrderItemsTable;
-void itemsTable;
-void quotationsTable;
 
 export default reportsR4Router;

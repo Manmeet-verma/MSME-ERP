@@ -1,19 +1,19 @@
 import { Router } from "express";
-import { db, attendanceTable, employeesTable } from "@workspace/db";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 
+const db = () => getDb();
 const attendanceRouter = Router();
 
-function fmt(a: typeof attendanceTable.$inferSelect) {
+function fmt(a: Record<string, unknown>) {
   return {
-    id: a.id,
-    employeeId: a.employeeId,
-    date: a.date,
-    status: a.status,
-    leaveType: a.leaveType ?? null,
-    notes: a.notes ?? null,
-    createdAt: a.createdAt.toISOString(),
+    id: a.id as string,
+    employeeId: a.employeeId as string,
+    date: a.date as string,
+    status: a.status as string,
+    leaveType: (a.leaveType as string) ?? null,
+    notes: (a.notes as string) ?? null,
+    createdAt: (a.createdAt as string) ?? new Date().toISOString(),
   };
 }
 
@@ -21,12 +21,15 @@ attendanceRouter.get("/attendance", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const from = req.query.from ? String(req.query.from) : null;
   const to = req.query.to ? String(req.query.to) : null;
-  const employeeId = req.query.employeeId ? Number(req.query.employeeId) : null;
-  const conds = [eq(attendanceTable.organizationId, orgId)];
-  if (from) conds.push(gte(attendanceTable.date, from));
-  if (to) conds.push(lte(attendanceTable.date, to));
-  if (employeeId) conds.push(eq(attendanceTable.employeeId, employeeId));
-  const rows = await db.select().from(attendanceTable).where(and(...conds));
+  const employeeId = req.query.employeeId ? String(req.query.employeeId) : null;
+
+  let query: FirebaseFirestore.Query = db().collection("attendance").where("organizationId", "==", orgId);
+  if (employeeId) query = query.where("employeeId", "==", employeeId);
+  if (from) query = query.where("date", ">=", from);
+  if (to) query = query.where("date", "<=", to);
+
+  const snap = await query.get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(rows.map(fmt));
 });
 
@@ -37,37 +40,32 @@ attendanceRouter.post("/attendance", requireAuth, async (req, res) => {
     res.status(400).json({ error: "employeeId, date and status required" });
     return;
   }
-  // Validate employee belongs to org
-  const [emp] = await db
-    .select()
-    .from(employeesTable)
-    .where(and(eq(employeesTable.id, Number(b.employeeId)), eq(employeesTable.organizationId, orgId)));
-  if (!emp) {
+  const empSnap = await db().collection("employees").doc(String(b.employeeId)).get();
+  if (!empSnap.exists || empSnap.data()?.organizationId !== orgId) {
     res.status(400).json({ error: "Invalid employee" });
     return;
   }
   // Upsert: delete same employee/date row first
-  await db
-    .delete(attendanceTable)
-    .where(
-      and(
-        eq(attendanceTable.organizationId, orgId),
-        eq(attendanceTable.employeeId, Number(b.employeeId)),
-        eq(attendanceTable.date, String(b.date)),
-      ),
-    );
-  const [a] = await db
-    .insert(attendanceTable)
-    .values({
-      organizationId: orgId,
-      employeeId: Number(b.employeeId),
-      date: String(b.date),
-      status: b.status,
-      leaveType: b.leaveType ?? null,
-      notes: b.notes ?? null,
-    })
-    .returning();
-  res.status(201).json(fmt(a));
+  const existing = await db().collection("attendance")
+    .where("organizationId", "==", orgId)
+    .where("employeeId", "==", String(b.employeeId))
+    .where("date", "==", String(b.date))
+    .get();
+  for (const doc of existing.docs) {
+    await doc.ref.delete();
+  }
+  const now = new Date().toISOString();
+  const docRef = await db().collection("attendance").add({
+    organizationId: orgId,
+    employeeId: String(b.employeeId),
+    date: String(b.date),
+    status: b.status,
+    leaveType: b.leaveType ?? null,
+    notes: b.notes ?? null,
+    createdAt: now,
+  });
+  const doc = await docRef.get();
+  res.status(201).json(fmt({ id: doc.id, ...doc.data() }));
 });
 
 attendanceRouter.post("/attendance/bulk", requireAuth, async (req, res) => {
@@ -80,71 +78,79 @@ attendanceRouter.post("/attendance/bulk", requireAuth, async (req, res) => {
     return;
   }
   // Wipe the day's attendance for this org, then reinsert
-  await db
-    .delete(attendanceTable)
-    .where(and(eq(attendanceTable.organizationId, orgId), eq(attendanceTable.date, String(date))));
-  const rows = await db
-    .insert(attendanceTable)
-    .values(
-      entries.map((e: { employeeId: number; status: string; leaveType?: string; notes?: string }) => ({
-        organizationId: orgId,
-        employeeId: Number(e.employeeId),
-        date: String(date),
-        status: e.status as "present" | "absent" | "half" | "leave" | "holiday" | "weekoff",
-        leaveType: e.leaveType ?? null,
-        notes: e.notes ?? null,
-      })),
-    )
-    .returning();
-  res.status(201).json(rows.map(fmt));
+  const existing = await db().collection("attendance")
+    .where("organizationId", "==", orgId)
+    .where("date", "==", String(date))
+    .get();
+  for (const doc of existing.docs) {
+    await doc.ref.delete();
+  }
+  const now = new Date().toISOString();
+  const results: Record<string, unknown>[] = [];
+  for (const e of entries as Array<{ employeeId: string; status: string; leaveType?: string; notes?: string }>) {
+    const docRef = await db().collection("attendance").add({
+      organizationId: orgId,
+      employeeId: String(e.employeeId),
+      date: String(date),
+      status: e.status,
+      leaveType: e.leaveType ?? null,
+      notes: e.notes ?? null,
+      createdAt: now,
+    });
+    const doc = await docRef.get();
+    results.push({ id: doc.id, ...doc.data() });
+  }
+  res.status(201).json(results.map(fmt));
 });
 
 attendanceRouter.delete("/attendance/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const result = await db
-    .delete(attendanceTable)
-    .where(and(eq(attendanceTable.id, id), eq(attendanceTable.organizationId, orgId)))
-    .returning();
-  if (result.length === 0) {
+  const id = req.params.id;
+  const doc = await db().collection("attendance").doc(id).get();
+  if (!doc.exists || doc.data()?.organizationId !== orgId) {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  await db().collection("attendance").doc(id).delete();
   res.json({ message: "Deleted" });
 });
 
-// Leave: apply / list / approve. A "leave application" is stored as a pending
-// attendance row with status "leave". Approve = it stays; reject = delete.
 attendanceRouter.get("/leaves", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(attendanceTable)
-    .where(and(eq(attendanceTable.organizationId, orgId), eq(attendanceTable.status, "leave")));
+  const snap = await db().collection("attendance")
+    .where("organizationId", "==", orgId)
+    .where("status", "==", "leave")
+    .get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(rows.map(fmt));
 });
 
 attendanceRouter.get("/leaves/balances", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const emps = await db.select().from(employeesTable).where(eq(employeesTable.organizationId, orgId));
-  const allLeaves = await db
-    .select()
-    .from(attendanceTable)
-    .where(and(eq(attendanceTable.organizationId, orgId), eq(attendanceTable.status, "leave")));
-  const used = new Map<number, Record<string, number>>();
-  for (const l of allLeaves) {
-    const m = used.get(l.employeeId) ?? {};
-    const k = l.leaveType ?? "casual";
+  const empsSnap = await db().collection("employees").where("organizationId", "==", orgId).get();
+  const allLeavesSnap = await db().collection("attendance")
+    .where("organizationId", "==", orgId)
+    .where("status", "==", "leave")
+    .get();
+  const used = new Map<string, Record<string, number>>();
+  for (const lDoc of allLeavesSnap.docs) {
+    const l = lDoc.data();
+    const empId = l.employeeId as string;
+    const m = used.get(empId) ?? {};
+    const k = (l.leaveType as string) ?? "casual";
     m[k] = (m[k] ?? 0) + 1;
-    used.set(l.employeeId, m);
+    used.set(empId, m);
   }
   res.json(
-    emps.map((e) => ({
-      employeeId: e.id,
-      employeeName: e.name,
-      balances: e.leaveBalances ?? {},
-      used: used.get(e.id) ?? {},
-    })),
+    empsSnap.docs.map((d) => {
+      const e = d.data();
+      return {
+        employeeId: d.id,
+        employeeName: e.name,
+        balances: (e.leaveBalances as Record<string, number>) ?? {},
+        used: used.get(d.id) ?? {},
+      };
+    }),
   );
 });
 

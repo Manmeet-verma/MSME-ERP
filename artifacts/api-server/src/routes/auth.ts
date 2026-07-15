@@ -1,17 +1,16 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import {
-  db,
-  usersTable,
-  organizationsTable,
-  organizationMembersTable,
-  DEFAULT_LIMITS,
-  DEFAULT_MODULES,
-} from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { signToken, requireUser, requireAuth } from "../middlewares/auth";
 
 const authRouter = Router();
+const db = () => getDb();
+
+const DEFAULT_LIMITS = { members: 3, leadsPerMonth: 50, emailsPerMonth: 100, storageMB: 100 };
+const DEFAULT_MODULES = {
+  sales: true, leads: true, inventory: false, purchase: false,
+  marketing: false, hr: false, accounting: false, social: false,
+};
 
 function slugify(name: string): string {
   return (
@@ -27,14 +26,13 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let i = 1;
   while (true) {
-    const [row] = await db.select().from(organizationsTable).where(eq(organizationsTable.slug, slug));
-    if (!row) return slug;
+    const snap = await db().collection("organizations").where("slug", "==", slug).limit(1).get();
+    if (snap.empty) return slug;
     i += 1;
     slug = `${base}-${i}`;
   }
 }
 
-/** Sign up a new user (does not create an org yet). */
 authRouter.post("/auth/signup", async (req, res) => {
   const { name, email, password } = req.body ?? {};
   if (!name || !email || !password) {
@@ -46,26 +44,30 @@ authRouter.post("/auth/signup", async (req, res) => {
     return;
   }
   const normalizedEmail = String(email).trim().toLowerCase();
-  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
-  if (existing) {
+  const existing = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+  if (!existing.empty) {
     res.status(409).json({ error: "An account with this email already exists" });
     return;
   }
   const passwordHash = await bcrypt.hash(password, 10);
-  const [user] = await db
-    .insert(usersTable)
-    .values({ name, email: normalizedEmail, passwordHash, isActive: true })
-    .returning();
-  const token = signToken({ userId: user.id, email: user.email, activeOrgId: null });
+  const userRef = await db().collection("users").add({
+    name,
+    email: normalizedEmail,
+    passwordHash,
+    phone: null,
+    isActive: true,
+    lastLogin: null,
+    createdAt: new Date().toISOString(),
+  });
+  const token = signToken({ userId: userRef.id, email: normalizedEmail, activeOrgId: null });
   res.status(201).json({
     token,
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: userRef.id, name, email: normalizedEmail },
     activeOrgId: null,
     organizations: [],
   });
 });
 
-/** Sign up a user and immediately create an organization (one-shot onboarding). */
 authRouter.post("/auth/signup-with-org", async (req, res) => {
   const { name, email, password, organizationName, industry } = req.body ?? {};
   if (!name || !email || !password || !organizationName) {
@@ -77,40 +79,45 @@ authRouter.post("/auth/signup-with-org", async (req, res) => {
     return;
   }
   const normalizedEmail = String(email).trim().toLowerCase();
-  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
-  if (existing) {
+  const existing = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+  if (!existing.empty) {
     res.status(409).json({ error: "An account with this email already exists" });
     return;
   }
+
+  const batch = db().batch();
   const passwordHash = await bcrypt.hash(password, 10);
-  const [user] = await db
-    .insert(usersTable)
-    .values({ name, email: normalizedEmail, passwordHash, isActive: true })
-    .returning();
-  const slug = await ensureUniqueSlug(slugify(organizationName));
-  const [org] = await db
-    .insert(organizationsTable)
-    .values({
-      name: organizationName,
-      slug,
-      plan: "free",
-      industry: industry ?? null,
-      limits: { ...DEFAULT_LIMITS },
-      modules: { ...DEFAULT_MODULES },
-      createdById: user.id,
-    })
-    .returning();
-  await db.insert(organizationMembersTable).values({
-    organizationId: org.id,
-    userId: user.id,
-    role: "owner",
+  const userRef = db().collection("users").doc();
+  batch.set(userRef, {
+    name, email: normalizedEmail, passwordHash, phone: null,
+    isActive: true, lastLogin: null, createdAt: new Date().toISOString(),
   });
-  const token = signToken({ userId: user.id, email: user.email, activeOrgId: org.id });
+
+  const slug = await ensureUniqueSlug(slugify(organizationName));
+  const orgRef = db().collection("organizations").doc();
+  batch.set(orgRef, {
+    name: organizationName, slug, plan: "free", industry: industry ?? null,
+    limits: { ...DEFAULT_LIMITS }, modules: { ...DEFAULT_MODULES },
+    salesSettings: { allowOverselling: false, reserveStockOnDraft: false },
+    payrollSettings: { autoRunEnabled: false, autoRunDay: 1, emailPayslips: false },
+    gstNumber: null, state: null, address: null, phone: null,
+    createdById: userRef.id, createdAt: new Date().toISOString(),
+  });
+
+  const memberRef = db().collection("organization_members").doc();
+  batch.set(memberRef, {
+    organizationId: orgRef.id, userId: userRef.id, role: "owner",
+    invitedById: null, joinedAt: new Date().toISOString(),
+  });
+
+  await batch.commit();
+
+  const token = signToken({ userId: userRef.id, email: normalizedEmail, activeOrgId: orgRef.id });
   res.status(201).json({
     token,
-    user: { id: user.id, name: user.name, email: user.email },
-    activeOrgId: org.id,
-    organizations: [{ id: org.id, name: org.name, slug: org.slug, role: "owner" }],
+    user: { id: userRef.id, name, email: normalizedEmail },
+    activeOrgId: orgRef.id,
+    organizations: [{ id: orgRef.id, name: organizationName, slug, role: "owner" }],
   });
 });
 
@@ -121,8 +128,14 @@ authRouter.post("/auth/login", async (req, res) => {
     return;
   }
   const normalizedEmail = String(email).trim().toLowerCase();
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
-  if (!user || !user.isActive) {
+  const userSnap = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+  if (userSnap.empty) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+  const userDoc = userSnap.docs[0];
+  const user = userDoc.data();
+  if (!user.isActive) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
@@ -131,86 +144,83 @@ authRouter.post("/auth/login", async (req, res) => {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
-  await db.update(usersTable).set({ lastLogin: new Date() }).where(eq(usersTable.id, user.id));
+  await userDoc.ref.update({ lastLogin: new Date().toISOString() });
 
-  const memberships = await db
-    .select({
-      orgId: organizationMembersTable.organizationId,
-      role: organizationMembersTable.role,
-      orgName: organizationsTable.name,
-      orgSlug: organizationsTable.slug,
-    })
-    .from(organizationMembersTable)
-    .innerJoin(organizationsTable, eq(organizationsTable.id, organizationMembersTable.organizationId))
-    .where(eq(organizationMembersTable.userId, user.id));
+  const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+  const memberships: Array<{ orgId: string; role: string; orgName: string; orgSlug: string }> = [];
+  for (const mDoc of memberSnap.docs) {
+    const m = mDoc.data();
+    const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+    if (orgSnap.exists) {
+      const org = orgSnap.data()!;
+      memberships.push({ orgId: m.organizationId, role: m.role, orgName: org.name, orgSlug: org.slug });
+    }
+  }
 
   const activeOrgId = memberships[0]?.orgId ?? null;
-  const token = signToken({ userId: user.id, email: user.email, activeOrgId });
+  const token = signToken({ userId: userDoc.id, email: user.email, activeOrgId });
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: userDoc.id, name: user.name, email: user.email },
     activeOrgId,
     organizations: memberships.map((m) => ({
-      id: m.orgId,
-      name: m.orgName,
-      slug: m.orgSlug,
-      role: m.role,
+      id: m.orgId, name: m.orgName, slug: m.orgSlug, role: m.role,
     })),
   });
 });
 
 authRouter.get("/auth/me", requireUser, async (req, res) => {
   const userId = req.user!.userId;
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (!user) {
+  const userSnap = await db().collection("users").doc(userId).get();
+  if (!userSnap.exists) {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  const memberships = await db
-    .select({
-      orgId: organizationMembersTable.organizationId,
-      role: organizationMembersTable.role,
-      orgName: organizationsTable.name,
-      orgSlug: organizationsTable.slug,
-    })
-    .from(organizationMembersTable)
-    .innerJoin(organizationsTable, eq(organizationsTable.id, organizationMembersTable.organizationId))
-    .where(eq(organizationMembersTable.userId, userId));
+  const user = userSnap.data()!;
+
+  const memberSnap = await db().collection("organization_members").where("userId", "==", userId).get();
+  const memberships: Array<{ orgId: string; role: string; orgName: string; orgSlug: string }> = [];
+  for (const mDoc of memberSnap.docs) {
+    const m = mDoc.data();
+    const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+    if (orgSnap.exists) {
+      const org = orgSnap.data()!;
+      memberships.push({ orgId: m.organizationId, role: m.role, orgName: org.name, orgSlug: org.slug });
+    }
+  }
 
   res.json({
-    user: { id: user.id, name: user.name, email: user.email, phone: user.phone ?? null },
+    user: { id: userId, name: user.name, email: user.email, phone: user.phone ?? null },
     activeOrgId: req.user!.activeOrgId,
     organizations: memberships.map((m) => ({
-      id: m.orgId,
-      name: m.orgName,
-      slug: m.orgSlug,
-      role: m.role,
+      id: m.orgId, name: m.orgName, slug: m.orgSlug, role: m.role,
     })),
   });
 });
 
-/** Switch the active organization in the user's session (returns a new token). */
 authRouter.post("/auth/switch-org", requireUser, async (req, res) => {
   const { organizationId } = req.body ?? {};
   if (!organizationId) {
     res.status(400).json({ error: "organizationId required" });
     return;
   }
-  const memberships = await db
-    .select()
-    .from(organizationMembersTable)
-    .where(eq(organizationMembersTable.userId, req.user!.userId));
-  const targetMembership = memberships.find((m) => m.organizationId === Number(organizationId));
-  if (!targetMembership) {
+  const memberSnap = await db().collection("organization_members")
+    .where("userId", "==", req.user!.userId)
+    .where("organizationId", "==", organizationId)
+    .limit(1)
+    .get();
+
+  if (memberSnap.empty) {
     res.status(403).json({ error: "Not a member of that organization" });
     return;
   }
+  const targetMembership = memberSnap.docs[0].data();
   const token = signToken({
     userId: req.user!.userId,
     email: req.user!.email,
-    activeOrgId: Number(organizationId),
+    activeOrgId: organizationId,
   });
-  res.json({ token, activeOrgId: Number(organizationId), role: targetMembership.role });
+  res.json({ token, activeOrgId: organizationId, role: targetMembership.role });
 });
 
 authRouter.post("/auth/logout", requireAuth, async (_req, res) => {

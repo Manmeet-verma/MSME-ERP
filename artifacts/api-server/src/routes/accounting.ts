@@ -1,22 +1,11 @@
 import { Router } from "express";
-import {
-  db,
-  accountsTable,
-  journalEntriesTable,
-  journalLinesTable,
-  invoicesTable,
-  paymentsTable,
-  vendorBillsTable,
-  expensesTable,
-  clientsTable,
-  vendorsTable,
-} from "@workspace/db";
-import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { ensureChartOfAccounts, postJournal } from "../lib/accounting";
 import ExcelJS from "exceljs";
 import type { Response } from "express";
 
+const db = () => getDb();
 const accountingRouter = Router();
 
 function toCsv(rows: Array<Record<string, unknown>>): string {
@@ -51,46 +40,44 @@ async function sendXlsx(res: Response, name: string, sheets: Array<{ name: strin
 // ── Accounts (Chart of Accounts) ──────────────────────────────────────────
 accountingRouter.get("/accounts", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  await ensureChartOfAccounts(orgId);
-  const rows = await db
-    .select()
-    .from(accountsTable)
-    .where(eq(accountsTable.organizationId, orgId))
-    .orderBy(accountsTable.code);
+  await ensureChartOfAccounts(orgId as unknown as number);
+  const snap = await db().collection("accounts").where("organizationId", "==", orgId).orderBy("code").get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(
     rows.map((a) => ({
-      id: a.id,
-      code: a.code,
-      name: a.name,
-      type: a.type,
-      subtype: a.subtype ?? null,
-      isSystem: a.isSystem,
-      isActive: a.isActive,
-      createdAt: a.createdAt.toISOString(),
+      id: a.id as string,
+      code: a.code as string,
+      name: a.name as string,
+      type: a.type as string,
+      subtype: (a.subtype as string) ?? null,
+      isSystem: a.isSystem as boolean,
+      isActive: a.isActive as boolean,
+      createdAt: (a.createdAt as string) ?? new Date().toISOString(),
     })),
   );
 });
 
 accountingRouter.post("/accounts", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  await ensureChartOfAccounts(orgId);
+  await ensureChartOfAccounts(orgId as unknown as number);
   const b = req.body ?? {};
   if (!b.code || !b.name || !b.type) {
     res.status(400).json({ error: "code, name, type required" });
     return;
   }
-  const [a] = await db
-    .insert(accountsTable)
-    .values({
-      organizationId: orgId,
-      code: String(b.code),
-      name: String(b.name),
-      type: b.type,
-      subtype: b.subtype ?? null,
-      isSystem: false,
-    })
-    .returning();
-  res.status(201).json(a);
+  const now = new Date().toISOString();
+  const docRef = await db().collection("accounts").add({
+    organizationId: orgId,
+    code: String(b.code),
+    name: String(b.name),
+    type: b.type,
+    subtype: b.subtype ?? null,
+    isSystem: false,
+    isActive: true,
+    createdAt: now,
+  });
+  const doc = await docRef.get();
+  res.status(201).json({ id: doc.id, ...doc.data() });
 });
 
 // ── Journal entries (manual + listing) ────────────────────────────────────
@@ -98,43 +85,45 @@ accountingRouter.get("/journal-entries", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const from = req.query.from ? String(req.query.from) : null;
   const to = req.query.to ? String(req.query.to) : null;
-  const conds = [eq(journalEntriesTable.organizationId, orgId)];
-  if (from) conds.push(gte(journalEntriesTable.entryDate, from));
-  if (to) conds.push(lte(journalEntriesTable.entryDate, to));
-  const entries = await db
-    .select()
-    .from(journalEntriesTable)
-    .where(and(...conds))
-    .orderBy(desc(journalEntriesTable.entryDate), desc(journalEntriesTable.id));
-  const ids = entries.map((e) => e.id);
-  const lines = ids.length
-    ? await db.select().from(journalLinesTable).where(eq(journalLinesTable.organizationId, orgId))
-    : [];
-  const accounts = await db.select().from(accountsTable).where(eq(accountsTable.organizationId, orgId));
-  const amap = new Map(accounts.map((a) => [a.id, a]));
-  const byEntry = new Map<number, typeof lines>();
-  for (const l of lines) {
-    if (!ids.includes(l.entryId)) continue;
-    const arr = byEntry.get(l.entryId) ?? [];
-    arr.push(l);
-    byEntry.set(l.entryId, arr);
+
+  let query: FirebaseFirestore.Query = db().collection("journal_entries").where("organizationId", "==", orgId);
+  if (from) query = query.where("entryDate", ">=", from);
+  if (to) query = query.where("entryDate", "<=", to);
+
+  const entriesSnap = await query.orderBy("entryDate", "desc").get();
+  const entries = entriesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  const linesSnap = await db().collection("journal_lines").where("organizationId", "==", orgId).get();
+  const accountsSnap = await db().collection("accounts").where("organizationId", "==", orgId).get();
+  const amap = new Map(accountsSnap.docs.map((d) => [d.id, d.data()]));
+
+  const entryIds = new Set(entries.map((e) => e.id));
+  const byEntry = new Map<string, Array<Record<string, unknown>>>();
+  for (const lDoc of linesSnap.docs) {
+    const l = lDoc.data();
+    const entryId = l.entryId as string;
+    if (!entryIds.has(entryId)) continue;
+    const arr = byEntry.get(entryId) ?? [];
+    arr.push({ id: lDoc.id, ...l });
+    byEntry.set(entryId, arr);
   }
+
   res.json(
     entries.map((e) => ({
-      id: e.id,
-      entryDate: e.entryDate,
-      memo: e.memo ?? null,
-      sourceType: e.sourceType ?? null,
-      sourceId: e.sourceId ?? null,
-      createdAt: e.createdAt.toISOString(),
-      lines: (byEntry.get(e.id) ?? []).map((l) => ({
-        id: l.id,
-        accountId: l.accountId,
-        accountCode: amap.get(l.accountId)?.code ?? "",
-        accountName: amap.get(l.accountId)?.name ?? "",
-        debit: Number(l.debit),
-        credit: Number(l.credit),
-        description: l.description ?? null,
+      id: e.id as string,
+      entryDate: e.entryDate as string,
+      memo: (e.memo as string) ?? null,
+      sourceType: (e.sourceType as string) ?? null,
+      sourceId: (e.sourceId as string) ?? null,
+      createdAt: (e.createdAt as string) ?? new Date().toISOString(),
+      lines: (byEntry.get(e.id as string) ?? []).map((l) => ({
+        id: l.id as string,
+        accountId: l.accountId as string,
+        accountCode: amap.get(l.accountId as string)?.code ?? "",
+        accountName: amap.get(l.accountId as string)?.name ?? "",
+        debit: Number(l.debit ?? 0),
+        credit: Number(l.credit ?? 0),
+        description: (l.description as string) ?? null,
       })),
     })),
   );
@@ -149,7 +138,7 @@ accountingRouter.post("/journal-entries", requireAuth, async (req, res) => {
   }
   try {
     const id = await postJournal({
-      organizationId: orgId,
+      organizationId: orgId as unknown as number,
       entryDate: new Date(b.entryDate),
       memo: b.memo ?? null,
       sourceType: "manual",
@@ -169,48 +158,70 @@ accountingRouter.post("/journal-entries", requireAuth, async (req, res) => {
 // ── Ledger view (per account) ─────────────────────────────────────────────
 accountingRouter.get("/accounting/ledger", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const accountId = req.query.accountId ? Number(req.query.accountId) : null;
+  const accountId = req.query.accountId ? String(req.query.accountId) : null;
   const from = req.query.from ? String(req.query.from) : null;
   const to = req.query.to ? String(req.query.to) : null;
   if (!accountId) {
     res.status(400).json({ error: "accountId required" });
     return;
   }
-  const [acct] = await db
-    .select()
-    .from(accountsTable)
-    .where(and(eq(accountsTable.id, accountId), eq(accountsTable.organizationId, orgId)));
-  if (!acct) {
+  const acctDoc = await db().collection("accounts").doc(accountId).get();
+  if (!acctDoc.exists || acctDoc.data()?.organizationId !== orgId) {
     res.status(404).json({ error: "Account not found" });
     return;
   }
-  // Join lines to entries
-  const conds = [
-    eq(journalLinesTable.organizationId, orgId),
-    eq(journalLinesTable.accountId, accountId),
-  ];
-  const rows = await db
-    .select({
-      lineId: journalLinesTable.id,
-      entryId: journalLinesTable.entryId,
-      debit: journalLinesTable.debit,
-      credit: journalLinesTable.credit,
-      description: journalLinesTable.description,
-      entryDate: journalEntriesTable.entryDate,
-      memo: journalEntriesTable.memo,
-      sourceType: journalEntriesTable.sourceType,
-      sourceId: journalEntriesTable.sourceId,
-    })
-    .from(journalLinesTable)
-    .innerJoin(journalEntriesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
-    .where(and(...conds))
-    .orderBy(journalEntriesTable.entryDate, journalLinesTable.id);
-  const filtered = rows.filter((r) => (!from || r.entryDate >= from) && (!to || r.entryDate <= to));
-  // Running balance (asset/expense: dr-cr; liability/equity/income: cr-dr)
+  const acct = acctDoc.data()!;
+
+  const linesSnap = await db().collection("journal_lines")
+    .where("organizationId", "==", orgId)
+    .where("accountId", "==", accountId)
+    .get();
+
+  const entryIds = linesSnap.docs.map((d) => d.data().entryId as string);
+  const entriesSnap = entryIds.length > 0
+    ? await db().collection("journal_entries").where("entryId", "in", entryIds).get()
+    : { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] };
+
+  // Build entry map - Firestore doesn't support `in` with >10 values, so fetch individually if needed
+  const entryMap = new Map<string, Record<string, unknown>>();
+  // If we have many entries, fetch them in batches
+  const uniqueEntryIds = [...new Set(entryIds)];
+  for (let i = 0; i < uniqueEntryIds.length; i += 10) {
+    const batch = uniqueEntryIds.slice(i, i + 10);
+    const batchSnap = await db().collection("journal_entries").where("entryId", "in", batch).get();
+    for (const d of batchSnap.docs) {
+      entryMap.set(d.id, d.data());
+    }
+  }
+  // Fallback: fetch individual entries if not found in batch
+  for (const entryId of uniqueEntryIds) {
+    if (!entryMap.has(entryId)) {
+      const entryDoc = await db().collection("journal_entries").doc(entryId).get();
+      if (entryDoc.exists) entryMap.set(entryId, entryDoc.data()!);
+    }
+  }
+
+  const rawLines = linesSnap.docs.map((lDoc) => {
+    const l = lDoc.data();
+    const entry = entryMap.get(l.entryId as string) ?? {};
+    return {
+      lineId: lDoc.id,
+      entryId: l.entryId,
+      debit: l.debit,
+      credit: l.credit,
+      description: l.description,
+      entryDate: entry.entryDate ?? "",
+      memo: entry.memo ?? null,
+      sourceType: entry.sourceType ?? null,
+      sourceId: entry.sourceId ?? null,
+    };
+  });
+
+  const filtered = rawLines.filter((r) => (!from || (r.entryDate as string) >= from) && (!to || (r.entryDate as string) <= to));
   const sign = acct.type === "asset" || acct.type === "expense" ? 1 : -1;
   let running = 0;
   const lines = filtered.map((r) => {
-    running += sign * (Number(r.debit) - Number(r.credit));
+    running += sign * (Number(r.debit ?? 0) - Number(r.credit ?? 0));
     return {
       lineId: r.lineId,
       entryId: r.entryId,
@@ -219,47 +230,66 @@ accountingRouter.get("/accounting/ledger", requireAuth, async (req, res) => {
       sourceType: r.sourceType ?? null,
       sourceId: r.sourceId ?? null,
       description: r.description ?? null,
-      debit: Number(r.debit),
-      credit: Number(r.credit),
+      debit: Number(r.debit ?? 0),
+      credit: Number(r.credit ?? 0),
       balance: Number(running.toFixed(2)),
     };
   });
   res.json({
-    account: { id: acct.id, code: acct.code, name: acct.name, type: acct.type },
+    account: { id: accountId, code: acct.code, name: acct.name, type: acct.type },
     lines,
     closingBalance: Number(running.toFixed(2)),
   });
 });
 
 // ── P&L statement ─────────────────────────────────────────────────────────
-async function pnlForRange(orgId: number, from: string, to: string) {
-  const rows = await db
-    .select({
-      accountId: journalLinesTable.accountId,
-      debit: sql<string>`coalesce(sum(${journalLinesTable.debit}),0)::text`,
-      credit: sql<string>`coalesce(sum(${journalLinesTable.credit}),0)::text`,
-    })
-    .from(journalLinesTable)
-    .innerJoin(journalEntriesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
-    .where(
-      and(
-        eq(journalLinesTable.organizationId, orgId),
-        gte(journalEntriesTable.entryDate, from),
-        lte(journalEntriesTable.entryDate, to),
-      ),
-    )
-    .groupBy(journalLinesTable.accountId);
-  const accounts = await db.select().from(accountsTable).where(eq(accountsTable.organizationId, orgId));
-  const amap = new Map(accounts.map((a) => [a.id, a]));
+async function pnlForRange(orgId: string, from: string, to: string) {
+  // Get all journal lines for this org
+  const linesSnap = await db().collection("journal_lines").where("organizationId", "==", orgId).get();
+  const entryIds = [...new Set(linesSnap.docs.map((d) => d.data().entryId as string))];
+
+  // Fetch entries in batches
+  const entryMap = new Map<string, Record<string, unknown>>();
+  for (let i = 0; i < entryIds.length; i += 10) {
+    const batch = entryIds.slice(i, i + 10);
+    const batchSnap = await db().collection("journal_entries").where("entryId", "in", batch).get();
+    for (const d of batchSnap.docs) entryMap.set(d.id, d.data());
+  }
+  for (const eid of entryIds) {
+    if (!entryMap.has(eid)) {
+      const ed = await db().collection("journal_entries").doc(eid).get();
+      if (ed.exists) entryMap.set(eid, ed.data()!);
+    }
+  }
+
+  // Filter by date range and aggregate by accountId
+  const accountsSnap = await db().collection("accounts").where("organizationId", "==", orgId).get();
+  const amap = new Map(accountsSnap.docs.map((d) => [d.id, d.data()]));
+  const aggMap = new Map<string, { debit: number; credit: number }>();
+
+  for (const lDoc of linesSnap.docs) {
+    const l = lDoc.data();
+    const entry = entryMap.get(l.entryId as string);
+    if (!entry) continue;
+    const entryDate = entry.entryDate as string;
+    if (entryDate < from || entryDate > to) continue;
+    const accId = l.accountId as string;
+    const existing = aggMap.get(accId) ?? { debit: 0, credit: 0 };
+    existing.debit += Number(l.debit ?? 0);
+    existing.credit += Number(l.credit ?? 0);
+    aggMap.set(accId, existing);
+  }
+
   const income: Array<{ code: string; name: string; amount: number }> = [];
   const expense: Array<{ code: string; name: string; amount: number }> = [];
-  for (const r of rows) {
-    const a = amap.get(r.accountId);
+  for (const [accId, agg] of aggMap) {
+    const a = amap.get(accId);
     if (!a) continue;
-    const amt = Number(r.credit) - Number(r.debit);
-    if (a.type === "income") income.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
-    else if (a.type === "expense") expense.push({ code: a.code, name: a.name, amount: Number((-amt).toFixed(2)) });
+    const amt = agg.credit - agg.debit;
+    if (a.type === "income") income.push({ code: a.code as string, name: a.name as string, amount: Number(amt.toFixed(2)) });
+    else if (a.type === "expense") expense.push({ code: a.code as string, name: a.name as string, amount: Number((-amt).toFixed(2)) });
   }
+
   const totalIncome = income.reduce((s, x) => s + x.amount, 0);
   const totalExpense = expense.reduce((s, x) => s + x.amount, 0);
   return {
@@ -292,20 +322,19 @@ accountingRouter.get("/accounting/pnl", requireAuth, async (req, res) => {
 });
 
 // ── GST reports ───────────────────────────────────────────────────────────
-async function gstr1Data(orgId: number, from: string, to: string) {
-  const invs = await db
-    .select()
-    .from(invoicesTable)
-    .where(
-      and(
-        eq(invoicesTable.organizationId, orgId),
-        gte(invoicesTable.issueDate, new Date(from)),
-        lte(invoicesTable.issueDate, new Date(to + "T23:59:59")),
-        sql`${invoicesTable.status} <> 'cancelled' and ${invoicesTable.status} <> 'draft'`,
-      ),
-    );
-  const clients = await db.select().from(clientsTable).where(eq(clientsTable.organizationId, orgId));
-  const cmap = new Map(clients.map((c) => [c.id, c]));
+async function gstr1Data(orgId: string, from: string, to: string) {
+  const invSnap = await db().collection("invoices")
+    .where("organizationId", "==", orgId)
+    .where("issueDate", ">=", new Date(from))
+    .where("issueDate", "<=", new Date(to + "T23:59:59"))
+    .get();
+  const invs = invSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((inv) => inv.status !== "cancelled" && inv.status !== "draft");
+
+  const clientsSnap = await db().collection("clients").where("organizationId", "==", orgId).get();
+  const cmap = new Map(clientsSnap.docs.map((c) => [c.id, c.data()]));
+
   const b2b: Array<Record<string, unknown>> = [];
   const b2c: Array<Record<string, unknown>> = [];
   let totalTaxable = 0;
@@ -313,19 +342,19 @@ async function gstr1Data(orgId: number, from: string, to: string) {
   let totalSgst = 0;
   let totalIgst = 0;
   for (const inv of invs) {
-    const c = inv.clientId ? cmap.get(inv.clientId) : null;
+    const c = inv.clientId ? cmap.get(inv.clientId as string) : null;
     const row = {
       invoiceNumber: inv.invoiceNumber,
-      invoiceDate: inv.issueDate.toISOString().slice(0, 10),
+      invoiceDate: inv.issueDate instanceof Date ? inv.issueDate.toISOString().slice(0, 10) : String(inv.issueDate).slice(0, 10),
       clientName: c?.name ?? "",
       gstin: c?.gstNumber ?? "",
       placeOfSupply: inv.buyerState ?? "",
-      taxableValue: Number(inv.taxableAmount),
-      rate: Number(inv.taxRate),
-      cgst: Number(inv.cgst),
-      sgst: Number(inv.sgst),
-      igst: Number(inv.igst),
-      invoiceTotal: Number(inv.total),
+      taxableValue: Number(inv.taxableAmount ?? 0),
+      rate: Number(inv.taxRate ?? 0),
+      cgst: Number(inv.cgst ?? 0),
+      sgst: Number(inv.sgst ?? 0),
+      igst: Number(inv.igst ?? 0),
+      invoiceTotal: Number(inv.total ?? 0),
     };
     totalTaxable += row.taxableValue;
     totalCgst += row.cgst;
@@ -398,32 +427,27 @@ accountingRouter.get("/accounting/gstr3b", requireAuth, async (req, res) => {
   const defaultTo = now.toISOString().slice(0, 10);
   const from = String(req.query.from ?? defaultFrom);
   const to = String(req.query.to ?? defaultTo);
-  // 3.1 (a) Outward taxable supplies (other than zero-rated etc.)
+
   const outward = await gstr1Data(orgId, from, to);
-  // 4. Eligible ITC (inputs from expenses + vendor bills)
-  const exps = await db
-    .select()
-    .from(expensesTable)
-    .where(
-      and(
-        eq(expensesTable.organizationId, orgId),
-        gte(expensesTable.expenseDate, from),
-        lte(expensesTable.expenseDate, to),
-      ),
-    );
-  const expInputGst = exps.reduce((s, e) => s + Number(e.gstAmount), 0);
-  const bills = await db
-    .select()
-    .from(vendorBillsTable)
-    .where(
-      and(
-        eq(vendorBillsTable.organizationId, orgId),
-        gte(vendorBillsTable.issueDate, new Date(from)),
-        lte(vendorBillsTable.issueDate, new Date(to + "T23:59:59")),
-        sql`${vendorBillsTable.status} <> 'cancelled' and ${vendorBillsTable.status} <> 'draft'`,
-      ),
-    );
-  const billInputGst = bills.reduce((s, b) => s + Number(b.taxAmount), 0);
+
+  const expSnap = await db().collection("expenses")
+    .where("organizationId", "==", orgId)
+    .where("expenseDate", ">=", from)
+    .where("expenseDate", "<=", to)
+    .get();
+  const expInputGst = expSnap.docs.reduce((s, e) => s + Number(e.data().gstAmount ?? 0), 0);
+
+  const billsSnap = await db().collection("vendor_bills")
+    .where("organizationId", "==", orgId)
+    .where("issueDate", ">=", new Date(from))
+    .where("issueDate", "<=", new Date(to + "T23:59:59"))
+    .get();
+  const activeBills = billsSnap.docs.filter((bDoc) => {
+    const status = bDoc.data().status as string;
+    return status !== "cancelled" && status !== "draft";
+  });
+  const billInputGst = activeBills.reduce((s, bDoc) => s + Number(bDoc.data().taxAmount ?? 0), 0);
+
   const totalItc = Number((expInputGst + billInputGst).toFixed(2));
   const netTaxPayable = Number(((outward.summary.cgst + outward.summary.sgst + outward.summary.igst) - totalItc).toFixed(2));
   const data = {
@@ -468,80 +492,86 @@ accountingRouter.get("/accounting/gstr3b", requireAuth, async (req, res) => {
 
 // ── Balance sheet ─────────────────────────────────────────────────────────
 function fiscalYearStart(asOf: string): string {
-  // Indian FY: April 1 → March 31
   const d = new Date(asOf);
   const y = d.getUTCFullYear();
-  const m = d.getUTCMonth(); // 0=Jan
+  const m = d.getUTCMonth();
   const startYear = m >= 3 ? y : y - 1;
   return `${startYear}-04-01`;
 }
 
-async function balanceSheetData(orgId: number, asOf: string) {
-  await ensureChartOfAccounts(orgId);
+async function balanceSheetData(orgId: string, asOf: string) {
+  await ensureChartOfAccounts(orgId as unknown as number);
   const fyStart = fiscalYearStart(asOf);
 
-  // Aggregate journal lines per account up to asOf
-  const allRows = await db
-    .select({
-      accountId: journalLinesTable.accountId,
-      debit: sql<string>`coalesce(sum(${journalLinesTable.debit}),0)::text`,
-      credit: sql<string>`coalesce(sum(${journalLinesTable.credit}),0)::text`,
-    })
-    .from(journalLinesTable)
-    .innerJoin(journalEntriesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
-    .where(
-      and(
-        eq(journalLinesTable.organizationId, orgId),
-        lte(journalEntriesTable.entryDate, asOf),
-      ),
-    )
-    .groupBy(journalLinesTable.accountId);
+  // Get all journal lines and entries for aggregation
+  const linesSnap = await db().collection("journal_lines").where("organizationId", "==", orgId).get();
+  const entryIds = [...new Set(linesSnap.docs.map((d) => d.data().entryId as string))];
+  const entryMap = new Map<string, Record<string, unknown>>();
+  for (let i = 0; i < entryIds.length; i += 10) {
+    const batch = entryIds.slice(i, i + 10);
+    const batchSnap = await db().collection("journal_entries").where("entryId", "in", batch).get();
+    for (const d of batchSnap.docs) entryMap.set(d.id, d.data());
+  }
+  for (const eid of entryIds) {
+    if (!entryMap.has(eid)) {
+      const ed = await db().collection("journal_entries").doc(eid).get();
+      if (ed.exists) entryMap.set(eid, ed.data()!);
+    }
+  }
 
-  // Aggregate journal lines per account up to (fyStart - 1) — prior-year cumulative
-  const priorRows = await db
-    .select({
-      accountId: journalLinesTable.accountId,
-      debit: sql<string>`coalesce(sum(${journalLinesTable.debit}),0)::text`,
-      credit: sql<string>`coalesce(sum(${journalLinesTable.credit}),0)::text`,
-    })
-    .from(journalLinesTable)
-    .innerJoin(journalEntriesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
-    .where(
-      and(
-        eq(journalLinesTable.organizationId, orgId),
-        sql`${journalEntriesTable.entryDate} < ${fyStart}`,
-      ),
-    )
-    .groupBy(journalLinesTable.accountId);
+  const accountsSnap = await db().collection("accounts").where("organizationId", "==", orgId).get();
+  const amap = new Map(accountsSnap.docs.map((d) => [d.id, d.data()]));
 
-  const accounts = await db.select().from(accountsTable).where(eq(accountsTable.organizationId, orgId));
-  const amap = new Map(accounts.map((a) => [a.id, a]));
-  const priorMap = new Map(priorRows.map((r) => [r.accountId, r]));
+  // Aggregate all lines up to asOf
+  const allRows = new Map<string, { debit: number; credit: number }>();
+  const priorRows = new Map<string, { debit: number; credit: number }>();
+
+  for (const lDoc of linesSnap.docs) {
+    const l = lDoc.data();
+    const entry = entryMap.get(l.entryId as string);
+    if (!entry) continue;
+    const entryDate = entry.entryDate as string;
+    const accId = l.accountId as string;
+    const dr = Number(l.debit ?? 0);
+    const cr = Number(l.credit ?? 0);
+
+    if (entryDate <= asOf) {
+      const agg = allRows.get(accId) ?? { debit: 0, credit: 0 };
+      agg.debit += dr;
+      agg.credit += cr;
+      allRows.set(accId, agg);
+    }
+    if (entryDate < fyStart) {
+      const agg = priorRows.get(accId) ?? { debit: 0, credit: 0 };
+      agg.debit += dr;
+      agg.credit += cr;
+      priorRows.set(accId, agg);
+    }
+  }
 
   const assets: Array<{ code: string; name: string; amount: number }> = [];
   const liabilities: Array<{ code: string; name: string; amount: number }> = [];
   const equity: Array<{ code: string; name: string; amount: number }> = [];
 
-  // P&L net profit
   let pyIncome = 0;
   let pyExpense = 0;
   let totalIncome = 0;
   let totalExpense = 0;
 
-  for (const r of allRows) {
-    const a = amap.get(r.accountId);
+  for (const [accId, agg] of allRows) {
+    const a = amap.get(accId);
     if (!a) continue;
-    const dr = Number(r.debit);
-    const cr = Number(r.credit);
+    const dr = agg.debit;
+    const cr = agg.credit;
     if (a.type === "asset") {
       const amt = dr - cr;
-      if (Math.abs(amt) > 0.005) assets.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
+      if (Math.abs(amt) > 0.005) assets.push({ code: a.code as string, name: a.name as string, amount: Number(amt.toFixed(2)) });
     } else if (a.type === "liability") {
       const amt = cr - dr;
-      if (Math.abs(amt) > 0.005) liabilities.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
+      if (Math.abs(amt) > 0.005) liabilities.push({ code: a.code as string, name: a.name as string, amount: Number(amt.toFixed(2)) });
     } else if (a.type === "equity") {
       const amt = cr - dr;
-      if (Math.abs(amt) > 0.005) equity.push({ code: a.code, name: a.name, amount: Number(amt.toFixed(2)) });
+      if (Math.abs(amt) > 0.005) equity.push({ code: a.code as string, name: a.name as string, amount: Number(amt.toFixed(2)) });
     } else if (a.type === "income") {
       totalIncome += cr - dr;
     } else if (a.type === "expense") {
@@ -549,22 +579,20 @@ async function balanceSheetData(orgId: number, asOf: string) {
     }
   }
 
-  for (const r of priorRows.values()) {
-    const a = amap.get(r.accountId);
+  for (const [accId, agg] of priorRows) {
+    const a = amap.get(accId);
     if (!a) continue;
-    const dr = Number(r.debit);
-    const cr = Number(r.credit);
+    const dr = agg.debit;
+    const cr = agg.credit;
     if (a.type === "income") pyIncome += cr - dr;
     else if (a.type === "expense") pyExpense += dr - cr;
   }
-  void priorMap;
 
   const openingRetainedEarnings = Number((pyIncome - pyExpense).toFixed(2));
   const cumulativeNetProfit = totalIncome - totalExpense;
   const periodNetProfit = Number((cumulativeNetProfit - (pyIncome - pyExpense)).toFixed(2));
   const openingEquity = Number(equity.reduce((s, e) => s + e.amount, 0).toFixed(2));
 
-  // Roll retained earnings into the equity side as virtual lines
   const equityWithRetained = [...equity];
   if (Math.abs(openingRetainedEarnings) > 0.005) {
     equityWithRetained.push({ code: "RE", name: "Retained Earnings (prior years)", amount: openingRetainedEarnings });
@@ -651,20 +679,26 @@ accountingRouter.get("/accounting/balance-sheet", requireAuth, async (req, res) 
 // ── Vendor ageing ─────────────────────────────────────────────────────────
 accountingRouter.get("/accounting/vendor-ageing", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const bills = await db
-    .select()
-    .from(vendorBillsTable)
-    .where(and(eq(vendorBillsTable.organizationId, orgId), sql`${vendorBillsTable.status} not in ('paid','cancelled','draft')`));
-  const vrows = await db.select().from(vendorsTable).where(eq(vendorsTable.organizationId, orgId));
-  const vmap = new Map(vrows.map((v) => [v.id, v]));
+  const billsSnap = await db().collection("vendor_bills")
+    .where("organizationId", "==", orgId)
+    .get();
+  const activeBills = billsSnap.docs.filter((bDoc) => {
+    const status = bDoc.data().status as string;
+    return status !== "paid" && status !== "cancelled" && status !== "draft";
+  });
+  const vrowsSnap = await db().collection("vendors").where("organizationId", "==", orgId).get();
+  const vmap = new Map(vrowsSnap.docs.map((v) => [v.id, v.data()]));
   const now = Date.now();
-  const buckets = new Map<number, { vendorId: number; vendorName: string; current: number; days30: number; days60: number; days90: number; daysOver90: number; total: number }>();
-  for (const b of bills) {
-    const bal = Number(b.total) - Number(b.amountPaid);
+  const buckets = new Map<string, { vendorId: string; vendorName: string; current: number; days30: number; days60: number; days90: number; daysOver90: number; total: number }>();
+  for (const bDoc of activeBills) {
+    const b = bDoc.data();
+    const bal = Number(b.total ?? 0) - Number(b.amountPaid ?? 0);
     if (bal <= 0) continue;
-    const vid = b.vendorId ?? 0;
+    const vid = (b.vendorId as string) ?? "unknown";
     const vname = vmap.get(vid)?.name ?? "Unknown";
-    const ref = b.dueDate?.getTime() ?? b.issueDate.getTime();
+    const dueDate = b.dueDate instanceof Date ? b.dueDate.getTime() : new Date(b.dueDate).getTime();
+    const issueDate = b.issueDate instanceof Date ? b.issueDate.getTime() : new Date(b.issueDate).getTime();
+    const ref = dueDate || issueDate;
     const age = Math.max(0, Math.floor((now - ref) / 86400000));
     const k = buckets.get(vid) ?? { vendorId: vid, vendorName: vname, current: 0, days30: 0, days60: 0, days90: 0, daysOver90: 0, total: 0 };
     if (age <= 0) k.current += bal;
@@ -677,8 +711,5 @@ accountingRouter.get("/accounting/vendor-ageing", requireAuth, async (req, res) 
   }
   res.json([...buckets.values()].sort((a, b) => b.total - a.total));
 });
-
-// Mark unused imports to silence TS noise
-void paymentsTable;
 
 export default accountingRouter;

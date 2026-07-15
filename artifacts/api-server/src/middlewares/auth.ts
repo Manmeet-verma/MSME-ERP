@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db, organizationMembersTable, organizationsTable, usersTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const JWT_EXPIRES_IN = "7d";
@@ -9,15 +8,14 @@ const JWT_EXPIRES_IN = "7d";
 export type MemberRole = "owner" | "admin" | "sales" | "viewer";
 
 export interface AuthContext {
-  userId: number;
+  userId: string;
   email: string;
-  activeOrgId: number | null;
-  organizationId: number;
+  activeOrgId: string | null;
+  organizationId: string;
   role: MemberRole;
 }
 
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: AuthContext;
@@ -25,15 +23,15 @@ declare global {
   }
 }
 
-export function signToken(payload: { userId: number; email: string; activeOrgId: number | null }): string {
+export function signToken(payload: { userId: string; email: string; activeOrgId: string | null }): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
-export function verifyToken(token: string): { userId: number; email: string; activeOrgId: number | null } {
-  return jwt.verify(token, JWT_SECRET) as { userId: number; email: string; activeOrgId: number | null };
+export function verifyToken(token: string): { userId: string; email: string; activeOrgId: string | null } {
+  return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; activeOrgId: string | null };
 }
 
-/** Auth without requiring an active org (used by signup-completion, org creation, list-my-orgs). */
+/** Auth without requiring an active org */
 export async function requireUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const header = req.headers.authorization;
@@ -44,17 +42,18 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
     const token = header.slice(7);
     const decoded = verifyToken(token);
 
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, decoded.userId));
+    const userSnap = await getDb().collection("users").doc(decoded.userId).get();
+    const user = userSnap.data();
     if (!user || !user.isActive) {
       res.status(401).json({ error: "User not found or inactive" });
       return;
     }
 
     req.user = {
-      userId: user.id,
+      userId: decoded.userId,
       email: user.email,
       activeOrgId: decoded.activeOrgId,
-      organizationId: decoded.activeOrgId ?? 0,
+      organizationId: decoded.activeOrgId ?? "",
       role: "viewer",
     };
     next();
@@ -63,7 +62,7 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
   }
 }
 
-/** Full tenant-aware auth: requires a valid active org and an active membership. */
+/** Full tenant-aware auth */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const header = req.headers.authorization;
@@ -79,37 +78,36 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, decoded.userId));
+    const userSnap = await getDb().collection("users").doc(decoded.userId).get();
+    const user = userSnap.data();
     if (!user || !user.isActive) {
       res.status(401).json({ error: "User not found or inactive" });
       return;
     }
 
-    const [member] = await db
-      .select()
-      .from(organizationMembersTable)
-      .where(
-        and(
-          eq(organizationMembersTable.userId, decoded.userId),
-          eq(organizationMembersTable.organizationId, decoded.activeOrgId),
-        ),
-      );
-    if (!member) {
+    // Find membership
+    const memberSnap = await getDb()
+      .collection("organization_members")
+      .where("userId", "==", decoded.userId)
+      .where("organizationId", "==", decoded.activeOrgId)
+      .limit(1)
+      .get();
+
+    if (memberSnap.empty) {
       res.status(403).json({ error: "You are not a member of this organization." });
       return;
     }
 
-    const [org] = await db
-      .select()
-      .from(organizationsTable)
-      .where(eq(organizationsTable.id, decoded.activeOrgId));
-    if (!org) {
+    const member = memberSnap.docs[0].data();
+
+    const orgSnap = await getDb().collection("organizations").doc(decoded.activeOrgId).get();
+    if (!orgSnap.exists) {
       res.status(404).json({ error: "Organization not found" });
       return;
     }
 
     req.user = {
-      userId: user.id,
+      userId: decoded.userId,
       email: user.email,
       activeOrgId: decoded.activeOrgId,
       organizationId: decoded.activeOrgId,

@@ -1,10 +1,8 @@
-import { db, accountsTable, journalEntriesTable, journalLinesTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "./firebase";
+import { FieldValue } from "firebase-admin/firestore";
 
-/**
- * Standard chart of accounts seeded per organisation on first access.
- * Codes follow a simple convention so reports can find well-known accounts.
- */
+const db = () => getDb();
+
 const SEED: Array<{ code: string; name: string; type: "asset" | "liability" | "equity" | "income" | "expense"; subtype: string }> = [
   { code: "1000", name: "Cash", type: "asset", subtype: "cash" },
   { code: "1010", name: "Bank", type: "asset", subtype: "bank" },
@@ -26,28 +24,42 @@ const SEED: Array<{ code: string; name: string; type: "asset" | "liability" | "e
   { code: "5900", name: "Other Expense", type: "expense", subtype: "other" },
 ];
 
-export async function ensureChartOfAccounts(organizationId: number): Promise<void> {
-  const existing = await db.select().from(accountsTable).where(eq(accountsTable.organizationId, organizationId));
-  if (existing.length > 0) return;
-  await db.insert(accountsTable).values(
-    SEED.map((s) => ({
+export async function ensureChartOfAccounts(organizationId: string): Promise<void> {
+  const snap = await db()
+    .collection("accounts")
+    .where("organizationId", "==", organizationId)
+    .limit(1)
+    .get();
+  if (!snap.empty) return;
+
+  const batch = db().batch();
+  for (const s of SEED) {
+    const ref = db().collection("accounts").doc();
+    batch.set(ref, {
       organizationId,
       code: s.code,
       name: s.name,
       type: s.type,
       subtype: s.subtype,
       isSystem: true,
-    })),
-  );
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
 }
 
-export async function getAccountByCode(organizationId: number, code: string) {
+export async function getAccountByCode(organizationId: string, code: string) {
   await ensureChartOfAccounts(organizationId);
-  const [a] = await db
-    .select()
-    .from(accountsTable)
-    .where(and(eq(accountsTable.organizationId, organizationId), eq(accountsTable.code, code)));
-  return a ?? null;
+  const snap = await db()
+    .collection("accounts")
+    .where("organizationId", "==", organizationId)
+    .where("code", "==", code)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  return { id: doc.id, ...doc.data() };
 }
 
 export interface JournalLineInput {
@@ -57,32 +69,30 @@ export interface JournalLineInput {
   description?: string;
 }
 
-/**
- * Post a balanced double-entry journal. Each line references an account by its
- * code (we look up the account id). Throws if debits != credits or any code is
- * missing.
- */
 export async function postJournal(opts: {
-  organizationId: number;
+  organizationId: string;
   entryDate: Date;
   memo?: string;
   sourceType?: string;
-  sourceId?: number;
+  sourceId?: string;
   lines: JournalLineInput[];
-}): Promise<number> {
+}): Promise<string> {
   await ensureChartOfAccounts(opts.organizationId);
   const totalDr = opts.lines.reduce((s, l) => s + Number(l.debit ?? 0), 0);
   const totalCr = opts.lines.reduce((s, l) => s + Number(l.credit ?? 0), 0);
   if (Math.abs(totalDr - totalCr) > 0.01) {
     throw new Error(`Unbalanced journal: dr=${totalDr} cr=${totalCr}`);
   }
-  // Pre-validate ALL account codes BEFORE inserting anything, so we never
-  // leave an orphaned journal entry header on failure.
-  const accounts = await db
-    .select()
-    .from(accountsTable)
-    .where(eq(accountsTable.organizationId, opts.organizationId));
-  const byCode = new Map(accounts.map((a) => [a.code, a]));
+
+  const accountsSnap = await db()
+    .collection("accounts")
+    .where("organizationId", "==", opts.organizationId)
+    .get();
+  const byCode = new Map<string, { id: string } & Record<string, unknown>>();
+  accountsSnap.docs.forEach((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    byCode.set(d.data().code as string, { id: d.id, ...d.data() });
+  });
+
   const usable = opts.lines.filter((l) => (l.debit ?? 0) !== 0 || (l.credit ?? 0) !== 0);
   for (const ln of usable) {
     if (!byCode.has(ln.accountCode)) {
@@ -92,97 +102,110 @@ export async function postJournal(opts: {
   if (usable.length === 0) {
     throw new Error("Journal has no non-zero lines");
   }
-  // All inserts run inside a single transaction — partial writes are impossible.
-  return await db.transaction(async (tx) => {
-    const [entry] = await tx
-      .insert(journalEntriesTable)
-      .values({
-        organizationId: opts.organizationId,
-        entryDate: opts.entryDate.toISOString().slice(0, 10),
-        memo: opts.memo ?? null,
-        sourceType: opts.sourceType ?? null,
-        sourceId: opts.sourceId ?? null,
-      })
-      .returning();
+
+  return await db().runTransaction(async (tx: FirebaseFirestore.Transaction) => {
+    const entryRef = db().collection("journalEntries").doc();
+    tx.set(entryRef, {
+      organizationId: opts.organizationId,
+      entryDate: opts.entryDate.toISOString().slice(0, 10),
+      memo: opts.memo ?? null,
+      sourceType: opts.sourceType ?? null,
+      sourceId: opts.sourceId ?? null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
     for (const ln of usable) {
       const acct = byCode.get(ln.accountCode)!;
-      await tx.insert(journalLinesTable).values({
+      const lineRef = db().collection("journalLines").doc();
+      tx.set(lineRef, {
         organizationId: opts.organizationId,
-        entryId: entry.id,
+        entryId: entryRef.id,
         accountId: acct.id,
         debit: (ln.debit ?? 0).toFixed(2),
         credit: (ln.credit ?? 0).toFixed(2),
         description: ln.description ?? null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }
-    return entry.id;
+    return entryRef.id;
   });
 }
 
-/** Delete and re-post a journal entry for a source. Safe to call repeatedly.
- *  The delete + repost runs inside a single DB transaction so the source can
- *  never be left with half-deleted prior entries on failure. */
 export async function reverseAndRepost(
-  organizationId: number,
+  organizationId: string,
   sourceType: string,
-  sourceId: number,
+  sourceId: string,
   rebuild: () => Promise<JournalLineInput[] | null>,
   opts: { entryDate: Date; memo?: string },
 ): Promise<void> {
   await ensureChartOfAccounts(organizationId);
-  // Compute new lines + validate BEFORE touching the DB.
   const lines = await rebuild();
   const totalDr = (lines ?? []).reduce((s, l) => s + Number(l.debit ?? 0), 0);
   const totalCr = (lines ?? []).reduce((s, l) => s + Number(l.credit ?? 0), 0);
   if (lines && Math.abs(totalDr - totalCr) > 0.01) {
     throw new Error(`Unbalanced journal: dr=${totalDr} cr=${totalCr}`);
   }
-  const accounts = await db
-    .select()
-    .from(accountsTable)
-    .where(eq(accountsTable.organizationId, organizationId));
-  const byCode = new Map(accounts.map((a) => [a.code, a]));
+
+  const accountsSnap = await db()
+    .collection("accounts")
+    .where("organizationId", "==", organizationId)
+    .get();
+  const byCode = new Map<string, { id: string } & Record<string, unknown>>();
+  accountsSnap.docs.forEach((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    byCode.set(d.data().code as string, { id: d.id, ...d.data() });
+  });
+
   const usable = (lines ?? []).filter((l) => (l.debit ?? 0) !== 0 || (l.credit ?? 0) !== 0);
   for (const ln of usable) {
     if (!byCode.has(ln.accountCode)) {
       throw new Error(`Unknown account code ${ln.accountCode}`);
     }
   }
-  await db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(journalEntriesTable)
-      .where(
-        and(
-          eq(journalEntriesTable.organizationId, organizationId),
-          eq(journalEntriesTable.sourceType, sourceType),
-          eq(journalEntriesTable.sourceId, sourceId),
-        ),
-      );
-    for (const e of existing) {
-      await tx.delete(journalLinesTable).where(eq(journalLinesTable.entryId, e.id));
-      await tx.delete(journalEntriesTable).where(eq(journalEntriesTable.id, e.id));
+
+  await db().runTransaction(async (tx: FirebaseFirestore.Transaction) => {
+    const existingSnap = await db()
+      .collection("journalEntries")
+      .where("organizationId", "==", organizationId)
+      .where("sourceType", "==", sourceType)
+      .where("sourceId", "==", sourceId)
+      .get();
+
+    for (const doc of existingSnap.docs) {
+      const linesSnap = await db()
+        .collection("journalLines")
+        .where("entryId", "==", doc.id)
+        .get();
+      for (const lineDoc of linesSnap.docs) {
+        tx.delete(lineDoc.ref);
+      }
+      tx.delete(doc.ref);
     }
+
     if (usable.length === 0) return;
-    const [entry] = await tx
-      .insert(journalEntriesTable)
-      .values({
-        organizationId,
-        entryDate: opts.entryDate.toISOString().slice(0, 10),
-        memo: opts.memo ?? null,
-        sourceType,
-        sourceId,
-      })
-      .returning();
+
+    const entryRef = db().collection("journalEntries").doc();
+    tx.set(entryRef, {
+      organizationId,
+      entryDate: opts.entryDate.toISOString().slice(0, 10),
+      memo: opts.memo ?? null,
+      sourceType,
+      sourceId,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
     for (const ln of usable) {
       const acct = byCode.get(ln.accountCode)!;
-      await tx.insert(journalLinesTable).values({
+      const lineRef = db().collection("journalLines").doc();
+      tx.set(lineRef, {
         organizationId,
-        entryId: entry.id,
+        entryId: entryRef.id,
         accountId: acct.id,
         debit: (ln.debit ?? 0).toFixed(2),
         credit: (ln.credit ?? 0).toFixed(2),
         description: ln.description ?? null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }
   });

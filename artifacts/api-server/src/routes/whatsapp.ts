@@ -1,35 +1,29 @@
 import { Router } from "express";
 import crypto from "node:crypto";
-import {
-  db,
-  integrationsTable,
-  whatsappMessagesTable,
-  leadsTable,
-  leadActivitiesTable,
-  clientsTable,
-} from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 import { scoreLead } from "../lib/leadScoring";
 
+const db = () => getDb();
+
 const whatsappRouter = Router();
 
-function fmt(m: typeof whatsappMessagesTable.$inferSelect) {
+function fmt(m: Record<string, unknown>) {
   return {
-    id: m.id,
-    leadId: m.leadId ?? null,
-    clientId: m.clientId ?? null,
-    direction: m.direction,
-    phone: m.phone,
-    body: m.body ?? null,
-    templateName: m.templateName ?? null,
-    templateLanguage: m.templateLanguage ?? null,
-    templateVariables: m.templateVariables ?? [],
-    status: m.status,
-    providerMessageId: m.providerMessageId ?? null,
-    errorMessage: m.errorMessage ?? null,
-    createdAt: m.createdAt.toISOString(),
+    id: m.id as string,
+    leadId: (m.leadId as string) ?? null,
+    clientId: (m.clientId as string) ?? null,
+    direction: m.direction as string,
+    phone: m.phone as string,
+    body: (m.body as string) ?? null,
+    templateName: (m.templateName as string) ?? null,
+    templateLanguage: (m.templateLanguage as string) ?? null,
+    templateVariables: (m.templateVariables as string[]) ?? [],
+    status: m.status as string,
+    providerMessageId: (m.providerMessageId as string) ?? null,
+    errorMessage: (m.errorMessage as string) ?? null,
+    createdAt: m.createdAt as string,
   };
 }
 
@@ -51,22 +45,26 @@ function verifySignature(rawBody: Buffer | undefined, header: string | undefined
   }
 }
 
-async function getConfig(orgId: number): Promise<WhatsappConfig | null> {
-  const [row] = await db
-    .select()
-    .from(integrationsTable)
-    .where(and(eq(integrationsTable.organizationId, orgId), eq(integrationsTable.provider, "whatsapp")));
-  if (!row || !row.enabled) return null;
+async function getConfig(orgId: string): Promise<WhatsappConfig | null> {
+  const snap = await db()
+    .collection("integrations")
+    .where("organizationId", "==", orgId)
+    .where("provider", "==", "whatsapp")
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const row = snap.docs[0].data();
+  if (!row.enabled) return null;
   return (row.config ?? {}) as WhatsappConfig;
 }
 
 whatsappRouter.get("/whatsapp/messages", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const { leadId } = req.query as Record<string, string | undefined>;
-  const where = leadId
-    ? and(eq(whatsappMessagesTable.organizationId, orgId), eq(whatsappMessagesTable.leadId, Number(leadId)))
-    : eq(whatsappMessagesTable.organizationId, orgId);
-  const rows = await db.select().from(whatsappMessagesTable).where(where).orderBy(desc(whatsappMessagesTable.createdAt)).limit(200);
+  let q: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db().collection("whatsapp_messages").where("organizationId", "==", orgId);
+  if (leadId) q = q.where("leadId", "==", leadId);
+  const snap = await q.orderBy("createdAt", "desc").limit(200).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(rows.map(fmt));
 });
 
@@ -84,28 +82,22 @@ whatsappRouter.post("/whatsapp/send", requireAuth, async (req, res) => {
   const cfg = await getConfig(orgId);
   const vars = Array.isArray(templateVariables) ? templateVariables.map(String) : [];
 
-  // Insert queued row first so we always have a record.
-  const [row] = await db
-    .insert(whatsappMessagesTable)
-    .values({
-      organizationId: orgId,
-      direction: "outbound",
-      phone,
-      body: body ?? null,
-      templateName: templateName ?? null,
-      templateLanguage: templateLanguage ?? "en_US",
-      templateVariables: vars,
-      leadId: typeof leadId === "number" ? leadId : null,
-      clientId: typeof clientId === "number" ? clientId : null,
-      status: "queued",
-    })
-    .returning();
+  const ref = await db().collection("whatsapp_messages").add({
+    organizationId: orgId,
+    direction: "outbound",
+    phone,
+    body: body ?? null,
+    templateName: templateName ?? null,
+    templateLanguage: templateLanguage ?? "en_US",
+    templateVariables: vars,
+    leadId: typeof leadId === "string" ? leadId : null,
+    clientId: typeof clientId === "string" ? clientId : null,
+    status: "queued",
+    createdAt: new Date().toISOString(),
+  });
 
   if (!cfg || !cfg.accessToken || !cfg.phoneNumberId) {
-    await db
-      .update(whatsappMessagesTable)
-      .set({ status: "failed", errorMessage: "WhatsApp not configured" })
-      .where(eq(whatsappMessagesTable.id, row.id));
+    await ref.update({ status: "failed", errorMessage: "WhatsApp not configured" });
     res.status(400).json({ error: "WhatsApp integration not configured" });
     return;
   }
@@ -141,37 +133,29 @@ whatsappRouter.post("/whatsapp/send", requireAuth, async (req, res) => {
     const data = (await resp.json()) as { messages?: Array<{ id: string }>; error?: { message: string } };
     if (!resp.ok || data.error) {
       const msg = data.error?.message ?? `HTTP ${resp.status}`;
-      await db
-        .update(whatsappMessagesTable)
-        .set({ status: "failed", errorMessage: msg })
-        .where(eq(whatsappMessagesTable.id, row.id));
+      await ref.update({ status: "failed", errorMessage: msg });
       res.status(502).json({ error: msg });
       return;
     }
     const providerId = data.messages?.[0]?.id ?? null;
-    const [updated] = await db
-      .update(whatsappMessagesTable)
-      .set({ status: "sent", providerMessageId: providerId })
-      .where(eq(whatsappMessagesTable.id, row.id))
-      .returning();
+    await ref.update({ status: "sent", providerMessageId: providerId });
 
-    if (row.leadId) {
-      await db.insert(leadActivitiesTable).values({
+    if (leadId) {
+      await db().collection("lead_activities").add({
         organizationId: orgId,
-        leadId: row.leadId,
+        leadId,
         type: "note",
         title: "WhatsApp sent",
         body: body ?? `Template: ${templateName}`,
         userId: req.user!.userId,
+        createdAt: new Date().toISOString(),
       });
     }
-    res.json(fmt(updated));
+    const updatedSnap = await ref.get();
+    res.json(fmt({ id: updatedSnap.id, ...updatedSnap.data() }));
   } catch (err) {
     const msg = (err as Error).message;
-    await db
-      .update(whatsappMessagesTable)
-      .set({ status: "failed", errorMessage: msg })
-      .where(eq(whatsappMessagesTable.id, row.id));
+    await ref.update({ status: "failed", errorMessage: msg });
     res.status(502).json({ error: msg });
   }
 });
@@ -181,10 +165,9 @@ whatsappRouter.get("/whatsapp/webhook", async (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
-  // Match against any org's stored verifyToken.
-  const all = await db.select().from(integrationsTable).where(eq(integrationsTable.provider, "whatsapp"));
-  const ok = all.some((row) => {
-    const cfg = (row.config ?? {}) as WhatsappConfig;
+  const all = await db().collection("integrations").where("provider", "==", "whatsapp").get();
+  const ok = all.docs.some((row) => {
+    const cfg = (row.data().config ?? {}) as WhatsappConfig;
     return cfg.verifyToken && cfg.verifyToken === token;
   });
   if (mode === "subscribe" && ok && typeof challenge === "string") {
@@ -215,15 +198,13 @@ whatsappRouter.post("/whatsapp/webhook", async (req, res) => {
   const signature = (req.header("x-hub-signature-256") ?? req.header("X-Hub-Signature-256")) || undefined;
   const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
 
-  // Pre-resolve org per entry by phoneNumberId, then verify each entry's payload
-  // signature against the matching org's appSecret before processing.
-  const allIntegrations = await db
-    .select()
-    .from(integrationsTable)
-    .where(eq(integrationsTable.provider, "whatsapp"));
+  const allIntegrations = await db()
+    .collection("integrations")
+    .where("provider", "==", "whatsapp")
+    .get();
+  const intDocs = allIntegrations.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  // Reject when no integration has signed off on this signature.
-  const anyMatch = allIntegrations.some((row) => {
+  const anyMatch = intDocs.some((row) => {
     const cfg = (row.config ?? {}) as WhatsappConfig;
     return cfg.appSecret && verifySignature(rawBody, signature, cfg.appSecret);
   });
@@ -233,7 +214,6 @@ whatsappRouter.post("/whatsapp/webhook", async (req, res) => {
     return;
   }
 
-  // Always 200 so Meta doesn't retry indefinitely.
   res.status(200).json({ received: true });
   try {
     for (const entry of entries) {
@@ -242,8 +222,7 @@ whatsappRouter.post("/whatsapp/webhook", async (req, res) => {
         const value = change.value ?? {};
         const phoneNumberId = value.metadata?.phone_number_id;
         if (!phoneNumberId) continue;
-        // Find org by phoneNumberId and validate signature against THIS org's secret.
-        const match = allIntegrations.find((row) => {
+        const match = intDocs.find((row) => {
           const cfg = (row.config ?? {}) as WhatsappConfig;
           return cfg.phoneNumberId === phoneNumberId && cfg.appSecret &&
             verifySignature(rawBody, signature, cfg.appSecret);
@@ -261,52 +240,51 @@ whatsappRouter.post("/whatsapp/webhook", async (req, res) => {
             ? (st.status as (typeof allowed)[number])
             : null;
           if (!status) continue;
-          await db
-            .update(whatsappMessagesTable)
-            .set({ status })
-            .where(eq(whatsappMessagesTable.providerMessageId, st.id));
+          const msgSnap = await db().collection("whatsapp_messages").where("providerMessageId", "==", st.id).limit(1).get();
+          for (const doc of msgSnap.docs) {
+            await doc.ref.update({ status });
+          }
         }
         // Inbound messages.
         for (const m of value.messages ?? []) {
           if (!m.from) continue;
           // Try to thread onto an existing lead by phone.
-          const [lead] = await db
-            .select()
-            .from(leadsTable)
-            .where(and(eq(leadsTable.organizationId, orgId), eq(leadsTable.phone, m.from)))
-            .limit(1);
-          let leadId: number | null = lead?.id ?? null;
-          let clientId: number | null = null;
+          const leadSnap = await db()
+            .collection("leads")
+            .where("organizationId", "==", orgId)
+            .where("phone", "==", m.from)
+            .limit(1)
+            .get();
+          let leadId: string | null = leadSnap.empty ? null : leadSnap.docs[0].id;
+          let clientId: string | null = null;
           if (!leadId) {
-            // No lead? Try client.
-            const [client] = await db
-              .select()
-              .from(clientsTable)
-              .where(and(eq(clientsTable.organizationId, orgId), eq(clientsTable.phone, m.from)))
-              .limit(1);
-            clientId = client?.id ?? null;
+            const clientSnap = await db()
+              .collection("clients")
+              .where("organizationId", "==", orgId)
+              .where("phone", "==", m.from)
+              .limit(1)
+              .get();
+            clientId = clientSnap.empty ? null : clientSnap.docs[0].id;
             if (!clientId) {
-              // Create a lead.
               const sc = scoreLead({ source: "whatsapp", phone: m.from } as never);
-              const [newLead] = await db
-                .insert(leadsTable)
-                .values({
-                  organizationId: orgId,
-                  name: `WhatsApp ${m.from}`,
-                  phone: m.from,
-                  source: "whatsapp",
-                  externalId: m.id ?? null,
-                  status: "new",
-                  priority: sc.priority,
-                  score: sc.score,
-                  notes: m.text?.body ?? null,
-                  nextAction: sc.nextAction,
-                })
-                .returning();
-              leadId = newLead.id;
+              const newLeadRef = await db().collection("leads").add({
+                organizationId: orgId,
+                name: `WhatsApp ${m.from}`,
+                phone: m.from,
+                source: "whatsapp",
+                externalId: m.id ?? null,
+                status: "new",
+                priority: sc.priority,
+                score: sc.score,
+                notes: m.text?.body ?? null,
+                nextAction: sc.nextAction,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              leadId = newLeadRef.id;
             }
           }
-          await db.insert(whatsappMessagesTable).values({
+          await db().collection("whatsapp_messages").add({
             organizationId: orgId,
             leadId,
             clientId,
@@ -315,14 +293,16 @@ whatsappRouter.post("/whatsapp/webhook", async (req, res) => {
             body: m.text?.body ?? null,
             status: "received",
             providerMessageId: m.id ?? null,
+            createdAt: new Date().toISOString(),
           });
           if (leadId) {
-            await db.insert(leadActivitiesTable).values({
+            await db().collection("lead_activities").add({
               organizationId: orgId,
               leadId,
               type: "note",
               title: "WhatsApp received",
               body: m.text?.body ?? "(no text)",
+              createdAt: new Date().toISOString(),
             });
           }
         }

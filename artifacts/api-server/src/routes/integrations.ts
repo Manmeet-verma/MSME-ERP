@@ -1,34 +1,33 @@
 import { Router } from "express";
-import { db, integrationsTable, leadsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { scoreLead } from "../lib/leadScoring";
+
+const db = () => getDb();
 
 const integrationsRouter = Router();
 const VALID_PROVIDERS = ["indiamart", "smtp", "twilio"] as const;
 type Provider = (typeof VALID_PROVIDERS)[number];
 
-function fmt(i: typeof integrationsTable.$inferSelect) {
+function fmt(i: Record<string, unknown>) {
   return {
-    id: i.id,
-    provider: i.provider,
-    enabled: i.enabled,
-    config: i.config ?? {},
-    lastSyncedAt: i.lastSyncedAt?.toISOString() ?? null,
-    lastSyncStatus: i.lastSyncStatus ?? null,
-    lastSyncMessage: i.lastSyncMessage ?? null,
-    createdAt: i.createdAt.toISOString(),
-    updatedAt: i.updatedAt.toISOString(),
+    id: i.id as string,
+    provider: i.provider as string,
+    enabled: i.enabled as boolean,
+    config: (i.config as Record<string, unknown>) ?? {},
+    lastSyncedAt: (i.lastSyncedAt as string) ?? null,
+    lastSyncStatus: (i.lastSyncStatus as string) ?? null,
+    lastSyncMessage: (i.lastSyncMessage as string) ?? null,
+    createdAt: i.createdAt as string,
+    updatedAt: i.updatedAt as string,
   };
 }
 
 integrationsRouter.get("/integrations", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(integrationsTable)
-    .where(eq(integrationsTable.organizationId, orgId));
+  const snap = await db().collection("integrations").where("organizationId", "==", orgId).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   res.json(rows.map(fmt));
 });
 
@@ -41,24 +40,23 @@ integrationsRouter.put("/integrations/:provider", requireAuth, requireAdmin, asy
   }
   const { enabled, config } = req.body ?? {};
   const cfg = typeof config === "object" && config !== null ? (config as Record<string, string>) : {};
-  // Strip empty strings
   for (const k of Object.keys(cfg)) if (cfg[k] === "") delete cfg[k];
-  const [existing] = await db
-    .select()
-    .from(integrationsTable)
-    .where(and(eq(integrationsTable.organizationId, orgId), eq(integrationsTable.provider, provider)));
+  const existingSnap = await db()
+    .collection("integrations")
+    .where("organizationId", "==", orgId)
+    .where("provider", "==", provider)
+    .limit(1)
+    .get();
   let row;
-  if (existing) {
-    [row] = await db
-      .update(integrationsTable)
-      .set({ enabled: enabled ?? existing.enabled, config: cfg, updatedAt: new Date() })
-      .where(eq(integrationsTable.id, existing.id))
-      .returning();
+  if (!existingSnap.empty) {
+    const doc = existingSnap.docs[0];
+    await doc.ref.update({ enabled: enabled ?? doc.data().enabled, config: cfg, updatedAt: new Date().toISOString() });
+    const updated = await doc.ref.get();
+    row = { id: updated.id, ...updated.data() };
   } else {
-    [row] = await db
-      .insert(integrationsTable)
-      .values({ organizationId: orgId, provider, enabled: enabled ?? true, config: cfg })
-      .returning();
+    const ref = await db().collection("integrations").add({ organizationId: orgId, provider, enabled: enabled ?? true, config: cfg, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    const snap = await ref.get();
+    row = { id: snap.id, ...snap.data() };
   }
   await logAction(req, "UPSERT", "integration", row.id, `Provider ${provider}`);
   res.json(fmt(row));
@@ -67,9 +65,14 @@ integrationsRouter.put("/integrations/:provider", requireAuth, requireAdmin, asy
 integrationsRouter.delete("/integrations/:provider", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
   const provider = req.params.provider as Provider;
-  await db
-    .delete(integrationsTable)
-    .where(and(eq(integrationsTable.organizationId, orgId), eq(integrationsTable.provider, provider)));
+  const snap = await db()
+    .collection("integrations")
+    .where("organizationId", "==", orgId)
+    .where("provider", "==", provider)
+    .get();
+  for (const doc of snap.docs) {
+    await doc.ref.delete();
+  }
   res.json({ message: "Integration removed" });
 });
 
@@ -88,15 +91,18 @@ interface IndiamartLead {
 
 integrationsRouter.post("/integrations/indiamart/sync", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const [integration] = await db
-    .select()
-    .from(integrationsTable)
-    .where(and(eq(integrationsTable.organizationId, orgId), eq(integrationsTable.provider, "indiamart")));
-  if (!integration || !integration.config?.apiKey) {
+  const integrationSnap = await db()
+    .collection("integrations")
+    .where("organizationId", "==", orgId)
+    .where("provider", "==", "indiamart")
+    .limit(1)
+    .get();
+  const integration = integrationSnap.empty ? null : { id: integrationSnap.docs[0].id, ...integrationSnap.docs[0].data() } as Record<string, unknown>;
+  if (!integration || !(integration.config as Record<string, unknown>)?.apiKey) {
     res.status(400).json({ error: "IndiaMart integration not configured. Save your API key first." });
     return;
   }
-  const apiKey = integration.config.apiKey;
+  const apiKey = (integration.config as Record<string, unknown>).apiKey as string;
   let imported = 0;
   let message = "";
   try {
@@ -108,17 +114,19 @@ integrationsRouter.post("/integrations/indiamart/sync", requireAuth, requireAdmi
     const items = Array.isArray(data.RESPONSE) ? data.RESPONSE : [];
     for (const item of items) {
       if (!item.UNIQUE_QUERY_ID) continue;
-      const [exists] = await db
-        .select()
-        .from(leadsTable)
-        .where(and(eq(leadsTable.organizationId, orgId), eq(leadsTable.externalId, item.UNIQUE_QUERY_ID)));
-      if (exists) continue;
+      const existsSnap = await db()
+        .collection("leads")
+        .where("organizationId", "==", orgId)
+        .where("externalId", "==", item.UNIQUE_QUERY_ID)
+        .limit(1)
+        .get();
+      if (!existsSnap.empty) continue;
       const sc = scoreLead({
         source: "indiamart",
         phone: item.SENDER_MOBILE,
         email: item.SENDER_EMAIL,
       } as never);
-      await db.insert(leadsTable).values({
+      await db().collection("leads").add({
         organizationId: orgId,
         name: item.SENDER_NAME ?? "IndiaMart lead",
         email: item.SENDER_EMAIL ?? null,
@@ -135,21 +143,17 @@ integrationsRouter.post("/integrations/indiamart/sync", requireAuth, requireAdmi
         notes: item.QUERY_MESSAGE ?? null,
         nextAction: sc.nextAction,
         metadata: { queryTime: item.QUERY_TIME },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       imported++;
     }
     message = `Imported ${imported} new leads from IndiaMart.`;
-    await db
-      .update(integrationsTable)
-      .set({ lastSyncedAt: new Date(), lastSyncStatus: "success", lastSyncMessage: message })
-      .where(eq(integrationsTable.id, integration.id));
+    await db().collection("integrations").doc(integration.id).update({ lastSyncedAt: new Date().toISOString(), lastSyncStatus: "success", lastSyncMessage: message });
     res.json({ imported, message });
   } catch (e) {
     message = (e as Error).message;
-    await db
-      .update(integrationsTable)
-      .set({ lastSyncedAt: new Date(), lastSyncStatus: "error", lastSyncMessage: message })
-      .where(eq(integrationsTable.id, integration.id));
+    await db().collection("integrations").doc(integration.id).update({ lastSyncedAt: new Date().toISOString(), lastSyncStatus: "error", lastSyncMessage: message });
     res.status(502).json({ imported, message: `Sync failed: ${message}` });
   }
 });

@@ -1,14 +1,29 @@
 import { Router } from "express";
-import { db, clientsTable, quotationsTable } from "@workspace/db";
-import { and, eq, count, sum } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 
 const clientsRouter = Router();
+const db = () => getDb();
 
-function formatClient(c: typeof clientsTable.$inferSelect, quotationCount = 0, totalValue = 0) {
+interface ClientDoc {
+  organizationId: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  gstNumber?: string | null;
+  notes?: string | null;
+  createdById: string;
+  createdAt: string;
+}
+
+function formatClient(id: string, c: ClientDoc, quotationCount = 0, totalValue = 0) {
   return {
-    id: c.id,
+    id,
     name: c.name,
     email: c.email ?? null,
     phone: c.phone ?? null,
@@ -20,34 +35,37 @@ function formatClient(c: typeof clientsTable.$inferSelect, quotationCount = 0, t
     notes: c.notes ?? null,
     quotationCount,
     totalValue,
-    createdAt: c.createdAt.toISOString(),
+    createdAt: c.createdAt,
   };
 }
 
 clientsRouter.get("/clients", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(clientsTable)
-    .where(eq(clientsTable.organizationId, orgId))
-    .orderBy(clientsTable.name);
+  const snap = await db().collection("clients").where("organizationId", "==", orgId).get();
+  const clients = snap.docs.map((d) => ({ id: d.id, ...(d.data() as ClientDoc) }));
 
-  const stats = await db
-    .select({
-      clientId: quotationsTable.clientId,
-      count: count(),
-      total: sum(quotationsTable.total),
-    })
-    .from(quotationsTable)
-    .where(eq(quotationsTable.organizationId, orgId))
-    .groupBy(quotationsTable.clientId);
-  const statMap = new Map(stats.map((s) => [s.clientId, s]));
+  const quotSnap = await db().collection("quotations").where("organizationId", "==", orgId).get();
+  const statMap = new Map<string, { count: number; total: number }>();
+  for (const doc of quotSnap.docs) {
+    const data = doc.data();
+    const clientId = data.clientId as string;
+    const total = data.total as number;
+    const existing = statMap.get(clientId);
+    if (existing) {
+      existing.count += 1;
+      existing.total += total;
+    } else {
+      statMap.set(clientId, { count: 1, total });
+    }
+  }
+
   res.json(
-    rows.map((c) =>
+    clients.map((c) =>
       formatClient(
+        c.id,
         c,
-        Number(statMap.get(c.id)?.count ?? 0),
-        Number(statMap.get(c.id)?.total ?? 0),
+        statMap.get(c.id)?.count ?? 0,
+        statMap.get(c.id)?.total ?? 0,
       ),
     ),
   );
@@ -55,15 +73,17 @@ clientsRouter.get("/clients", requireAuth, async (req, res) => {
 
 clientsRouter.get("/clients/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const [c] = await db
-    .select()
-    .from(clientsTable)
-    .where(and(eq(clientsTable.id, Number(req.params.id)), eq(clientsTable.organizationId, orgId)));
-  if (!c) {
+  const doc = await db().collection("clients").doc(req.params.id).get();
+  if (!doc.exists) {
     res.status(404).json({ error: "Client not found" });
     return;
   }
-  res.json(formatClient(c));
+  const data = doc.data() as ClientDoc;
+  if (data.organizationId !== orgId) {
+    res.status(404).json({ error: "Client not found" });
+    return;
+  }
+  res.json(formatClient(doc.id, data));
 });
 
 clientsRouter.post("/clients", requireAuth, async (req, res) => {
@@ -72,24 +92,23 @@ clientsRouter.post("/clients", requireAuth, async (req, res) => {
     res.status(400).json({ error: "name required" });
     return;
   }
-  const [c] = await db
-    .insert(clientsTable)
-    .values({
-      organizationId: req.user!.organizationId,
-      name,
-      email,
-      phone,
-      company,
-      address,
-      city,
-      state,
-      gstNumber,
-      notes,
-      createdById: req.user!.userId,
-    })
-    .returning();
-  await logAction(req, "CREATE", "client", c.id, `Created client ${name}`);
-  res.status(201).json(formatClient(c));
+  const newClient: ClientDoc = {
+    organizationId: req.user!.organizationId,
+    name,
+    email: email ?? null,
+    phone: phone ?? null,
+    company: company ?? null,
+    address: address ?? null,
+    city: city ?? null,
+    state: state ?? null,
+    gstNumber: gstNumber ?? null,
+    notes: notes ?? null,
+    createdById: req.user!.userId,
+    createdAt: new Date().toISOString(),
+  };
+  const ref = await db().collection("clients").add(newClient);
+  await logAction(req, "CREATE", "client", ref.id, `Created client ${name}`);
+  res.status(201).json(formatClient(ref.id, newClient));
 });
 
 clientsRouter.patch("/clients/:id", requireAuth, async (req, res) => {
@@ -97,25 +116,32 @@ clientsRouter.patch("/clients/:id", requireAuth, async (req, res) => {
   const updates: Record<string, unknown> = {};
   const fields = ["name", "email", "phone", "company", "address", "city", "state", "gstNumber", "notes"] as const;
   for (const f of fields) if (req.body?.[f] !== undefined) updates[f] = req.body[f];
-  const [c] = await db
-    .update(clientsTable)
-    .set(updates)
-    .where(and(eq(clientsTable.id, Number(req.params.id)), eq(clientsTable.organizationId, orgId)))
-    .returning();
-  if (!c) {
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const docRef = db().collection("clients").doc(req.params.id);
+  const doc = await docRef.get();
+  if (!doc.exists || (doc.data() as ClientDoc).organizationId !== orgId) {
     res.status(404).json({ error: "Client not found" });
     return;
   }
-  await logAction(req, "UPDATE", "client", c.id);
-  res.json(formatClient(c));
+  await docRef.update(updates);
+  const updated = (await docRef.get()).data() as ClientDoc;
+  await logAction(req, "UPDATE", "client", req.params.id);
+  res.json(formatClient(req.params.id, updated));
 });
 
 clientsRouter.delete("/clients/:id", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
-  await db
-    .delete(clientsTable)
-    .where(and(eq(clientsTable.id, Number(req.params.id)), eq(clientsTable.organizationId, orgId)));
-  await logAction(req, "DELETE", "client", Number(req.params.id));
+  const docRef = db().collection("clients").doc(req.params.id);
+  const doc = await docRef.get();
+  if (!doc.exists || (doc.data() as ClientDoc).organizationId !== orgId) {
+    res.status(404).json({ error: "Client not found" });
+    return;
+  }
+  await docRef.delete();
+  await logAction(req, "DELETE", "client", req.params.id);
   res.json({ message: "Client deleted" });
 });
 

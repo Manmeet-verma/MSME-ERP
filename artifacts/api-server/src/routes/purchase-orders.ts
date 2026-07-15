@@ -1,44 +1,33 @@
 import { Router } from "express";
-import {
-  db,
-  purchaseOrdersTable,
-  purchaseOrderItemsTable,
-  vendorsTable,
-  itemsTable,
-} from "@workspace/db";
-import { and, eq, desc, inArray } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
-import { warehousesTable } from "@workspace/db";
+
+const db = () => getDb();
 
 const purchaseOrdersRouter = Router();
 
 async function validateOwnership(
-  orgId: number,
-  b: { vendorId?: number; warehouseId?: number; items?: Array<{ itemId?: number }> },
+  orgId: string,
+  b: { vendorId?: string; warehouseId?: string; items?: Array<{ itemId?: string }> },
 ): Promise<string | null> {
   if (b.vendorId) {
-    const [v] = await db
-      .select()
-      .from(vendorsTable)
-      .where(and(eq(vendorsTable.id, b.vendorId), eq(vendorsTable.organizationId, orgId)));
-    if (!v) return "Invalid vendor";
+    const vDoc = await db().collection("vendors").doc(b.vendorId).get();
+    if (!vDoc.exists || vDoc.data()!.organizationId !== orgId) return "Invalid vendor";
   }
   if (b.warehouseId) {
-    const [w] = await db
-      .select()
-      .from(warehousesTable)
-      .where(and(eq(warehousesTable.id, b.warehouseId), eq(warehousesTable.organizationId, orgId)));
-    if (!w) return "Invalid warehouse";
+    const wDoc = await db().collection("warehouses").doc(b.warehouseId).get();
+    if (!wDoc.exists || wDoc.data()!.organizationId !== orgId) return "Invalid warehouse";
   }
   if (Array.isArray(b.items)) {
-    const ids = Array.from(new Set(b.items.map((i) => i.itemId).filter((x): x is number => x != null)));
+    const ids = Array.from(new Set(b.items.map((i) => i.itemId).filter((x): x is string => x != null)));
     if (ids.length > 0) {
-      const owned = await db
-        .select({ id: itemsTable.id })
-        .from(itemsTable)
-        .where(and(eq(itemsTable.organizationId, orgId), inArray(itemsTable.id, ids)));
-      if (owned.length !== ids.length) return "One or more items not found in this organization";
+      const itemsSnap = await db()
+        .collection("items")
+        .where("organizationId", "==", orgId)
+        .where("__name__", "in", ids)
+        .get();
+      if (itemsSnap.size !== ids.length) return "One or more items not found in this organization";
     }
   }
   return null;
@@ -49,79 +38,84 @@ function genNumber() {
   return `PO-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-${Math.floor(Math.random() * 9000) + 1000}`;
 }
 
-async function fmt(p: typeof purchaseOrdersTable.$inferSelect) {
-  const vendor = p.vendorId
-    ? (await db.select().from(vendorsTable).where(eq(vendorsTable.id, p.vendorId)))[0]
-    : null;
+async function fmt(p: any) {
+  let vendorName: string | null = null;
+  if (p.vendorId) {
+    const vDoc = await db().collection("vendors").doc(p.vendorId).get();
+    if (vDoc.exists) vendorName = vDoc.data()!.name as string;
+  }
   return {
     id: p.id,
     poNumber: p.poNumber,
     vendorId: p.vendorId ?? null,
-    vendorName: vendor?.name ?? null,
+    vendorName,
     warehouseId: p.warehouseId ?? null,
     status: p.status,
-    expectedDate: p.expectedDate?.toISOString() ?? null,
+    expectedDate: p.expectedDate ?? null,
     subtotal: Number(p.subtotal),
     taxAmount: Number(p.taxAmount),
     total: Number(p.total),
     notes: p.notes ?? null,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
   };
 }
 
-async function recalc(poId: number, taxRate = 18) {
-  const items = await db
-    .select()
-    .from(purchaseOrderItemsTable)
-    .where(eq(purchaseOrderItemsTable.purchaseOrderId, poId));
+async function recalc(poId: string, taxRate = 18) {
+  const itemsSnap = await db()
+    .collection("purchase_order_items")
+    .where("purchaseOrderId", "==", poId)
+    .get();
+  const items = itemsSnap.docs.map((d) => d.data());
   const subtotal = items.reduce((s, i) => s + Number(i.totalPrice), 0);
   const tax = (subtotal * taxRate) / 100;
-  await db
-    .update(purchaseOrdersTable)
-    .set({
-      subtotal: subtotal.toFixed(2),
-      taxAmount: tax.toFixed(2),
-      total: (subtotal + tax).toFixed(2),
-      updatedAt: new Date(),
-    })
-    .where(eq(purchaseOrdersTable.id, poId));
+  await db().collection("purchase_orders").doc(poId).update({
+    subtotal: subtotal.toFixed(2),
+    taxAmount: tax.toFixed(2),
+    total: (subtotal + tax).toFixed(2),
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 purchaseOrdersRouter.get("/purchase-orders", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(purchaseOrdersTable)
-    .where(eq(purchaseOrdersTable.organizationId, orgId))
-    .orderBy(desc(purchaseOrdersTable.createdAt));
+  const snapshot = await db()
+    .collection("purchase_orders")
+    .where("organizationId", "==", orgId)
+    .get();
+  const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
   res.json(await Promise.all(rows.map(fmt)));
 });
 
 purchaseOrdersRouter.get("/purchase-orders/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [p] = await db
-    .select()
-    .from(purchaseOrdersTable)
-    .where(and(eq(purchaseOrdersTable.id, id), eq(purchaseOrdersTable.organizationId, orgId)));
-  if (!p) {
+  const id = req.params.id;
+  const doc = await db().collection("purchase_orders").doc(id).get();
+  if (!doc.exists || doc.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Purchase order not found" });
     return;
   }
-  const items = await db
-    .select()
-    .from(purchaseOrderItemsTable)
-    .where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
-  const itemIds = items.map((i) => i.itemId).filter((x): x is number => x != null);
-  const itemsMap = itemIds.length
-    ? new Map(
-        (await db.select().from(itemsTable).where(inArray(itemsTable.id, itemIds))).map((it) => [
-          it.id,
-          it,
-        ]),
-      )
-    : new Map();
+  const p = { id: doc.id, ...doc.data()! };
+
+  const itemsSnap = await db()
+    .collection("purchase_order_items")
+    .where("purchaseOrderId", "==", id)
+    .get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const itemIds = items.map((i) => i.itemId).filter((x): x is string => x != null);
+
+  const itemsMap = new Map<string, any>();
+  if (itemIds.length > 0) {
+    const itemsSnap2 = await db()
+      .collection("items")
+      .where("__name__", "in", itemIds)
+      .get();
+    for (const d of itemsSnap2.docs) {
+      itemsMap.set(d.id, { id: d.id, ...d.data() });
+    }
+  }
+
   res.json({
     ...(await fmt(p)),
     items: items.map((i) => {
@@ -149,97 +143,104 @@ purchaseOrdersRouter.post("/purchase-orders", requireAuth, async (req, res) => {
     res.status(400).json({ error: ownershipErr });
     return;
   }
-  const [p] = await db
-    .insert(purchaseOrdersTable)
-    .values({
-      organizationId: orgId,
-      poNumber: genNumber(),
-      vendorId: b.vendorId ?? null,
-      warehouseId: b.warehouseId ?? null,
-      status: b.status ?? "draft",
-      expectedDate: b.expectedDate ? new Date(b.expectedDate) : null,
-      notes: b.notes ?? null,
-      createdById: req.user!.userId,
-    })
-    .returning();
+  const now = new Date().toISOString();
+  const docRef = await db().collection("purchase_orders").add({
+    organizationId: orgId,
+    poNumber: genNumber(),
+    vendorId: b.vendorId ?? null,
+    warehouseId: b.warehouseId ?? null,
+    status: b.status ?? "draft",
+    expectedDate: b.expectedDate ?? null,
+    notes: b.notes ?? null,
+    createdById: req.user!.userId,
+    subtotal: "0",
+    taxAmount: "0",
+    total: "0",
+    createdAt: now,
+    updatedAt: now,
+  });
+
   if (Array.isArray(b.items) && b.items.length > 0) {
-    await db.insert(purchaseOrderItemsTable).values(
-      b.items.map(
-        (it: { itemId?: number; description: string; quantity: number; unitPrice: number }) => ({
-          purchaseOrderId: p.id,
-          itemId: it.itemId ?? null,
-          description: it.description,
-          quantity: String(it.quantity),
-          receivedQuantity: "0",
-          unitPrice: String(it.unitPrice),
-          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-        }),
-      ),
-    );
-    await recalc(p.id, Number(b.taxRate ?? 18));
+    const batch = db().batch();
+    for (const it of b.items as Array<{ itemId?: string; description: string; quantity: number; unitPrice: number }>) {
+      const itemRef = db().collection("purchase_order_items").doc();
+      batch.set(itemRef, {
+        purchaseOrderId: docRef.id,
+        itemId: it.itemId ?? null,
+        description: it.description,
+        quantity: String(it.quantity),
+        receivedQuantity: "0",
+        unitPrice: String(it.unitPrice),
+        totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+      });
+    }
+    await batch.commit();
+    await recalc(docRef.id, Number(b.taxRate ?? 18));
   }
-  const [u] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, p.id));
-  await logAction(req, "CREATE", "purchase_order", p.id);
-  res.status(201).json(await fmt(u));
+
+  const uDoc = await db().collection("purchase_orders").doc(docRef.id).get();
+  await logAction(req, "CREATE", "purchase_order", docRef.id);
+  res.status(201).json(await fmt({ id: docRef.id, ...uDoc.data()! }));
 });
 
 purchaseOrdersRouter.patch("/purchase-orders/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
+  const id = req.params.id;
   const b = req.body ?? {};
   const ownershipErr = await validateOwnership(orgId, b);
   if (ownershipErr) {
     res.status(400).json({ error: ownershipErr });
     return;
   }
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  for (const f of ["vendorId", "warehouseId", "status", "notes"] as const) {
-    if (b[f] !== undefined) updates[f] = b[f];
-  }
-  if (b.expectedDate !== undefined) updates.expectedDate = b.expectedDate ? new Date(b.expectedDate) : null;
-  const [p] = await db
-    .update(purchaseOrdersTable)
-    .set(updates)
-    .where(and(eq(purchaseOrdersTable.id, id), eq(purchaseOrdersTable.organizationId, orgId)))
-    .returning();
-  if (!p) {
+  const docRef = db().collection("purchase_orders").doc(id);
+  const doc = await docRef.get();
+  if (!doc.exists || doc.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Purchase order not found" });
     return;
   }
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  for (const f of ["vendorId", "warehouseId", "status", "notes"] as const) {
+    if (b[f] !== undefined) updates[f] = b[f];
+  }
+  if (b.expectedDate !== undefined) updates.expectedDate = b.expectedDate ? b.expectedDate : null;
+  await docRef.update(updates);
+
   if (Array.isArray(b.items)) {
-    // Preserve GRN progress: only allow item edits while no receipts have happened.
-    const existing = await db
-      .select()
-      .from(purchaseOrderItemsTable)
-      .where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
+    const existingSnap = await db()
+      .collection("purchase_order_items")
+      .where("purchaseOrderId", "==", id)
+      .get();
+    const existing = existingSnap.docs.map((d) => d.data());
     const anyReceived = existing.some((p) => Number(p.receivedQuantity) > 0);
     if (anyReceived) {
-      res
-        .status(409)
-        .json({ error: "Cannot edit items on a purchase order that has received quantities" });
+      res.status(409).json({ error: "Cannot edit items on a purchase order that has received quantities" });
       return;
     }
-    await db.delete(purchaseOrderItemsTable).where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
-    if (b.items.length > 0) {
-      await db.insert(purchaseOrderItemsTable).values(
-        b.items.map(
-          (it: { itemId?: number; description: string; quantity: number; unitPrice: number }) => ({
-            purchaseOrderId: id,
-            itemId: it.itemId ?? null,
-            description: it.description,
-            quantity: String(it.quantity),
-            receivedQuantity: "0",
-            unitPrice: String(it.unitPrice),
-            totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-          }),
-        ),
-      );
+    const batch = db().batch();
+    for (const d of existingSnap.docs) {
+      batch.delete(d.ref);
     }
+    if (b.items.length > 0) {
+      for (const it of b.items as Array<{ itemId?: string; description: string; quantity: number; unitPrice: number }>) {
+        const itemRef = db().collection("purchase_order_items").doc();
+        batch.set(itemRef, {
+          purchaseOrderId: id,
+          itemId: it.itemId ?? null,
+          description: it.description,
+          quantity: String(it.quantity),
+          receivedQuantity: "0",
+          unitPrice: String(it.unitPrice),
+          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+        });
+      }
+    }
+    await batch.commit();
     await recalc(id, Number(b.taxRate ?? 18));
   }
-  const [u] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+
+  const uDoc = await db().collection("purchase_orders").doc(id).get();
   await logAction(req, "UPDATE", "purchase_order", id);
-  res.json(await fmt(u));
+  res.json(await fmt({ id: uDoc.id, ...uDoc.data()! }));
 });
 
 export default purchaseOrdersRouter;

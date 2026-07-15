@@ -1,14 +1,25 @@
 import { Router } from "express";
-import { db, addonsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 
 const addonsRouter = Router();
+const db = () => getDb();
 
-function formatAddon(a: typeof addonsTable.$inferSelect) {
+interface AddonDoc {
+  organizationId: string;
+  name: string;
+  description?: string | null;
+  price: string;
+  priceType: string;
+  category: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+function formatAddon(id: string, a: AddonDoc) {
   return {
-    id: a.id,
+    id,
     name: a.name,
     description: a.description ?? null,
     price: Number(a.price),
@@ -19,12 +30,11 @@ function formatAddon(a: typeof addonsTable.$inferSelect) {
 }
 
 addonsRouter.get("/addons", requireAuth, async (req, res) => {
-  const addons = await db
-    .select()
-    .from(addonsTable)
-    .where(eq(addonsTable.organizationId, req.user!.organizationId))
-    .orderBy(addonsTable.category, addonsTable.name);
-  res.json(addons.map(formatAddon));
+  const orgId = req.user!.organizationId;
+  const snap = await db().collection("addons").where("organizationId", "==", orgId).get();
+  const addons = snap.docs.map((d) => ({ id: d.id, ...(d.data() as AddonDoc) }));
+  addons.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  res.json(addons.map((a) => formatAddon(a.id, a)));
 });
 
 addonsRouter.post("/addons", requireAuth, requireAdmin, async (req, res) => {
@@ -33,20 +43,19 @@ addonsRouter.post("/addons", requireAuth, requireAdmin, async (req, res) => {
     res.status(400).json({ error: "Required fields missing" });
     return;
   }
-  const [a] = await db
-    .insert(addonsTable)
-    .values({
-      organizationId: req.user!.organizationId,
-      name,
-      description,
-      price: String(price),
-      priceType,
-      category,
-      isActive: isActive !== false,
-    })
-    .returning();
-  await logAction(req, "CREATE", "addon", a.id, `Created addon ${name}`);
-  res.status(201).json(formatAddon(a));
+  const newAddon: AddonDoc = {
+    organizationId: req.user!.organizationId,
+    name,
+    description: description ?? null,
+    price: String(price),
+    priceType,
+    category,
+    isActive: isActive !== false,
+    createdAt: new Date().toISOString(),
+  };
+  const ref = await db().collection("addons").add(newAddon);
+  await logAction(req, "CREATE", "addon", ref.id, `Created addon ${name}`);
+  res.status(201).json(formatAddon(ref.id, newAddon));
 });
 
 addonsRouter.patch("/addons/:id", requireAuth, requireAdmin, async (req, res) => {
@@ -55,25 +64,32 @@ addonsRouter.patch("/addons/:id", requireAuth, requireAdmin, async (req, res) =>
   const fields = ["name", "description", "priceType", "category", "isActive"] as const;
   for (const f of fields) if (req.body?.[f] !== undefined) updates[f] = req.body[f];
   if (req.body?.price !== undefined) updates.price = String(req.body.price);
-  const [a] = await db
-    .update(addonsTable)
-    .set(updates)
-    .where(and(eq(addonsTable.id, Number(req.params.id)), eq(addonsTable.organizationId, orgId)))
-    .returning();
-  if (!a) {
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const docRef = db().collection("addons").doc(req.params.id);
+  const doc = await docRef.get();
+  if (!doc.exists || (doc.data() as AddonDoc).organizationId !== orgId) {
     res.status(404).json({ error: "Addon not found" });
     return;
   }
-  await logAction(req, "UPDATE", "addon", a.id);
-  res.json(formatAddon(a));
+  await docRef.update(updates);
+  const updated = (await docRef.get()).data() as AddonDoc;
+  await logAction(req, "UPDATE", "addon", req.params.id);
+  res.json(formatAddon(req.params.id, updated));
 });
 
 addonsRouter.delete("/addons/:id", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
-  await db
-    .delete(addonsTable)
-    .where(and(eq(addonsTable.id, Number(req.params.id)), eq(addonsTable.organizationId, orgId)));
-  await logAction(req, "DELETE", "addon", Number(req.params.id));
+  const docRef = db().collection("addons").doc(req.params.id);
+  const doc = await docRef.get();
+  if (!doc.exists || (doc.data() as AddonDoc).organizationId !== orgId) {
+    res.status(404).json({ error: "Addon not found" });
+    return;
+  }
+  await docRef.delete();
+  await logAction(req, "DELETE", "addon", req.params.id);
   res.json({ message: "Addon deleted" });
 });
 

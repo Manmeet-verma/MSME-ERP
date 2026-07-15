@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, pushTokensTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { sendPushToOrg, sendPushToUser } from "../lib/push";
+
+const db = () => getDb();
 
 const pushRouter = Router();
 
@@ -15,23 +16,15 @@ pushRouter.post("/push/register", requireAuth, async (req, res) => {
   const plat = ["ios", "android", "web"].includes(platform) ? platform : "android";
   const userId = req.user!.userId;
   const orgId = req.user!.organizationId;
-  const [existing] = await db
-    .select()
-    .from(pushTokensTable)
-    .where(eq(pushTokensTable.token, token));
-  if (existing) {
-    await db
-      .update(pushTokensTable)
-      .set({ userId, organizationId: orgId, platform: plat, deviceName: deviceName ?? null, lastUsedAt: new Date() })
-      .where(eq(pushTokensTable.id, existing.id));
-    res.json({ id: existing.id, token, platform: plat });
+  const existingSnap = await db().collection("push_tokens").where("token", "==", token).limit(1).get();
+  if (!existingSnap.empty) {
+    const doc = existingSnap.docs[0];
+    await doc.ref.update({ userId, organizationId: orgId, platform: plat, deviceName: deviceName ?? null, lastUsedAt: new Date().toISOString() });
+    res.json({ id: doc.id, token, platform: plat });
     return;
   }
-  const [row] = await db
-    .insert(pushTokensTable)
-    .values({ userId, organizationId: orgId, token, platform: plat, deviceName: deviceName ?? null })
-    .returning();
-  res.status(201).json({ id: row.id, token: row.token, platform: row.platform });
+  const ref = await db().collection("push_tokens").add({ userId, organizationId: orgId, token, platform: plat, deviceName: deviceName ?? null, createdAt: new Date().toISOString(), lastUsedAt: new Date().toISOString() });
+  res.status(201).json({ id: ref.id, token, platform: plat });
 });
 
 pushRouter.delete("/push/register", requireAuth, async (req, res) => {
@@ -40,24 +33,25 @@ pushRouter.delete("/push/register", requireAuth, async (req, res) => {
     res.status(400).json({ error: "token is required" });
     return;
   }
-  await db.delete(pushTokensTable).where(eq(pushTokensTable.token, token));
+  const snap = await db().collection("push_tokens").where("token", "==", token).get();
+  for (const doc of snap.docs) {
+    await doc.ref.delete();
+  }
   res.json({ message: "Token unregistered" });
 });
 
 pushRouter.get("/push/tokens", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(pushTokensTable)
-    .where(eq(pushTokensTable.organizationId, orgId));
+  const snap = await db().collection("push_tokens").where("organizationId", "==", orgId).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>));
   res.json(
-    rows.map((r) => ({
+    rows.map((r: Record<string, unknown>) => ({
       id: r.id,
       userId: r.userId,
       platform: r.platform,
       deviceName: r.deviceName ?? null,
-      createdAt: r.createdAt.toISOString(),
-      lastUsedAt: r.lastUsedAt.toISOString(),
+      createdAt: r.createdAt as string,
+      lastUsedAt: r.lastUsedAt as string,
     })),
   );
 });

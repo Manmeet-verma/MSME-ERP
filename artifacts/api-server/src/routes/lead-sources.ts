@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, integrationsTable, leadsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { scoreLead } from "../lib/leadScoring";
+
+const db = () => getDb();
 
 const leadSourcesRouter = Router();
 
@@ -22,20 +23,22 @@ interface NormalizedLead {
 }
 
 async function importLeads(
-  orgId: number,
+  orgId: string,
   source: Provider,
   leads: NormalizedLead[],
 ): Promise<number> {
   let imported = 0;
   for (const l of leads) {
     if (!l.externalId) continue;
-    const [exists] = await db
-      .select()
-      .from(leadsTable)
-      .where(and(eq(leadsTable.organizationId, orgId), eq(leadsTable.externalId, l.externalId)));
-    if (exists) continue;
+    const existsSnap = await db()
+      .collection("leads")
+      .where("organizationId", "==", orgId)
+      .where("externalId", "==", l.externalId)
+      .limit(1)
+      .get();
+    if (!existsSnap.empty) continue;
     const sc = scoreLead({ source, phone: l.phone ?? undefined, email: l.email ?? undefined } as never);
-    await db.insert(leadsTable).values({
+    await db().collection("leads").add({
       organizationId: orgId,
       name: l.name || "Lead",
       email: l.email ?? null,
@@ -52,6 +55,8 @@ async function importLeads(
       notes: l.notes ?? null,
       nextAction: sc.nextAction,
       metadata: l.metadata ?? null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
     imported++;
   }
@@ -59,26 +64,34 @@ async function importLeads(
 }
 
 async function recordSync(
-  orgId: number,
+  orgId: string,
   provider: Provider,
   status: "success" | "error",
   message: string,
 ): Promise<void> {
-  await db
-    .update(integrationsTable)
-    .set({ lastSyncedAt: new Date(), lastSyncStatus: status, lastSyncMessage: message })
-    .where(and(eq(integrationsTable.organizationId, orgId), eq(integrationsTable.provider, provider)));
+  const snap = await db()
+    .collection("integrations")
+    .where("organizationId", "==", orgId)
+    .where("provider", "==", provider)
+    .limit(1)
+    .get();
+  for (const doc of snap.docs) {
+    await doc.ref.update({ lastSyncedAt: new Date().toISOString(), lastSyncStatus: status, lastSyncMessage: message });
+  }
 }
 
-async function getIntegrationConfig(orgId: number, provider: Provider): Promise<Record<string, string> | null> {
-  const [row] = await db
-    .select()
-    .from(integrationsTable)
-    .where(and(eq(integrationsTable.organizationId, orgId), eq(integrationsTable.provider, provider)));
-  return row?.config ?? null;
+async function getIntegrationConfig(orgId: string, provider: Provider): Promise<Record<string, string> | null> {
+  const snap = await db()
+    .collection("integrations")
+    .where("organizationId", "==", orgId)
+    .where("provider", "==", provider)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return (snap.docs[0].data().config as Record<string, string>) ?? null;
 }
 
-// TradeIndia — POST a lead payload (their public buy-lead API key gives a JSON list).
+// TradeIndia
 leadSourcesRouter.post("/integrations/tradeindia/sync", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
   const cfg = await getIntegrationConfig(orgId, "tradeindia");
@@ -122,7 +135,7 @@ leadSourcesRouter.post("/integrations/tradeindia/sync", requireAuth, requireAdmi
   }
 });
 
-// JustDial — pull leads via their JD Connect API (POST with auth key in body).
+// JustDial
 leadSourcesRouter.post("/integrations/justdial/sync", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
   const cfg = await getIntegrationConfig(orgId, "justdial");
@@ -161,7 +174,7 @@ leadSourcesRouter.post("/integrations/justdial/sync", requireAuth, requireAdmin,
   }
 });
 
-// Facebook Lead Ads — pull leads for one or more forms via Graph API.
+// Facebook Lead Ads
 leadSourcesRouter.post("/integrations/fb-lead-ads/sync", requireAuth, requireAdmin, async (req, res) => {
   const orgId = req.user!.organizationId;
   const cfg = await getIntegrationConfig(orgId, "fb_lead_ads");

@@ -1,40 +1,39 @@
 import { Router } from "express";
-import { db, campaignsTable, campaignRecipientsTable, leadsTable, clientsTable, emailsTable, emailSuppressionsTable } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 
+const db = () => getDb();
+
 const campaignsRouter = Router();
 
-function fmt(c: typeof campaignsTable.$inferSelect) {
+function fmt(c: Record<string, unknown>) {
   return {
-    id: c.id,
-    name: c.name,
-    subject: c.subject,
-    body: c.body,
-    fromEmail: c.fromEmail,
-    segment: c.segment,
-    status: c.status,
-    scheduledAt: c.scheduledAt?.toISOString() ?? null,
-    sentAt: c.sentAt?.toISOString() ?? null,
-    stats: c.stats ?? { total: 0, sent: 0, opened: 0, clicked: 0 },
-    subjectB: c.subjectB ?? null,
-    bodyB: c.bodyB ?? null,
+    id: c.id as string,
+    name: c.name as string,
+    subject: c.subject as string,
+    body: c.body as string,
+    fromEmail: c.fromEmail as string,
+    segment: c.segment as Record<string, unknown>,
+    status: c.status as string,
+    scheduledAt: (c.scheduledAt as string) ?? null,
+    sentAt: (c.sentAt as string) ?? null,
+    stats: (c.stats as Record<string, unknown>) ?? { total: 0, sent: 0, opened: 0, clicked: 0 },
+    subjectB: (c.subjectB as string) ?? null,
+    bodyB: (c.bodyB as string) ?? null,
     abEnabled: Boolean(c.abEnabled),
     abSplitPercent: Number(c.abSplitPercent ?? 50),
-    winnerVariant: c.winnerVariant ?? null,
-    createdAt: c.createdAt.toISOString(),
-    updatedAt: c.updatedAt.toISOString(),
+    winnerVariant: (c.winnerVariant as string) ?? null,
+    createdAt: c.createdAt as string,
+    updatedAt: c.updatedAt as string,
   };
 }
 
 campaignsRouter.get("/campaigns", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(campaignsTable)
-    .where(eq(campaignsTable.organizationId, orgId))
-    .orderBy(desc(campaignsTable.createdAt));
+  const snap = await db().collection("campaigns").where("organizationId", "==", orgId).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => ((b.createdAt as string) ?? "").localeCompare((a.createdAt as string) ?? ""));
   res.json(rows.map(fmt));
 });
 
@@ -45,164 +44,152 @@ campaignsRouter.post("/campaigns", requireAuth, async (req, res) => {
     res.status(400).json({ error: "name, subject, body, fromEmail, segment required" });
     return;
   }
-  const [c] = await db
-    .insert(campaignsTable)
-    .values({
-      organizationId: orgId,
-      name: b.name,
-      subject: b.subject,
-      body: b.body,
-      fromEmail: b.fromEmail,
-      segment: b.segment,
-      status: b.scheduledAt ? "scheduled" : "draft",
-      scheduledAt: b.scheduledAt ? new Date(b.scheduledAt) : null,
-      subjectB: b.subjectB ?? null,
-      bodyB: b.bodyB ?? null,
-      abEnabled: Boolean(b.abEnabled),
-      abSplitPercent: b.abSplitPercent != null ? Number(b.abSplitPercent) : 50,
-      createdById: req.user!.userId,
-    })
-    .returning();
-  await logAction(req, "CREATE", "campaign", c.id);
+  const ref = await db().collection("campaigns").add({
+    organizationId: orgId,
+    name: b.name,
+    subject: b.subject,
+    body: b.body,
+    fromEmail: b.fromEmail,
+    segment: b.segment,
+    status: b.scheduledAt ? "scheduled" : "draft",
+    scheduledAt: b.scheduledAt ? new Date(b.scheduledAt).toISOString() : null,
+    subjectB: b.subjectB ?? null,
+    bodyB: b.bodyB ?? null,
+    abEnabled: Boolean(b.abEnabled),
+    abSplitPercent: b.abSplitPercent != null ? Number(b.abSplitPercent) : 50,
+    createdById: req.user!.userId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const snap = await ref.get();
+  const c = { id: snap.id, ...snap.data() };
+  await logAction(req, "CREATE", "campaign", ref.id);
   res.status(201).json(fmt(c));
 });
 
 campaignsRouter.get("/campaigns/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [c] = await db
-    .select()
-    .from(campaignsTable)
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.organizationId, orgId)));
-  if (!c) {
+  const id = req.params.id;
+  const docSnap = await db().collection("campaigns").doc(id).get();
+  if (!docSnap.exists || docSnap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Campaign not found" });
     return;
   }
-  const recs = await db
-    .select()
-    .from(campaignRecipientsTable)
-    .where(eq(campaignRecipientsTable.campaignId, id))
-    .orderBy(desc(campaignRecipientsTable.id));
+  const c = { id: docSnap.id, ...docSnap.data() };
+  const recsSnap = await db().collection("campaign_recipients").where("campaignId", "==", id).get();
+  const recs = recsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  recs.sort((a, b) => ((b.id as string) ?? "").localeCompare((a.id as string) ?? ""));
   res.json({
     ...fmt(c),
     recipients: recs.map((r) => ({
       id: r.id,
-      email: r.email,
-      name: r.name ?? null,
-      leadId: r.leadId ?? null,
-      clientId: r.clientId ?? null,
-      status: r.status,
-      sentAt: r.sentAt?.toISOString() ?? null,
-      openedAt: r.openedAt?.toISOString() ?? null,
-      clickedAt: r.clickedAt?.toISOString() ?? null,
+      email: r.email as string,
+      name: (r.name as string) ?? null,
+      leadId: (r.leadId as string) ?? null,
+      clientId: (r.clientId as string) ?? null,
+      status: r.status as string,
+      sentAt: (r.sentAt as string) ?? null,
+      openedAt: (r.openedAt as string) ?? null,
+      clickedAt: (r.clickedAt as string) ?? null,
     })),
   });
 });
 
 campaignsRouter.patch("/campaigns/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  for (const f of ["name", "subject", "body", "fromEmail", "segment", "subjectB", "bodyB", "abEnabled", "abSplitPercent", "winnerVariant"] as const) {
-    if (req.body?.[f] !== undefined) updates[f] = req.body[f];
-  }
-  if (req.body?.scheduledAt !== undefined) updates.scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt) : null;
-  const [c] = await db
-    .update(campaignsTable)
-    .set(updates)
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.organizationId, orgId)))
-    .returning();
-  if (!c) {
+  const id = req.params.id;
+  const docSnap = await db().collection("campaigns").doc(id).get();
+  if (!docSnap.exists || docSnap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Campaign not found" });
     return;
   }
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  for (const f of ["name", "subject", "body", "fromEmail", "segment", "subjectB", "bodyB", "abEnabled", "abSplitPercent", "winnerVariant"] as const) {
+    if (req.body?.[f] !== undefined) updates[f] = req.body[f];
+  }
+  if (req.body?.scheduledAt !== undefined) updates.scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt).toISOString() : null;
+  await db().collection("campaigns").doc(id).update(updates);
+  const updatedSnap = await db().collection("campaigns").doc(id).get();
+  const c = { id: updatedSnap.id, ...updatedSnap.data() };
   res.json(fmt(c));
 });
 
 campaignsRouter.post("/campaigns/:id/send", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [c] = await db
-    .select()
-    .from(campaignsTable)
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.organizationId, orgId)));
-  if (!c) {
+  const id = req.params.id;
+  const docSnap = await db().collection("campaigns").doc(id).get();
+  if (!docSnap.exists || docSnap.data()!.organizationId !== orgId) {
     res.status(404).json({ error: "Campaign not found" });
     return;
   }
-  // Build recipient list from segment
-  const entity = c.segment?.entity ?? "leads";
-  const filters = c.segment?.filters ?? {};
-  let recipients: { email: string; name: string; leadId: number | null; clientId: number | null }[] = [];
+  const cData = docSnap.data()!;
+  const c = { id: docSnap.id, ...cData };
+  const entity = (cData.segment as Record<string, unknown>)?.entity ?? "leads";
+  const filters = ((cData.segment as Record<string, unknown>)?.filters ?? {}) as Record<string, string>;
+  let recipients: { email: string; name: string; leadId: string | null; clientId: string | null }[] = [];
   if (entity === "leads") {
-    const rows = await db.select().from(leadsTable).where(eq(leadsTable.organizationId, orgId));
-    recipients = rows
+    const leadsSnap = await db().collection("leads").where("organizationId", "==", orgId).get();
+    recipients = leadsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>))
       .filter((r) => (filters.status ? r.status === filters.status : true))
       .filter((r) => (filters.priority ? r.priority === filters.priority : true))
       .filter((r) => !!r.email)
-      .map((r) => ({ email: r.email!, name: r.name, leadId: r.id, clientId: null }));
+      .map((r) => ({ email: r.email as string, name: r.name as string, leadId: r.id as string, clientId: null }));
   } else {
-    const rows = await db.select().from(clientsTable).where(eq(clientsTable.organizationId, orgId));
-    recipients = rows
+    const clientsSnap = await db().collection("clients").where("organizationId", "==", orgId).get();
+    recipients = clientsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>))
       .filter((r) => !!r.email)
-      .map((r) => ({ email: r.email!, name: r.name, leadId: null, clientId: r.id }));
+      .map((r) => ({ email: r.email as string, name: r.name as string, leadId: null, clientId: r.id as string }));
   }
   // Filter out suppressed emails
-  const supp = await db
-    .select({ email: emailSuppressionsTable.email })
-    .from(emailSuppressionsTable)
-    .where(eq(emailSuppressionsTable.organizationId, orgId));
-  const suppressedSet = new Set(supp.map((s) => s.email.toLowerCase()));
+  const suppSnap = await db().collection("email_suppressions").where("organizationId", "==", orgId).get();
+  const suppressedSet = new Set(suppSnap.docs.map((d) => (d.data().email as string).toLowerCase()));
   recipients = recipients.filter((r) => !suppressedSet.has(r.email.toLowerCase()));
 
   // A/B split if enabled
-  const abEnabled = Boolean(c.abEnabled) && c.subjectB;
-  const splitPct = Math.max(0, Math.min(100, Number(c.abSplitPercent ?? 50)));
-  // Insert recipients + outbound email rows (status: sent in MVP)
+  const abEnabled = Boolean(cData.abEnabled) && cData.subjectB;
+  const splitPct = Math.max(0, Math.min(100, Number(cData.abSplitPercent ?? 50)));
   for (let i = 0; i < recipients.length; i++) {
     const r = recipients[i];
     const variant: "a" | "b" = abEnabled && (i * 100) / Math.max(1, recipients.length) >= splitPct ? "b" : "a";
-    const useSubject = variant === "b" && c.subjectB ? c.subjectB : c.subject;
-    const useBody = variant === "b" && c.bodyB ? c.bodyB : c.body;
-    const [rec] = await db
-      .insert(campaignRecipientsTable)
-      .values({
-        campaignId: id,
-        organizationId: orgId,
-        email: r.email,
-        name: r.name,
-        leadId: r.leadId,
-        clientId: r.clientId,
-        status: "sent",
-        variant: abEnabled ? variant : undefined,
-        sentAt: new Date(),
-      })
-      .returning();
-    await db.insert(emailsTable).values({
+    const useSubject = variant === "b" && cData.subjectB ? cData.subjectB : cData.subject;
+    const useBody = variant === "b" && cData.bodyB ? cData.bodyB : cData.body;
+    const recRef = await db().collection("campaign_recipients").add({
+      campaignId: id,
+      organizationId: orgId,
+      email: r.email,
+      name: r.name,
+      leadId: r.leadId,
+      clientId: r.clientId,
+      status: "sent",
+      variant: abEnabled ? variant : null,
+      sentAt: new Date().toISOString(),
+    });
+    await db().collection("emails").add({
       organizationId: orgId,
       leadId: r.leadId,
       clientId: r.clientId,
       userId: req.user!.userId,
       direction: "outbound",
-      fromEmail: c.fromEmail,
+      fromEmail: cData.fromEmail,
       toEmail: r.email,
       subject: useSubject,
       body: useBody,
       status: "sent",
-      sentAt: new Date(),
-      messageId: `<campaign-${id}-rec-${rec.id}@msme-pro>`,
+      sentAt: new Date().toISOString(),
+      messageId: `<campaign-${id}-rec-${recRef.id}@msme-pro>`,
+      createdAt: new Date().toISOString(),
     });
   }
-  const [updated] = await db
-    .update(campaignsTable)
-    .set({
-      status: "sent",
-      sentAt: new Date(),
-      stats: { total: recipients.length, sent: recipients.length, opened: 0, clicked: 0 },
-      updatedAt: new Date(),
-    })
-    .where(eq(campaignsTable.id, id))
-    .returning();
+  await db().collection("campaigns").doc(id).update({
+    status: "sent",
+    sentAt: new Date().toISOString(),
+    stats: { total: recipients.length, sent: recipients.length, opened: 0, clicked: 0 },
+    updatedAt: new Date().toISOString(),
+  });
+  const updatedSnap = await db().collection("campaigns").doc(id).get();
+  const updated = { id: updatedSnap.id, ...updatedSnap.data() };
   await logAction(req, "SEND_CAMPAIGN", "campaign", id, `Sent to ${recipients.length}`);
   res.json(fmt(updated));
 });

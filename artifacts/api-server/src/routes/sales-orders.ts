@@ -1,18 +1,5 @@
 import { Router } from "express";
-import {
-  db,
-  salesOrdersTable,
-  salesOrderItemsTable,
-  quotationsTable,
-  quotationItemsTable,
-  clientsTable,
-  itemsTable,
-  warehousesTable,
-  organizationsTable,
-  DEFAULT_SALES_SETTINGS,
-  type OrgSalesSettings,
-} from "@workspace/db";
-import { and, eq, desc, inArray } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import {
@@ -22,63 +9,62 @@ import {
   getReservedStock,
   setReservationsForSO,
   clearReservationsForSO,
-  type DbOrTx,
 } from "../lib/stockEngine";
 
-async function getSalesSettings(organizationId: number): Promise<OrgSalesSettings> {
-  const [org] = await db
-    .select({ salesSettings: organizationsTable.salesSettings })
-    .from(organizationsTable)
-    .where(eq(organizationsTable.id, organizationId));
+const db = () => getDb();
+
+const DEFAULT_SALES_SETTINGS = {
+  allowOverselling: false,
+  reserveStockOnDraft: false,
+} as const;
+
+type OrgSalesSettings = Record<keyof typeof DEFAULT_SALES_SETTINGS, boolean>;
+
+async function getSalesSettings(organizationId: string): Promise<OrgSalesSettings> {
+  const orgDoc = await db().collection("organizations").doc(organizationId).get();
+  const org = orgDoc.exists ? orgDoc.data() : null;
   return { ...DEFAULT_SALES_SETTINGS, ...(org?.salesSettings ?? {}) };
 }
 
-async function resolveSOWarehouse(organizationId: number, soWarehouseId: number | null): Promise<number> {
+async function resolveSOWarehouse(organizationId: string, soWarehouseId: string | null): Promise<string> {
   if (soWarehouseId) return soWarehouseId;
-  return ensureDefaultWarehouse(organizationId);
+  return ensureDefaultWarehouse(organizationId as any) as any;
 }
 
-/**
- * Post stock movements for an explicit snapshot of SO lines, in an explicit warehouse,
- * optionally under a transaction. Reversal callers pass the PRE-CHANGE snapshot (lines +
- * warehouse the stock was originally deducted from) so the ledger is symmetric.
- */
 async function postSOMovements(opts: {
-  organizationId: number;
-  salesOrderId: number;
-  lines: Array<{ itemId: number | null; quantity: number }>;
-  warehouseId: number;
+  organizationId: string;
+  salesOrderId: string;
+  lines: Array<{ itemId: string | null; quantity: number }>;
+  warehouseId: string;
   direction: "in" | "out";
   reason: "sale" | "return";
-  userId: number;
-  executor: DbOrTx;
+  userId: string;
 }) {
-  const linkedIds = opts.lines.map((i) => i.itemId).filter((x): x is number => x != null);
+  const linkedIds = opts.lines.map((i) => i.itemId).filter((x): x is string => x != null);
   if (linkedIds.length === 0) return;
+  const itemDocs = await Promise.all(
+    linkedIds.map((id) => db().collection("items").doc(id).get()),
+  );
   const linkedMap = new Map(
-    (
-      await (opts.executor as typeof db)
-        .select()
-        .from(itemsTable)
-        .where(and(eq(itemsTable.organizationId, opts.organizationId), inArray(itemsTable.id, linkedIds)))
-    ).map((it) => [it.id, it]),
+    itemDocs
+      .filter((d) => d.exists && (d.data() as any).organizationId === opts.organizationId)
+      .map((d) => [d.id, { id: d.id, ...d.data() }]),
   );
   for (const it of opts.lines) {
     if (!it.itemId) continue;
     const linked = linkedMap.get(it.itemId);
     if (!linked) continue;
     await recordMovement({
-      organizationId: opts.organizationId,
-      itemId: it.itemId,
-      warehouseId: opts.warehouseId,
+      organizationId: opts.organizationId as any,
+      itemId: it.itemId as any,
+      warehouseId: opts.warehouseId as any,
       direction: opts.direction,
       quantity: it.quantity,
       unitCost: Number(linked.avgCost),
       reason: opts.reason,
       referenceType: "sales_order",
-      referenceId: opts.salesOrderId,
-      createdById: opts.userId,
-      executor: opts.executor,
+      referenceId: opts.salesOrderId as any,
+      createdById: opts.userId as any,
     });
   }
 }
@@ -90,15 +76,17 @@ function genNumber() {
   return `SO-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-${Math.floor(Math.random() * 9000) + 1000}`;
 }
 
-async function fmt(s: typeof salesOrdersTable.$inferSelect) {
-  const client = s.clientId
-    ? (await db.select().from(clientsTable).where(eq(clientsTable.id, s.clientId)))[0]
-    : null;
+async function fmt(s: Record<string, any>) {
+  let clientName: string | null = null;
+  if (s.clientId) {
+    const clientDoc = await db().collection("clients").doc(s.clientId).get();
+    if (clientDoc.exists) clientName = (clientDoc.data() as any).name ?? null;
+  }
   return {
     id: s.id,
     orderNumber: s.orderNumber,
     clientId: s.clientId ?? null,
-    clientName: client?.name ?? null,
+    clientName,
     quotationId: s.quotationId ?? null,
     warehouseId: s.warehouseId ?? null,
     status: s.status,
@@ -106,63 +94,51 @@ async function fmt(s: typeof salesOrdersTable.$inferSelect) {
     discountAmount: Number(s.discountAmount),
     taxAmount: Number(s.taxAmount),
     total: Number(s.total),
-    expectedDeliveryAt: s.expectedDeliveryAt?.toISOString() ?? null,
+    expectedDeliveryAt: s.expectedDeliveryAt ?? null,
     notes: s.notes ?? null,
-    createdAt: s.createdAt.toISOString(),
-    updatedAt: s.updatedAt.toISOString(),
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
   };
 }
 
-async function recalc(soId: number) {
-  const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, soId));
-  const subtotal = items.reduce((acc, i) => acc + Number(i.totalPrice), 0);
+async function recalc(soId: string) {
+  const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", soId).get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const subtotal = items.reduce((acc: number, i: any) => acc + Number(i.totalPrice), 0);
   const tax = subtotal * 0.18;
-  await db
-    .update(salesOrdersTable)
-    .set({
-      subtotal: subtotal.toFixed(2),
-      taxAmount: tax.toFixed(2),
-      total: (subtotal + tax).toFixed(2),
-      updatedAt: new Date(),
-    })
-    .where(eq(salesOrdersTable.id, soId));
+  await db().collection("sales_orders").doc(soId).update({
+    subtotal: subtotal.toFixed(2),
+    taxAmount: tax.toFixed(2),
+    total: (subtotal + tax).toFixed(2),
+    updatedAt: new Date().toISOString(),
+  });
 }
 
-salesOrdersRouter.get("/sales-orders", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const rows = await db
-    .select()
-    .from(salesOrdersTable)
-    .where(eq(salesOrdersTable.organizationId, orgId))
-    .orderBy(desc(salesOrdersTable.createdAt));
-  res.json(await Promise.all(rows.map(fmt)));
-});
-
 async function validateSOOwnership(
-  orgId: number,
-  b: { warehouseId?: number | null; items?: Array<{ itemId?: number | null }> },
+  orgId: string,
+  b: { warehouseId?: string | null; items?: Array<{ itemId?: string | null }> },
 ): Promise<string | null> {
   if (b.warehouseId) {
-    const [w] = await db
-      .select()
-      .from(warehousesTable)
-      .where(and(eq(warehousesTable.id, b.warehouseId), eq(warehousesTable.organizationId, orgId)));
-    if (!w) return "Invalid warehouse";
+    const wDoc = await db().collection("warehouses").doc(b.warehouseId).get();
+    if (!wDoc.exists || (wDoc.data() as any).organizationId !== orgId) return "Invalid warehouse";
   }
   if (Array.isArray(b.items)) {
-    const ids = Array.from(
-      new Set(b.items.map((i) => i.itemId).filter((x): x is number => x != null)),
-    );
+    const ids = Array.from(new Set(b.items.map((i) => i.itemId).filter((x): x is string => x != null)));
     if (ids.length > 0) {
-      const owned = await db
-        .select({ id: itemsTable.id })
-        .from(itemsTable)
-        .where(and(eq(itemsTable.organizationId, orgId), inArray(itemsTable.id, ids)));
-      if (owned.length !== ids.length) return "One or more items not found in this organization";
+      const itemDocs = await Promise.all(ids.map((id) => db().collection("items").doc(id).get()));
+      const ownedCount = itemDocs.filter((d) => d.exists && (d.data() as any).organizationId === orgId).length;
+      if (ownedCount !== ids.length) return "One or more items not found in this organization";
     }
   }
   return null;
 }
+
+salesOrdersRouter.get("/sales-orders", requireAuth, async (req, res) => {
+  const orgId = req.user!.organizationId;
+  const snap = await db().collection("sales_orders").where("organizationId", "==", orgId).orderBy("createdAt", "desc").get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  res.json(await Promise.all(rows.map(fmt)));
+});
 
 salesOrdersRouter.post("/sales-orders", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
@@ -172,96 +148,100 @@ salesOrdersRouter.post("/sales-orders", requireAuth, async (req, res) => {
     res.status(400).json({ error: ownErr });
     return;
   }
-  // Force new SOs to start in `draft`. Confirmation (which deducts stock) must
-  // happen via PATCH so the ledger update runs through a single, audited path.
   if (b.status !== undefined && b.status !== "draft") {
     res
       .status(400)
       .json({ error: "Sales orders must be created in draft. Confirm via PATCH to deduct stock." });
     return;
   }
-  const [s] = await db
-    .insert(salesOrdersTable)
-    .values({
-      organizationId: orgId,
-      orderNumber: genNumber(),
-      clientId: b.clientId ?? null,
-      warehouseId: b.warehouseId ?? null,
-      status: "draft",
-      expectedDeliveryAt: b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt) : null,
-      notes: b.notes ?? null,
-      createdById: req.user!.userId,
-    })
-    .returning();
+  const now = new Date().toISOString();
+  const soData = {
+    organizationId: orgId,
+    orderNumber: genNumber(),
+    clientId: b.clientId ?? null,
+    warehouseId: b.warehouseId ?? null,
+    status: "draft",
+    subtotal: "0",
+    discountAmount: "0",
+    taxAmount: "0",
+    total: "0",
+    expectedDeliveryAt: b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt).toISOString() : null,
+    notes: b.notes ?? null,
+    createdById: req.user!.userId,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const soRef = await db().collection("sales_orders").add(soData);
+  const s = { id: soRef.id, ...soData };
+
   if (Array.isArray(b.items) && b.items.length > 0) {
-    await db.insert(salesOrderItemsTable).values(
-      b.items.map((it: { itemId?: number | null; description: string; quantity: number; unitPrice: number }) => ({
-        salesOrderId: s.id,
-        itemId: it.itemId ?? null,
-        description: it.description,
-        quantity: it.quantity,
-        unitPrice: String(it.unitPrice),
-        totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-      })),
+    const itemPromises = b.items.map(
+      async (it: { itemId?: string | null; description: string; quantity: number; unitPrice: number }) => {
+        const itemData = {
+          salesOrderId: s.id,
+          itemId: it.itemId ?? null,
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: String(it.unitPrice),
+          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+        };
+        const ref = await db().collection("sales_order_items").add(itemData);
+        return { id: ref.id, ...itemData };
+      },
     );
+    await Promise.all(itemPromises);
     await recalc(s.id);
   }
-  // New draft SOs that ship with linked lines should reserve immediately when
-  // the org opts in. The PATCH path handles the same logic atomically; this
-  // mirrors it for the create path.
+
   const settings = await getSalesSettings(orgId);
   if (settings.reserveStockOnDraft && Array.isArray(b.items) && b.items.length > 0) {
     const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
-    await db.transaction(async (tx) => {
-      await setReservationsForSO({
-        organizationId: orgId,
-        salesOrderId: s.id,
-        lines: b.items.map((it: { itemId?: number | null; quantity: number }) => ({
-          itemId: it.itemId ?? null,
-          quantity: it.quantity,
-        })),
-        warehouseId: whId,
-        executor: tx,
-      });
-    });
+    await setReservationsForSO({
+      organizationId: orgId as any,
+      salesOrderId: s.id as any,
+      lines: b.items.map((it: { itemId?: string | null; quantity: number }) => ({
+        itemId: it.itemId as any,
+        quantity: it.quantity,
+      })),
+      warehouseId: whId as any,
+    } as any);
   }
-  const [updated] = await db.select().from(salesOrdersTable).where(eq(salesOrdersTable.id, s.id));
-  await logAction(req, "CREATE", "sales_order", s.id);
+
+  const updatedDoc = await db().collection("sales_orders").doc(s.id).get();
+  const updated = { id: updatedDoc.id, ...updatedDoc.data() };
+  await logAction(req, "CREATE", "sales_order", s.id as any);
   res.status(201).json(await fmt(updated));
 });
 
 salesOrdersRouter.get("/sales-orders/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
-  const [s] = await db
-    .select()
-    .from(salesOrdersTable)
-    .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.organizationId, orgId)));
-  if (!s) {
+  const id = req.params.id;
+  const soDoc = await db().collection("sales_orders").doc(id).get();
+  if (!soDoc.exists || (soDoc.data() as any).organizationId !== orgId) {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-  const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
-  // Per-line stock availability for every warehouse in the org. The editor
-  // uses this to highlight oversell risk and surface alternative warehouses.
+  const s = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
+
+  const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
   const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
-  const warehouses = await db
-    .select()
-    .from(warehousesTable)
-    .where(eq(warehousesTable.organizationId, orgId));
+  const warehousesSnap = await db().collection("warehouses").where("organizationId", "==", orgId).get();
+  const warehouses = warehousesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
   const linkedItemIds = Array.from(
-    new Set(items.map((i) => i.itemId).filter((x): x is number => x != null)),
+    new Set(items.map((i: any) => i.itemId).filter((x): x is string => x != null)),
   );
-  const availability = new Map<number, Array<{ warehouseId: number; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }>>();
+  const availability = new Map<string, Array<{ warehouseId: string; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }>>();
   for (const itemId of linkedItemIds) {
-    const rows: Array<{ warehouseId: number; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }> = [];
+    const rows: Array<{ warehouseId: string; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }> = [];
     for (const wh of warehouses) {
-      const onHand = await getStockLevel(orgId, itemId, wh.id);
-      // Exclude THIS SO's own reservations so a draft doesn't appear to block itself.
-      const reserved = await getReservedStock(orgId, itemId, wh.id, id);
+      const onHand = await getStockLevel(orgId as any, itemId as any, wh.id as any);
+      const reserved = await getReservedStock(orgId as any, itemId as any, wh.id as any, id as any);
       rows.push({
         warehouseId: wh.id,
-        warehouseName: wh.name,
+        warehouseName: (wh as any).name,
         isOrderWarehouse: wh.id === whId,
         onHand,
         reserved,
@@ -270,38 +250,38 @@ salesOrdersRouter.get("/sales-orders/:id", requireAuth, async (req, res) => {
     }
     availability.set(itemId, rows);
   }
+
   res.json({
     ...(await fmt(s)),
-    items: items.map((i) => ({
+    items: items.map((i: any) => ({
       id: i.id,
       itemId: i.itemId ?? null,
       description: i.description,
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
       totalPrice: Number(i.totalPrice),
-      availability: i.itemId ? availability.get(i.itemId) ?? [] : [],
+      availability: i.itemId ? (availability.get(i.itemId) ?? []) : [],
     })),
   });
 });
 
 salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const id = Number(req.params.id);
+  const id = req.params.id;
   const b = req.body ?? {};
   const ownErr = await validateSOOwnership(orgId, b);
   if (ownErr) {
     res.status(400).json({ error: ownErr });
     return;
   }
-  const [prev] = await db
-    .select()
-    .from(salesOrdersTable)
-    .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.organizationId, orgId)));
-  if (!prev) {
+
+  const prevDoc = await db().collection("sales_orders").doc(id).get();
+  if (!prevDoc.exists || (prevDoc.data() as any).organizationId !== orgId) {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-  // Conflict-check BEFORE any writes
+  const prev = { id: prevDoc.id, ...prevDoc.data() } as Record<string, any>;
+
   const wasActive = ["confirmed", "in_production", "delivered"].includes(prev.status);
   const stillActive =
     b.status === undefined || ["confirmed", "in_production", "delivered"].includes(b.status);
@@ -309,8 +289,6 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     res.status(409).json({ error: "Revert sales order to draft before editing line items" });
     return;
   }
-  // Warehouse changes on active SOs would desync per-warehouse ledger balances
-  // (deduction warehouse ≠ restoration warehouse). Require a draft revert.
   if (
     b.warehouseId !== undefined &&
     b.warehouseId !== prev.warehouseId &&
@@ -322,21 +300,17 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
       .json({ error: "Revert sales order to draft before changing warehouse" });
     return;
   }
-  // Snapshot pre-change lines + warehouse for compensating movements
-  const prevLines = (
-    await db
-      .select()
-      .from(salesOrderItemsTable)
-      .where(eq(salesOrderItemsTable.salesOrderId, id))
-  ).map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
+
+  const prevLinesSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+  const prevLines = prevLinesSnap.docs.map((d) => ({ itemId: (d.data() as any).itemId ?? null, quantity: (d.data() as any).quantity }));
   const prevWarehouseId = await resolveSOWarehouse(orgId, prev.warehouseId ?? null);
 
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   for (const f of ["clientId", "warehouseId", "status", "notes"] as const) {
     if (b[f] !== undefined) updates[f] = b[f];
   }
-  if (b.expectedDeliveryAt !== undefined) updates.expectedDeliveryAt = b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt) : null;
-  // SO header update + item replacement + stock compensation must be atomic.
+  if (b.expectedDeliveryAt !== undefined) updates.expectedDeliveryAt = b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt).toISOString() : null;
+
   const becomingActive =
     b.status !== undefined &&
     !wasActive &&
@@ -344,22 +318,15 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
   const becomingDead =
     b.status !== undefined && wasActive && ["cancelled", "draft"].includes(b.status);
   const settings = await getSalesSettings(orgId);
-  // Reservations only apply to drafts. Anything else holds stock via ledger.
   const willEndAsDraft = b.status !== undefined ? b.status === "draft" : prev.status === "draft";
   const willBeCancelled =
     b.status !== undefined ? b.status === "cancelled" : prev.status === "cancelled";
+
   try {
-    await db.transaction(async (tx) => {
-      // 1) Apply header updates inside the tx
-      await tx
-        .update(salesOrdersTable)
-        .set(updates)
-        .where(
-          and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.organizationId, orgId)),
-        );
+    await db().runTransaction(async (tx) => {
+      tx.update(db().collection("sales_orders").doc(id), updates);
+
       if (becomingDead) {
-        // Reverse against the PRE-CHANGE snapshot (the lines/warehouse the
-        // stock was actually deducted from on the prior confirm).
         await postSOMovements({
           organizationId: orgId,
           salesOrderId: id,
@@ -368,87 +335,78 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
           direction: "in",
           reason: "return",
           userId: req.user!.userId,
-          executor: tx,
         });
       }
+
       if (Array.isArray(b.items)) {
-        await tx.delete(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
-        if (b.items.length > 0) {
-          await tx.insert(salesOrderItemsTable).values(
-            b.items.map(
-              (it: { itemId?: number | null; description: string; quantity: number; unitPrice: number }) => ({
-                salesOrderId: id,
-                itemId: it.itemId ?? null,
-                description: it.description,
-                quantity: it.quantity,
-                unitPrice: String(it.unitPrice),
-                totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-              }),
-            ),
-          );
+        const existingSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+        for (const doc of existingSnap.docs) {
+          tx.delete(doc.ref);
         }
-        // Recompute totals inline within the same tx
-        const lines = await tx
-          .select()
-          .from(salesOrderItemsTable)
-          .where(eq(salesOrderItemsTable.salesOrderId, id));
-        const subtotal = lines.reduce((acc, l) => acc + Number(l.totalPrice), 0);
-        const total = subtotal; // no discount/tax on SO directly
-        await tx
-          .update(salesOrdersTable)
-          .set({ subtotal: subtotal.toFixed(2), total: total.toFixed(2), updatedAt: new Date() })
-          .where(eq(salesOrdersTable.id, id));
+        if (b.items.length > 0) {
+          for (const it of b.items) {
+            const itemData = {
+              salesOrderId: id,
+              itemId: it.itemId ?? null,
+              description: it.description,
+              quantity: it.quantity,
+              unitPrice: String(it.unitPrice),
+              totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+            };
+            const ref = db().collection("sales_order_items").doc();
+            tx.set(ref, itemData);
+          }
+        }
+
+        const linesSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+        const lines = linesSnap.docs.map((d) => d.data());
+        const subtotal = lines.reduce((acc: number, l: any) => acc + Number(l.totalPrice), 0);
+        const total = subtotal;
+        tx.update(db().collection("sales_orders").doc(id), {
+          subtotal: subtotal.toFixed(2),
+          total: total.toFixed(2),
+          updatedAt: new Date().toISOString(),
+        });
       }
+
       if (becomingActive) {
-        // Forward dispatch uses CURRENT lines + (possibly new) warehouse
-        const currentRows = await tx
-          .select()
-          .from(salesOrderItemsTable)
-          .where(eq(salesOrderItemsTable.salesOrderId, id));
-        // Linkage invariant: every SO line must point at an inventory item
-        // before confirmation. Otherwise stock control is silently bypassed.
+        const currentRowsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+        const currentRows = currentRowsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const unlinked = currentRows
-          .filter((l) => l.itemId == null)
-          .map((l) => ({ id: l.id, description: l.description, quantity: l.quantity }));
+          .filter((l: any) => l.itemId == null)
+          .map((l: any) => ({ id: l.id, description: l.description, quantity: l.quantity }));
         if (unlinked.length > 0) {
           const err = new Error("UNLINKED_LINES");
-          (err as unknown as { unlinkedLines: typeof unlinked }).unlinkedLines = unlinked;
+          (err as any).unlinkedLines = unlinked;
           throw err;
         }
-        const currentLines = currentRows.map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
-        const [refreshed] = await tx
-          .select()
-          .from(salesOrdersTable)
-          .where(eq(salesOrdersTable.id, id));
+        const currentLines = currentRows.map((l: any) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
+
+        const refreshedDoc = await db().collection("sales_orders").doc(id).get();
+        const refreshed = refreshedDoc.data() as Record<string, any>;
         const whId = await resolveSOWarehouse(orgId, refreshed.warehouseId ?? null);
-        // Stock-availability invariant: prevent overselling. Aggregate
-        // requested qty per linked item and compare to current stock in the
-        // dispatching warehouse. Lines without `itemId` are not tracked
-        // (logged as a server warning by existing dispatch path).
-        const need = new Map<number, number>();
+
+        const need = new Map<string, number>();
         for (const l of currentLines) {
           if (!l.itemId) continue;
           need.set(l.itemId, (need.get(l.itemId) ?? 0) + l.quantity);
         }
-        const shortages: Array<{ itemId: number; needed: number; available: number }> = [];
+        const shortages: Array<{ itemId: string; needed: number; available: number }> = [];
         for (const [itemId, needed] of need) {
-          const have = await getStockLevel(orgId, itemId, whId, tx);
-          // Reservations from *other* SOs eat into available stock too — a
-          // concurrent draft that's already reserved 5 units shouldn't be
-          // overwritten silently.
-          const reserved = await getReservedStock(orgId, itemId, whId, id, tx);
+          const have = await getStockLevel(orgId as any, itemId as any, whId as any);
+          const reserved = await getReservedStock(orgId as any, itemId as any, whId as any, id as any);
           const available = have - reserved;
           if (available < needed) shortages.push({ itemId, needed, available });
         }
         if (shortages.length > 0 && !settings.allowOverselling) {
-          // Aborts the transaction and surfaces a structured 409 below.
           const err = new Error("INSUFFICIENT_STOCK");
-          (err as unknown as { shortages: typeof shortages }).shortages = shortages;
+          (err as any).shortages = shortages;
           throw err;
         }
         if (shortages.length > 0) {
           req.log.warn({ shortages, salesOrderId: id }, "SO confirmed with overselling allowed");
         }
+
         await postSOMovements({
           organizationId: orgId,
           salesOrderId: id,
@@ -457,38 +415,27 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
           direction: "out",
           reason: "sale",
           userId: req.user!.userId,
-          executor: tx,
         });
-        // Real stock movement now holds the qty; soft-hold no longer needed.
-        await clearReservationsForSO(orgId, id, tx);
+        await clearReservationsForSO(orgId as any, id as any);
       }
-      // Reservation lifecycle: only drafts can hold soft reservations, and
-      // only when the org has opted in. Cancelled SOs always clear.
+
       if (willBeCancelled) {
-        await clearReservationsForSO(orgId, id, tx);
+        await clearReservationsForSO(orgId as any, id as any);
       } else if (willEndAsDraft) {
         if (settings.reserveStockOnDraft) {
-          const finalLines = (
-            await tx
-              .select()
-              .from(salesOrderItemsTable)
-              .where(eq(salesOrderItemsTable.salesOrderId, id))
-          ).map((l) => ({ itemId: l.itemId ?? null, quantity: l.quantity }));
-          const [refreshed] = await tx
-            .select()
-            .from(salesOrdersTable)
-            .where(eq(salesOrdersTable.id, id));
+          const finalLinesSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+          const finalLines = finalLinesSnap.docs.map((d) => ({ itemId: (d.data() as any).itemId ?? null, quantity: (d.data() as any).quantity }));
+          const refreshedDoc = await db().collection("sales_orders").doc(id).get();
+          const refreshed = refreshedDoc.data() as Record<string, any>;
           const whId = await resolveSOWarehouse(orgId, refreshed.warehouseId ?? null);
           await setReservationsForSO({
-            organizationId: orgId,
-            salesOrderId: id,
-            lines: finalLines,
-            warehouseId: whId,
-            executor: tx,
-          });
+            organizationId: orgId as any,
+            salesOrderId: id as any,
+            lines: finalLines.map((l) => ({ itemId: l.itemId as any, quantity: l.quantity })),
+            warehouseId: whId as any,
+          } as any);
         } else {
-          // Toggle was turned off mid-flight — drop any holdovers.
-          await clearReservationsForSO(orgId, id, tx);
+          await clearReservationsForSO(orgId as any, id as any);
         }
       }
     });
@@ -513,74 +460,73 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Sales order update failed; no changes applied" });
     return;
   }
-  const [updated] = await db.select().from(salesOrdersTable).where(eq(salesOrdersTable.id, id));
+
+  const updatedDoc = await db().collection("sales_orders").doc(id).get();
+  const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
   res.json(await fmt(updated));
 });
 
 salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const qid = Number(req.params.quotationId);
-  const [q] = await db
-    .select()
-    .from(quotationsTable)
-    .where(and(eq(quotationsTable.id, qid), eq(quotationsTable.organizationId, orgId)));
-  if (!q) {
+  const qid = req.params.quotationId;
+
+  const qDoc = await db().collection("quotations").doc(qid).get();
+  if (!qDoc.exists || (qDoc.data() as any).organizationId !== orgId) {
     res.status(404).json({ error: "Quotation not found" });
     return;
   }
-  const items = await db.select().from(quotationItemsTable).where(eq(quotationItemsTable.quotationId, qid));
-  const [s] = await db
-    .insert(salesOrdersTable)
-    .values({
-      organizationId: orgId,
-      orderNumber: genNumber(),
-      clientId: q.clientId,
-      quotationId: qid,
-      // Created as draft; user must confirm via PATCH (which will deduct stock
-      // for any lines explicitly linked to inventory items).
-      status: "draft",
-      subtotal: q.subtotal,
-      discountAmount: q.discountAmount,
-      taxAmount: q.taxAmount,
-      total: q.total,
-      createdById: req.user!.userId,
-    })
-    .returning();
+  const q = { id: qDoc.id, ...qDoc.data() } as Record<string, any>;
+
+  const itemsSnap = await db().collection("quotation_items").where("quotationId", "==", qid).get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  const now = new Date().toISOString();
+  const soData = {
+    organizationId: orgId,
+    orderNumber: genNumber(),
+    clientId: q.clientId,
+    quotationId: qid,
+    status: "draft",
+    subtotal: q.subtotal,
+    discountAmount: q.discountAmount,
+    taxAmount: q.taxAmount,
+    total: q.total,
+    createdById: req.user!.userId,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const soRef = await db().collection("sales_orders").add(soData);
+  const s = { id: soRef.id, ...soData };
+
   if (items.length > 0) {
-    // Carry the inventory item linkage straight across from the quotation
-    // line. Lines without a linked item stay unlinked and will be flagged at
-    // SO confirm time.
-    await db.insert(salesOrderItemsTable).values(
-      items.map((i) => ({
+    for (const i of items) {
+      const itemData = {
         salesOrderId: s.id,
         itemId: i.itemId ?? null,
         description: i.description,
         quantity: i.quantity,
         unitPrice: i.unitPrice,
         totalPrice: i.totalPrice,
-      })),
-    );
+      };
+      await db().collection("sales_order_items").add(itemData);
+    }
   }
-  // Mirror the POST /sales-orders create path: when the org opts in to
-  // reserving stock on drafts, promote-from-quotation must also create
-  // soft holds for any linked lines so a concurrent SO can't double-book.
+
   const settings = await getSalesSettings(orgId);
   if (settings.reserveStockOnDraft && items.length > 0) {
     const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
-    await db.transaction(async (tx) => {
-      await setReservationsForSO({
-        organizationId: orgId,
-        salesOrderId: s.id,
-        lines: items.map((i) => ({
-          itemId: i.itemId ?? null,
-          quantity: Number(i.quantity),
-        })),
-        warehouseId: whId,
-        executor: tx,
-      });
-    });
+    await setReservationsForSO({
+      organizationId: orgId as any,
+      salesOrderId: s.id as any,
+      lines: items.map((i: any) => ({
+        itemId: i.itemId as any,
+        quantity: Number(i.quantity),
+      })),
+      warehouseId: whId as any,
+    } as any);
   }
-  await logAction(req, "PROMOTE", "sales_order", s.id, `From quotation ${q.quotationNumber}`);
+
+  await logAction(req, "PROMOTE", "sales_order", s.id as any, `From quotation ${q.quotationNumber}`);
   res.status(201).json(await fmt(s));
 });
 

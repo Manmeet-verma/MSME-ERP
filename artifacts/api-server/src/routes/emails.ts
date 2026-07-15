@@ -1,13 +1,14 @@
 import { Router } from "express";
-import { db, emailsTable, leadsTable, clientsTable, leadActivitiesTable } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { logAction } from "../lib/auditLog";
 
+const db = () => getDb();
+
 const emailsRouter = Router();
 
-function fmt(e: typeof emailsTable.$inferSelect) {
+function fmt(e: Record<string, any>) {
   return {
     id: e.id,
     leadId: e.leadId ?? null,
@@ -19,22 +20,20 @@ function fmt(e: typeof emailsTable.$inferSelect) {
     body: e.body,
     status: e.status,
     threadId: e.threadId ?? null,
-    openedAt: e.openedAt?.toISOString() ?? null,
-    clickedAt: e.clickedAt?.toISOString() ?? null,
-    sentAt: e.sentAt?.toISOString() ?? null,
-    createdAt: e.createdAt.toISOString(),
+    openedAt: e.openedAt ?? null,
+    clickedAt: e.clickedAt ?? null,
+    sentAt: e.sentAt ?? null,
+    createdAt: e.createdAt ?? new Date().toISOString(),
   };
 }
 
 emailsRouter.get("/emails", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const leadId = req.query.leadId ? Number(req.query.leadId) : null;
-  const clientId = req.query.clientId ? Number(req.query.clientId) : null;
-  let rows = await db
-    .select()
-    .from(emailsTable)
-    .where(eq(emailsTable.organizationId, orgId))
-    .orderBy(desc(emailsTable.createdAt));
+  const leadId = req.query.leadId ? String(req.query.leadId) : null;
+  const clientId = req.query.clientId ? String(req.query.clientId) : null;
+  const snap = await db().collection("emails").where("organizationId", "==", orgId).get();
+  let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   if (leadId) rows = rows.filter((r) => r.leadId === leadId);
   if (clientId) rows = rows.filter((r) => r.clientId === clientId);
   res.json(rows.map(fmt));
@@ -47,41 +46,41 @@ emailsRouter.post("/emails", requireAuth, async (req, res) => {
     res.status(400).json({ error: "toEmail, subject, body required" });
     return;
   }
-  // For MVP we just record the email; real SMTP would send here.
-  // If SMTP integration exists, status=sent; else queued.
   const fromEmail = req.user!.email;
   const messageId = `<${Date.now()}.${Math.random().toString(36).slice(2)}@msme-pro>`;
-  const [e] = await db
-    .insert(emailsTable)
-    .values({
-      organizationId: orgId,
-      leadId: leadId ?? null,
-      clientId: clientId ?? null,
-      userId: req.user!.userId,
-      direction: "outbound",
-      fromEmail,
-      toEmail,
-      subject,
-      body,
-      status: "sent",
-      messageId,
-      threadId: threadId ?? messageId,
-      sentAt: new Date(),
-    })
-    .returning();
+  const now = new Date().toISOString();
+  const docRef = await db().collection("emails").add({
+    organizationId: orgId,
+    leadId: leadId ?? null,
+    clientId: clientId ?? null,
+    userId: req.user!.userId,
+    direction: "outbound",
+    fromEmail,
+    toEmail,
+    subject,
+    body,
+    status: "sent",
+    messageId,
+    threadId: threadId ?? messageId,
+    sentAt: now,
+    createdAt: now,
+  });
   if (leadId) {
-    await db.insert(leadActivitiesTable).values({
+    await db().collection("lead_activities").add({
       organizationId: orgId,
       leadId,
       type: "email",
       title: `Sent: ${subject}`,
       body,
       userId: req.user!.userId,
+      createdAt: new Date().toISOString(),
     });
-    await db.update(leadsTable).set({ lastContactedAt: new Date() }).where(eq(leadsTable.id, leadId));
+    await db().collection("leads").doc(leadId).update({
+      lastContactedAt: new Date().toISOString(),
+    });
   }
-  await logAction(req, "SEND_EMAIL", "email", e.id, `To ${toEmail}`);
-  res.status(201).json(fmt(e));
+  await logAction(req, "SEND_EMAIL", "email", docRef.id, `To ${toEmail}`);
+  res.status(201).json(fmt({ id: docRef.id, fromEmail, toEmail, subject, body, status: "sent", messageId, threadId: threadId ?? messageId, sentAt: now, createdAt: now, leadId: leadId ?? null, clientId: clientId ?? null, direction: "outbound" }));
 });
 
 emailsRouter.post("/emails/draft", requireAuth, async (req, res) => {
@@ -93,17 +92,21 @@ emailsRouter.post("/emails/draft", requireAuth, async (req, res) => {
   }
   let context = "";
   if (leadId) {
-    const [l] = await db
-      .select()
-      .from(leadsTable)
-      .where(and(eq(leadsTable.id, Number(leadId)), eq(leadsTable.organizationId, orgId)));
-    if (l) context = `Recipient is a lead: ${l.name}${l.company ? " from " + l.company : ""}. Source: ${l.source}. Product interest: ${l.product ?? "unspecified"}.`;
+    const leadSnap = await db().collection("leads").doc(String(leadId)).get();
+    if (leadSnap.exists) {
+      const l = leadSnap.data()!;
+      if (l.organizationId === orgId) {
+        context = `Recipient is a lead: ${l.name}${l.company ? " from " + l.company : ""}. Source: ${l.source}. Product interest: ${l.product ?? "unspecified"}.`;
+      }
+    }
   } else if (clientId) {
-    const [c] = await db
-      .select()
-      .from(clientsTable)
-      .where(and(eq(clientsTable.id, Number(clientId)), eq(clientsTable.organizationId, orgId)));
-    if (c) context = `Recipient is a client: ${c.name}${c.company ? " from " + c.company : ""}.`;
+    const clientSnap = await db().collection("clients").doc(String(clientId)).get();
+    if (clientSnap.exists) {
+      const c = clientSnap.data()!;
+      if (c.organizationId === orgId) {
+        context = `Recipient is a client: ${c.name}${c.company ? " from " + c.company : ""}.`;
+      }
+    }
   }
   const toneText = tone ?? "friendly";
   try {
@@ -119,33 +122,35 @@ emailsRouter.post("/emails/draft", requireAuth, async (req, res) => {
     });
     const text = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     let subject = "Following up";
-    let body = text;
+    let bodyText = text;
     try {
       const jsonStart = text.indexOf("{");
       const jsonEnd = text.lastIndexOf("}");
       if (jsonStart >= 0 && jsonEnd > jsonStart) {
         const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
         if (parsed.subject) subject = parsed.subject;
-        if (parsed.body) body = parsed.body;
+        if (parsed.body) bodyText = parsed.body;
       }
     } catch {
       // fall through
     }
-    res.json({ subject, body });
+    res.json({ subject, body: bodyText });
   } catch (e) {
     res.status(502).json({ error: "AI draft failed: " + (e as Error).message });
   }
 });
 
 emailsRouter.get("/emails/track/open/:id", async (req, res) => {
-  const id = Number(req.params.id);
+  const id = req.params.id;
   if (id) {
-    await db
-      .update(emailsTable)
-      .set({ status: "opened", openedAt: new Date() })
-      .where(and(eq(emailsTable.id, id), eq(emailsTable.openedAt, null as never)));
+    const snap = await db().collection("emails").doc(id).get();
+    if (snap.exists && !snap.data()!.openedAt) {
+      await db().collection("emails").doc(id).update({
+        status: "opened",
+        openedAt: new Date().toISOString(),
+      });
+    }
   }
-  // 1x1 transparent gif
   const gif = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
   res.setHeader("Content-Type", "image/gif");
   res.setHeader("Cache-Control", "no-store");
