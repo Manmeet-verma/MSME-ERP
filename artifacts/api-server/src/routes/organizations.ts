@@ -262,7 +262,7 @@ orgRouter.delete(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    const targetUserId = req.params.userId;
+    const targetUserId = String(req.params.userId);
     if (targetUserId === req.user!.userId) {
       res.status(400).json({ error: "Cannot remove yourself. Transfer ownership first." });
       return;
