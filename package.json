@@ -7,7 +7,7 @@
   },
   "private": true,
   "overrides": {
-    "esbuild": "0.27.3"
+    "esbuild": "0.25.8"
   },
   "devDependencies": {
     "prettier": "^3.8.3",

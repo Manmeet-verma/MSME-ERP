@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
 
   const loginMutation = useLogin({
     mutation: {
@@ -69,10 +70,17 @@ export default function LoginPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                required />
+              <div className="relative">
+                <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  required className="pr-10" />
+                <button type="button" tabIndex={-1}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword((v) => !v)}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
               {loginMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
