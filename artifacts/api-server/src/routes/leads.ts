@@ -62,57 +62,62 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
 });
 
 leadsRouter.post("/leads", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const body = req.body ?? {};
-  if (!body.name && !body.phone) {
-    res.status(400).json({ error: "name or phone required" });
-    return;
+  try {
+    const orgId = req.user!.organizationId;
+    const body = req.body ?? {};
+    if (!body.name && !body.phone) {
+      res.status(400).json({ error: "name or phone required" });
+      return;
+    }
+    const displayName = body.name || body.phone || "Unknown Lead";
+    const now = new Date().toISOString();
+    const initial = {
+      organizationId: orgId,
+      name: displayName,
+      email: body.email ?? null,
+      phone: body.phone ?? null,
+      gstin: body.gstin ?? null,
+      company: body.company ?? null,
+      city: body.city ?? null,
+      state: body.state ?? null,
+      source: body.source ?? "manual",
+      sourceBy: body.sourceBy ?? null,
+      status: body.status ?? "new",
+      budget: body.budget !== undefined && body.budget !== null ? String(body.budget) : null,
+      approxBudget: body.approxBudget ?? null,
+      product: body.product ?? null,
+      notes: body.notes ?? null,
+      assignedToId: body.assignedToId ?? null,
+      createdById: req.user!.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const sc = scoreLead({
+      ...initial,
+      budget: initial.budget ? Number(initial.budget) : null,
+    } as never);
+    const docRef = await db().collection("leads").add({
+      ...initial,
+      priority: sc.priority,
+      score: sc.score,
+      nextAction: sc.nextAction,
+    });
+    const lead = { id: docRef.id, ...initial, priority: sc.priority, score: sc.score, nextAction: sc.nextAction };
+    await db().collection("lead_activities").add({
+      organizationId: orgId,
+      leadId: docRef.id,
+      type: "note",
+      title: "Lead created",
+      body: `Source: ${lead.source}`,
+      userId: req.user!.userId,
+      createdAt: new Date().toISOString(),
+    });
+    await logAction(req, "CREATE", "lead", docRef.id, `Created lead ${lead.name}`);
+    res.status(201).json(formatLead(docRef.id, lead));
+  } catch (err: any) {
+    console.error("POST /leads error:", err);
+    res.status(500).json({ error: err.message ?? "Failed to create lead" });
   }
-  const displayName = body.name || body.phone || "Unknown Lead";
-  const now = new Date().toISOString();
-  const initial = {
-    organizationId: orgId,
-    name: displayName,
-    email: body.email ?? null,
-    phone: body.phone ?? null,
-    gstin: body.gstin ?? null,
-    company: body.company ?? null,
-    city: body.city ?? null,
-    state: body.state ?? null,
-    source: body.source ?? "manual",
-    sourceBy: body.sourceBy ?? null,
-    status: body.status ?? "new",
-    budget: body.budget !== undefined && body.budget !== null ? String(body.budget) : null,
-    approxBudget: body.approxBudget ?? null,
-    product: body.product ?? null,
-    notes: body.notes ?? null,
-    assignedToId: body.assignedToId ?? null,
-    createdById: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const sc = scoreLead({
-    ...initial,
-    budget: initial.budget ? Number(initial.budget) : null,
-  } as never);
-  const docRef = await db().collection("leads").add({
-    ...initial,
-    priority: sc.priority,
-    score: sc.score,
-    nextAction: sc.nextAction,
-  });
-  const lead = { id: docRef.id, ...initial, priority: sc.priority, score: sc.score, nextAction: sc.nextAction };
-  await db().collection("lead_activities").add({
-    organizationId: orgId,
-    leadId: docRef.id,
-    type: "note",
-    title: "Lead created",
-    body: `Source: ${lead.source}`,
-    userId: req.user!.userId,
-    createdAt: new Date().toISOString(),
-  });
-  await logAction(req, "CREATE", "lead", docRef.id, `Created lead ${lead.name}`);
-  res.status(201).json(formatLead(docRef.id, lead));
 });
 
 leadsRouter.get("/leads/:id", requireAuth, async (req, res) => {

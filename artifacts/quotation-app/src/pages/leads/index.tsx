@@ -137,7 +137,10 @@ export default function LeadsPage() {
         setOpen(false);
         setForm(emptyForm);
       },
-      onError() { toast({ title: "Failed to create lead", variant: "destructive" }); },
+      onError(err: any) {
+        const msg = err?.response?.data?.error ?? err?.message ?? "Failed to create lead";
+        toast({ title: msg, variant: "destructive" });
+      },
     },
   });
   const deleteMut = useDeleteLead({
