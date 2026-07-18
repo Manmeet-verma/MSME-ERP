@@ -46,6 +46,27 @@ authRouter.post("/auth/signup", async (req, res) => {
   const normalizedEmail = String(email).trim().toLowerCase();
   const existing = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
   if (!existing.empty) {
+    const existingUser = existing.docs[0].data();
+    const ok = await bcrypt.compare(password, existingUser.passwordHash);
+    if (ok) {
+      const userDoc = existing.docs[0];
+      await userDoc.ref.update({ lastLogin: new Date().toISOString() });
+      const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+      let activeOrgId: string | null = null;
+      const orgs: Array<{ id: string; name: string; slug: string; role: string }> = [];
+      for (const mDoc of memberSnap.docs) {
+        const m = mDoc.data();
+        const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+        if (orgSnap.exists) {
+          const org = orgSnap.data()!;
+          orgs.push({ id: m.organizationId, name: org.name, slug: org.slug, role: m.role });
+          if (!activeOrgId) activeOrgId = m.organizationId;
+        }
+      }
+      const token = signToken({ userId: userDoc.id, email: normalizedEmail, activeOrgId });
+      res.json({ token, user: { id: userDoc.id, name: existingUser.name, email: normalizedEmail }, activeOrgId, organizations: orgs });
+      return;
+    }
     res.status(409).json({ error: "An account with this email already exists" });
     return;
   }
@@ -81,6 +102,27 @@ authRouter.post("/auth/signup-with-org", async (req, res) => {
   const normalizedEmail = String(email).trim().toLowerCase();
   const existing = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
   if (!existing.empty) {
+    const existingUser = existing.docs[0].data();
+    const ok = await bcrypt.compare(password, existingUser.passwordHash);
+    if (ok) {
+      const userDoc = existing.docs[0];
+      await userDoc.ref.update({ lastLogin: new Date().toISOString() });
+      const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+      let activeOrgId: string | null = null;
+      const orgs: Array<{ id: string; name: string; slug: string; role: string }> = [];
+      for (const mDoc of memberSnap.docs) {
+        const m = mDoc.data();
+        const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+        if (orgSnap.exists) {
+          const org = orgSnap.data()!;
+          orgs.push({ id: m.organizationId, name: org.name, slug: org.slug, role: m.role });
+          if (!activeOrgId) activeOrgId = m.organizationId;
+        }
+      }
+      const token = signToken({ userId: userDoc.id, email: normalizedEmail, activeOrgId });
+      res.json({ token, user: { id: userDoc.id, name: existingUser.name, email: normalizedEmail }, activeOrgId, organizations: orgs });
+      return;
+    }
     res.status(409).json({ error: "An account with this email already exists" });
     return;
   }
