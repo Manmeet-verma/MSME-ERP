@@ -18,10 +18,12 @@ function formatLead(id: string, l: Record<string, any>) {
     city: l.city ?? null,
     state: l.state ?? null,
     source: l.source ?? "manual",
+    sourceBy: l.sourceBy ?? null,
     externalId: l.externalId ?? null,
     status: l.status ?? "new",
     priority: l.priority ?? "medium",
     score: l.score ?? 0,
+    approxBudget: l.approxBudget ?? l.budget ?? null,
     budget: l.budget !== null && l.budget !== undefined ? Number(l.budget) : null,
     product: l.product ?? null,
     notes: l.notes ?? null,
@@ -50,7 +52,8 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
         (r.name ?? "").toLowerCase().includes(s) ||
         (r.email ?? "").toLowerCase().includes(s) ||
         (r.company ?? "").toLowerCase().includes(s) ||
-        (r.phone ?? "").includes(s),
+        (r.phone ?? "").includes(s) ||
+        (r.sourceBy ?? "").toLowerCase().includes(s),
     );
   }
   res.json(rows.map((r) => formatLead(r.id, r)));
@@ -59,22 +62,25 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
 leadsRouter.post("/leads", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const body = req.body ?? {};
-  if (!body.name) {
-    res.status(400).json({ error: "name required" });
+  if (!body.name && !body.phone) {
+    res.status(400).json({ error: "name or phone required" });
     return;
   }
+  const displayName = body.name || body.phone || "Unknown Lead";
   const now = new Date().toISOString();
   const initial = {
     organizationId: orgId,
-    name: body.name,
+    name: displayName,
     email: body.email ?? null,
     phone: body.phone ?? null,
     company: body.company ?? null,
     city: body.city ?? null,
     state: body.state ?? null,
     source: body.source ?? "manual",
+    sourceBy: body.sourceBy ?? null,
     status: body.status ?? "new",
     budget: body.budget !== undefined && body.budget !== null ? String(body.budget) : null,
+    approxBudget: body.approxBudget ?? null,
     product: body.product ?? null,
     notes: body.notes ?? null,
     assignedToId: body.assignedToId ?? null,
@@ -153,11 +159,12 @@ leadsRouter.patch("/leads/:id", requireAuth, async (req, res) => {
   const body = req.body ?? {};
   for (const f of [
     "name", "email", "phone", "company", "city", "state",
-    "source", "status", "product", "notes", "nextAction", "assignedToId",
+    "source", "sourceBy", "status", "product", "notes", "nextAction", "assignedToId",
   ] as const) {
     if (body[f] !== undefined) updates[f] = body[f];
   }
   if (body.budget !== undefined) updates.budget = body.budget !== null ? String(body.budget) : null;
+  if (body.approxBudget !== undefined) updates.approxBudget = body.approxBudget;
   if (body.priority) updates.priority = body.priority;
   if (body.status && body.status !== "new") updates.lastContactedAt = new Date().toISOString();
   await db().collection("leads").doc(id).update(updates);

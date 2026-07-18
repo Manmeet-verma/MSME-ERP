@@ -20,7 +20,7 @@ const STATUS_OPTIONS = ["new", "contacted", "qualified", "lost", "won"];
 
 export default function LeadDetailPage() {
   const params = useParams<{ id: string }>();
-  const id = Number(params.id);
+  const id = params.id ?? "";
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -86,6 +86,7 @@ export default function LeadDetailPage() {
     mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] }); } },
   });
 
+  if (!id) return <div className="p-6 text-center"><p className="text-muted-foreground">Invalid lead ID</p></div>;
   if (!lead) return <div className="p-6">Loading...</div>;
 
   const activities: LeadActivity[] = lead.activities ?? [];
@@ -113,7 +114,9 @@ export default function LeadDetailPage() {
             <p className="text-xs uppercase text-muted-foreground">Priority</p>
             <p className="text-lg font-bold capitalize">{lead.priority}</p>
             <p className="text-xs text-muted-foreground">Score: {lead.score}/100</p>
-            {lead.budget != null && <p className="text-xs">Budget: {formatCurrency(lead.budget)}</p>}
+            {(lead as any).approxBudget != null && <p className="text-xs">Approx Budget: {formatCurrency((lead as any).approxBudget)}</p>}
+            {!(lead as any).approxBudget && lead.budget != null && <p className="text-xs">Budget: {formatCurrency(lead.budget)}</p>}
+            {(lead as any).sourceBy && <p className="text-xs text-muted-foreground">Source By: {(lead as any).sourceBy}</p>}
           </div>
         </div>
         {lead.nextAction && <p className="mt-3 text-sm text-primary">→ {lead.nextAction}</p>}

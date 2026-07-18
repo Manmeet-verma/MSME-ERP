@@ -52,6 +52,7 @@ import GstPage from "@/pages/accounting/gst";
 import VendorAgeingPage from "@/pages/accounting/vendor-ageing";
 import BalanceSheetPage from "@/pages/accounting/balance-sheet";
 import { Layout } from "@/components/layout";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
 import "@/lib/auth";
 
@@ -130,12 +131,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <ErrorBoundary>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </ErrorBoundary>
     </QueryClientProvider>
   );
 }
