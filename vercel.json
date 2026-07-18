@@ -7,6 +7,14 @@
     {
       "source": "/api/:path*",
       "destination": "https://msme-erp-api-3s11.onrender.com/api/:path*"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/((?!api/|assets/|favicon|robots|manifest|sw\\.js|workbox|icons|logo).*)",
+      "destination": "/index.html"
     }
   ]
 }
