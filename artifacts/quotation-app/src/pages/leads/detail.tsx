@@ -106,6 +106,7 @@ export default function LeadDetailPage() {
             {lead.company && <p className="text-sm text-muted-foreground">{lead.company}</p>}
             <div className="flex gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
               {lead.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>}
+              {(lead as any).gstin && <span className="font-mono text-xs uppercase">GSTIN: {(lead as any).gstin}</span>}
               {lead.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{lead.email}</span>}
               {lead.city && <span>{lead.city}{lead.state ? `, ${lead.state}` : ""}</span>}
             </div>

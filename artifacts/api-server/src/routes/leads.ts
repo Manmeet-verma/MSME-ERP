@@ -14,6 +14,7 @@ function formatLead(id: string, l: Record<string, any>) {
     name: l.name,
     email: l.email ?? null,
     phone: l.phone ?? null,
+    gstin: l.gstin ?? null,
     company: l.company ?? null,
     city: l.city ?? null,
     state: l.state ?? null,
@@ -53,6 +54,7 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
         (r.email ?? "").toLowerCase().includes(s) ||
         (r.company ?? "").toLowerCase().includes(s) ||
         (r.phone ?? "").includes(s) ||
+        (r.gstin ?? "").toLowerCase().includes(s) ||
         (r.sourceBy ?? "").toLowerCase().includes(s),
     );
   }
@@ -73,6 +75,7 @@ leadsRouter.post("/leads", requireAuth, async (req, res) => {
     name: displayName,
     email: body.email ?? null,
     phone: body.phone ?? null,
+    gstin: body.gstin ?? null,
     company: body.company ?? null,
     city: body.city ?? null,
     state: body.state ?? null,
@@ -158,7 +161,7 @@ leadsRouter.patch("/leads/:id", requireAuth, async (req, res) => {
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   const body = req.body ?? {};
   for (const f of [
-    "name", "email", "phone", "company", "city", "state",
+    "name", "email", "phone", "gstin", "company", "city", "state",
     "source", "sourceBy", "status", "product", "notes", "nextAction", "assignedToId",
   ] as const) {
     if (body[f] !== undefined) updates[f] = body[f];
