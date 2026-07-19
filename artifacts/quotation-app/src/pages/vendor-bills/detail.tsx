@@ -67,7 +67,7 @@ export default function VendorBillDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {(bill.items ?? []).map((i) => (
+            {(Array.isArray(bill.items) ? bill.items : []).map((i) => (
               <tr key={i.id} className="border-t border-border">
                 <td className="p-3">{i.description}</td>
                 <td className="p-3 text-right">{i.quantity}</td>

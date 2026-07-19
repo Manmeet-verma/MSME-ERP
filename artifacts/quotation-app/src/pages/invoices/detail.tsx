@@ -86,7 +86,7 @@ export default function InvoiceDetailPage() {
             <tr><th className="text-left p-3">Item</th><th className="text-right p-3">Qty</th><th className="text-right p-3">Unit ₹</th><th className="text-right p-3">Total ₹</th></tr>
           </thead>
           <tbody>
-            {(inv.items ?? []).map((it) => (
+            {(Array.isArray(inv.items) ? inv.items : []).map((it) => (
               <tr key={it.id} className="border-t border-border">
                 <td className="p-3">{it.description}</td>
                 <td className="p-3 text-right">{it.quantity}</td>
@@ -114,11 +114,11 @@ export default function InvoiceDetailPage() {
 
       <div className="bg-card border border-card-border rounded-xl p-5 print:hidden">
         <h3 className="font-semibold mb-3">Payments</h3>
-        {(inv.payments ?? []).length === 0 ? (
+        {!Array.isArray(inv.payments) || inv.payments.length === 0 ? (
           <p className="text-sm text-muted-foreground">No payments recorded.</p>
         ) : (
           <ul className="space-y-2">
-            {inv.payments!.map((p) => (
+            {inv.payments.map((p) => (
               <li key={p.id} className="flex items-center justify-between border-b border-border pb-2 text-sm">
                 <div>
                   <p>{formatCurrency(p.amount ?? 0)} · {p.method}</p>

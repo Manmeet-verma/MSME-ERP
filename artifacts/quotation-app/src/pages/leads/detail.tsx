@@ -89,7 +89,7 @@ export default function LeadDetailPage() {
   if (!id) return <div className="p-6 text-center"><p className="text-muted-foreground">Invalid lead ID</p></div>;
   if (!lead) return <div className="p-6">Loading...</div>;
 
-  const activities: LeadActivity[] = lead.activities ?? [];
+  const activities: LeadActivity[] = Array.isArray(lead.activities) ? lead.activities : [];
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">

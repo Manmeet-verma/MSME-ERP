@@ -30,7 +30,7 @@ export default function ClientsPage() {
   const qc = useQueryClient();
 
   const { data, isLoading } = useListClients();
-  const allClients = data ?? [];
+  const allClients = Array.isArray(data) ? data : [];
   const clients = search
     ? allClients.filter((c) => `${c.name} ${c.company ?? ""} ${c.email ?? ""}`.toLowerCase().includes(search.toLowerCase()))
     : allClients;

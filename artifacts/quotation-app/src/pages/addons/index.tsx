@@ -38,7 +38,7 @@ export default function AddonsPage() {
   const qc = useQueryClient();
 
   const { data, isLoading } = useListAddons();
-  const addons = data ?? [];
+  const addons = Array.isArray(data) ? data : [];
 
   const createMutation = useCreateAddon({
     mutation: {

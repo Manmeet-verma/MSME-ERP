@@ -51,10 +51,10 @@ export default function BalanceSheetPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Section title="Assets" rows={data.assets} total={data.totals.assets} totalLabel="Total Assets" />
+            <Section title="Assets" rows={Array.isArray(data.assets) ? data.assets : []} total={data.totals.assets} totalLabel="Total Assets" />
             <div className="space-y-4">
-              <Section title="Liabilities" rows={data.liabilities} total={data.totals.liabilities} totalLabel="Total Liabilities" />
-              <Section title="Equity" rows={data.equity} total={data.totals.equity} totalLabel="Total Equity" />
+              <Section title="Liabilities" rows={Array.isArray(data.liabilities) ? data.liabilities : []} total={data.totals.liabilities} totalLabel="Total Liabilities" />
+              <Section title="Equity" rows={Array.isArray(data.equity) ? data.equity : []} total={data.totals.equity} totalLabel="Total Equity" />
             </div>
           </div>
 
@@ -100,12 +100,13 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: "eme
 }
 
 function Section({ title, rows, total, totalLabel }: { title: string; rows: Array<{ code: string; name: string; amount: number }>; total: number; totalLabel: string }) {
+  const safeRows = Array.isArray(rows) ? rows : [];
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="font-semibold mb-3">{title}</p>
-      {rows.length === 0 ? (
+      {safeRows.length === 0 ? (
         <p className="text-xs text-muted-foreground">No {title.toLowerCase()}</p>
-      ) : rows.map((r) => (
+      ) : safeRows.map((r) => (
         <div key={r.code} className="flex justify-between text-sm py-1.5 border-b border-border/40">
           <span>{r.code === "RE" || r.code === "PNL" ? r.name : `${r.code} — ${r.name}`}</span>
           <span className="font-medium">{formatCurrency(r.amount)}</span>

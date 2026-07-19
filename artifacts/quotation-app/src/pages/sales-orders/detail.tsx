@@ -88,7 +88,7 @@ export default function SalesOrderDetailPage() {
   const itemMap = new Map(items.map((i) => [i.id, i]));
   const orderWhId = order.warehouseId ?? null;
   // Detect oversell up front so the confirm button can be visually warned.
-  const oversellLines = (order.items ?? []).filter((it) => {
+  const oversellLines = (Array.isArray(order.items) ? order.items : []).filter((it) => {
     if (!it.itemId) return false;
     const av = it.availability?.find((a) => orderWhId ? a.warehouseId === orderWhId : a.isOrderWarehouse);
     return av ? av.available < it.quantity : false;
@@ -168,9 +168,9 @@ export default function SalesOrderDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {(order.items ?? []).map((it) => {
+            {(Array.isArray(order.items) ? order.items : []).map((it) => {
               const linked = it.itemId ? itemMap.get(it.itemId) : null;
-              const availability = it.availability ?? [];
+              const availability = Array.isArray(it.availability) ? it.availability : [];
               const orderAv = availability.find((a) => orderWhId ? a.warehouseId === orderWhId : a.isOrderWarehouse);
               const oversell = orderAv != null && orderAv.available < it.quantity;
               const editable = order.status === "draft";

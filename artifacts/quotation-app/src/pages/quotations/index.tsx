@@ -46,7 +46,7 @@ export default function QuotationsPage() {
     },
   });
 
-  const quotations = data ?? [];
+  const quotations = Array.isArray(data) ? data : [];
 
   return (
     

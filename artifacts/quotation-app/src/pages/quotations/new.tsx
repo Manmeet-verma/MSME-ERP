@@ -72,7 +72,7 @@ export default function NewQuotationPage() {
   const addAddonMutation = useAddQuotationAddon();
 
   function addItem(productId: number) {
-    const p = (products ?? []).find((x) => x.id === productId);
+    const p = (Array.isArray(products) ? products : []).find((x) => x.id === productId);
     if (!p) return;
     setItems((prev) => [
       ...prev,
@@ -92,7 +92,7 @@ export default function NewQuotationPage() {
   }
 
   function addAddon(addonId: number) {
-    const a = (addons ?? []).find((x) => x.id === addonId);
+    const a = (Array.isArray(addons) ? addons : []).find((x) => x.id === addonId);
     if (!a) return;
     setAddonLines((prev) => [
       ...prev,
@@ -208,7 +208,7 @@ export default function NewQuotationPage() {
                         required
                       >
                         <option value="">Select client...</option>
-                        {(clients ?? []).map((c) => (
+                        {(Array.isArray(clients) ? clients : []).map((c) => (
                           <option key={c.id} value={c.id}>{c.name}{c.company ? ` — ${c.company}` : ""}</option>
                         ))}
                       </select>
@@ -250,7 +250,7 @@ export default function NewQuotationPage() {
                       className="h-8 rounded-md border border-input bg-input px-2 text-xs"
                     >
                       <option value="">+ Add product...</option>
-                      {(products ?? []).map((p) => (
+                      {(Array.isArray(products) ? products : []).map((p) => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
@@ -274,7 +274,7 @@ export default function NewQuotationPage() {
                             value={item.itemId ?? ""}
                             onChange={(e) => {
                               const id = e.target.value ? Number(e.target.value) : null;
-                              const inv = id ? (inventoryItems ?? []).find((x) => x.id === id) : null;
+                              const inv = id ? (Array.isArray(inventoryItems) ? inventoryItems : []).find((x) => x.id === id) : null;
                               setItems((prev) => prev.map((x) => x.id === item.id
                                 ? {
                                     ...x,
@@ -287,7 +287,7 @@ export default function NewQuotationPage() {
                             className="w-full h-7 rounded-md border border-input bg-input px-2 text-xs"
                           >
                             <option value="">— Not linked —</option>
-                            {(inventoryItems ?? []).map((inv) => (
+                            {(Array.isArray(inventoryItems) ? inventoryItems : []).map((inv) => (
                               <option key={inv.id} value={inv.id}>{inv.name} ({inv.sku})</option>
                             ))}
                           </select>
@@ -356,7 +356,7 @@ export default function NewQuotationPage() {
                       className="h-8 rounded-md border border-input bg-input px-2 text-xs"
                     >
                       <option value="">+ Add service...</option>
-                      {(addons ?? []).map((a) => (
+                      {(Array.isArray(addons) ? addons : []).map((a) => (
                         <option key={a.id} value={a.id}>{a.name}</option>
                       ))}
                     </select>

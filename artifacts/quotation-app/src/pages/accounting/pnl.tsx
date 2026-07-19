@@ -61,7 +61,7 @@ export default function PnlPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="font-semibold mb-3">Income</p>
-              {cur.income.length === 0 ? <p className="text-xs text-muted-foreground">No income</p> : cur.income.map((r) => (
+              {!Array.isArray(cur.income) || cur.income.length === 0 ? <p className="text-xs text-muted-foreground">No income</p> : cur.income.map((r) => (
                 <div key={r.code} className="flex justify-between text-sm py-1.5 border-b border-border/40">
                   <span>{r.code} — {r.name}</span>
                   <span className="font-medium">{formatCurrency(r.amount)}</span>
@@ -73,7 +73,7 @@ export default function PnlPage() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="font-semibold mb-3">Expense</p>
-              {cur.expense.length === 0 ? <p className="text-xs text-muted-foreground">No expenses</p> : cur.expense.map((r) => (
+              {!Array.isArray(cur.expense) || cur.expense.length === 0 ? <p className="text-xs text-muted-foreground">No expenses</p> : cur.expense.map((r) => (
                 <div key={r.code} className="flex justify-between text-sm py-1.5 border-b border-border/40">
                   <span>{r.code} — {r.name}</span>
                   <span className="font-medium">{formatCurrency(r.amount)}</span>

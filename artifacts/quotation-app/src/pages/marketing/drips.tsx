@@ -113,7 +113,7 @@ export default function DripsPage() {
               </div>
             </div>
             <ol className="mt-3 space-y-1 text-xs text-muted-foreground">
-              {s.steps.map((st, i) => (
+              {(Array.isArray(s.steps) ? s.steps : []).map((st, i) => (
                 <li key={st.id ?? i}>Step {i + 1} · Day +{st.delayDays} · {st.subject}</li>
               ))}
             </ol>

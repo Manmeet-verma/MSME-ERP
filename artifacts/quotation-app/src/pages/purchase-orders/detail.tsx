@@ -61,7 +61,7 @@ export default function PurchaseOrderDetailPage() {
     const def = warehouses.find((w) => w.isDefault) ?? warehouses[0];
     setWhId(def?.id ?? "");
     const initial: Record<number, number> = {};
-    for (const it of po?.items ?? []) {
+    for (const it of (Array.isArray(po?.items) ? po.items : [])) {
       initial[it.id] = Math.max(0, (it.quantity ?? 0) - (it.receivedQuantity ?? 0));
     }
     setReceiveQty(initial);
@@ -74,7 +74,7 @@ export default function PurchaseOrderDetailPage() {
       toast({ title: "Select a warehouse", variant: "destructive" });
       return;
     }
-    const items = (po?.items ?? [])
+    const items = (Array.isArray(po?.items) ? po.items : [])
       .filter((it) => it.itemId && (receiveQty[it.id] ?? 0) > 0)
       .map((it) => ({
         poItemId: it.id,
@@ -131,7 +131,7 @@ export default function PurchaseOrderDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {(po.items ?? []).map((i) => (
+            {(Array.isArray(po.items) ? po.items : []).map((i) => (
               <tr key={i.id} className="border-t border-border">
                 <td className="p-3">
                   <p>{i.description}</p>
@@ -178,7 +178,7 @@ export default function PurchaseOrderDetailPage() {
               </select>
             </div>
             <div className="space-y-2">
-              {(po.items ?? []).map((it) => {
+              {(Array.isArray(po.items) ? po.items : []).map((it) => {
                 const pending = Math.max(0, (it.quantity ?? 0) - (it.receivedQuantity ?? 0));
                 return (
                   <div key={it.id} className="grid grid-cols-3 gap-2 items-center text-sm">

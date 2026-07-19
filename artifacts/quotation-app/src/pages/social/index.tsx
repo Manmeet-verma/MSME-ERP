@@ -322,7 +322,7 @@ function Section({
           <li key={p.id} className="border-b border-border pb-2 last:border-0">
             <p className="text-sm line-clamp-2">{p.content}</p>
             <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>{(p.platforms ?? []).join(", ")}</span>
+              <span>{(Array.isArray(p.platforms) ? p.platforms : []).join(", ")}</span>
               <div className="flex gap-1">
                 <button onClick={() => onPublish(p.id)} title="Publish now" className="hover:text-primary"><Send className="h-3 w-3" /></button>
                 <button onClick={() => onRefresh(p.id)} title="Refresh metrics" className="hover:text-primary"><BarChart3 className="h-3 w-3" /></button>

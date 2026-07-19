@@ -121,7 +121,7 @@ export default function LeadsPage() {
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
 
   const { data, isLoading } = useLeadsQuery({ search: debouncedSearch, priority: priorityFilter, status: statusFilter, page });
-  const paged = data?.data ?? [];
+  const paged = Array.isArray(data?.data) ? data.data : [];
   const totalPages = data?.totalPages ?? 1;
   const total = data?.total ?? 0;
 

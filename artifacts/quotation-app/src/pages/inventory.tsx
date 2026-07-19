@@ -142,7 +142,7 @@ export default function InventoryPage() {
               <table className="w-full text-sm">
                 <thead className="bg-secondary text-muted-foreground"><tr><th className="text-left p-3">Warehouse</th><th className="text-right p-3">Items</th><th className="text-right p-3">Value</th></tr></thead>
                 <tbody>
-                  {valuation.byWarehouse.map((w) => (
+                  {(Array.isArray(valuation.byWarehouse) ? valuation.byWarehouse : []).map((w) => (
                     <tr key={w.warehouseId} className="border-t border-border"><td className="p-3">{w.warehouseName}</td><td className="p-3 text-right">{w.items}</td><td className="p-3 text-right">{formatCurrency(w.value)}</td></tr>
                   ))}
                 </tbody>
@@ -155,7 +155,7 @@ export default function InventoryPage() {
               <table className="w-full text-sm">
                 <thead className="bg-secondary text-muted-foreground"><tr><th className="text-left p-3">Category</th><th className="text-right p-3">Items</th><th className="text-right p-3">Value</th></tr></thead>
                 <tbody>
-                  {valuation.byCategory.map((c, i) => (
+                  {(Array.isArray(valuation.byCategory) ? valuation.byCategory : []).map((c, i) => (
                     <tr key={i} className="border-t border-border"><td className="p-3">{c.category}</td><td className="p-3 text-right">{c.items}</td><td className="p-3 text-right">{formatCurrency(c.value)}</td></tr>
                   ))}
                 </tbody>

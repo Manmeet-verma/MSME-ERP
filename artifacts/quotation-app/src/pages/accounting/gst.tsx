@@ -58,8 +58,8 @@ export default function GstPage() {
             <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadReport(`/accounting/gstr1?from=${from}&to=${to}`, "csv", `gstr1-${from}_${to}`)}><Download className="h-3 w-3" /> CSV</Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={() => downloadReport(`/accounting/gstr1?from=${from}&to=${to}`, "xlsx", `gstr1-${from}_${to}`)}><Download className="h-3 w-3" /> Excel</Button>
           </div>
-          <SectionTable title={`B2B (${g1.b2b.length})`} rows={g1.b2b} />
-          <SectionTable title={`B2C (${g1.b2c.length})`} rows={g1.b2c} />
+          <SectionTable title={`B2B (${Array.isArray(g1.b2b) ? g1.b2b.length : 0})`} rows={g1.b2b} />
+          <SectionTable title={`B2C (${Array.isArray(g1.b2c) ? g1.b2c.length : 0})`} rows={g1.b2c} />
         </div>
       )}
 
@@ -101,6 +101,7 @@ function Row({ label, value, bold }: { label: string; value: number; bold?: bool
   return <div className={`flex justify-between text-sm py-1.5 border-b border-border/40 ${bold ? "font-semibold" : ""}`}><span>{label}</span><span>{formatCurrency(value)}</span></div>;
 }
 function SectionTable({ title, rows }: { title: string; rows: Array<{ invoiceNumber: string; invoiceDate: string; clientName: string; gstin?: string; taxableValue: number; cgst: number; sgst: number; igst: number; invoiceTotal: number }> }) {
+  const safeRows = Array.isArray(rows) ? rows : [];
   return (
     <div className="rounded-xl border border-border bg-card overflow-x-auto">
       <p className="p-3 font-semibold border-b border-border text-sm">{title}</p>
@@ -109,8 +110,8 @@ function SectionTable({ title, rows }: { title: string; rows: Array<{ invoiceNum
           <tr><th className="p-3">Invoice</th><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">GSTIN</th><th className="p-3 text-right">Taxable</th><th className="p-3 text-right">CGST</th><th className="p-3 text-right">SGST</th><th className="p-3 text-right">IGST</th><th className="p-3 text-right">Total</th></tr>
         </thead>
         <tbody>
-          {rows.length === 0 ? <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">No data</td></tr> :
-            rows.map((r) => (
+          {safeRows.length === 0 ? <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">No data</td></tr> :
+            safeRows.map((r) => (
               <tr key={r.invoiceNumber} className="border-b border-border/50">
                 <td className="p-3 text-xs font-mono">{r.invoiceNumber}</td>
                 <td className="p-3 text-xs">{r.invoiceDate}</td>

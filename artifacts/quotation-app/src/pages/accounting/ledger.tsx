@@ -58,7 +58,7 @@ export default function LedgerPage() {
               <tr><th className="p-3">Date</th><th className="p-3">Description</th><th className="p-3">Source</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Credit</th><th className="p-3 text-right">Balance</th></tr>
             </thead>
             <tbody>
-              {ledger.lines.map((l) => (
+              {(Array.isArray(ledger.lines) ? ledger.lines : []).map((l) => (
                 <tr key={l.lineId} className="border-b border-border/50 hover:bg-secondary/30">
                   <td className="p-3 text-xs">{formatDate(l.entryDate)}</td>
                   <td className="p-3 text-xs">{l.description ?? l.memo ?? "—"}</td>

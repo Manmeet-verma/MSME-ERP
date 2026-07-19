@@ -43,7 +43,7 @@ export default function ProductsPage() {
   const qc = useQueryClient();
 
   const { data, isLoading } = useListProducts();
-  const allProducts = data ?? [];
+  const allProducts = Array.isArray(data) ? data : [];
   const products = search
     ? allProducts.filter((p) => `${p.name} ${p.category}`.toLowerCase().includes(search.toLowerCase()))
     : allProducts;

@@ -74,7 +74,7 @@ export default function PayrollDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {run.payslips?.map((s) => (
+            {Array.isArray(run.payslips) && run.payslips.length > 0 ? run.payslips.map((s) => (
               <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/30">
                 <td className="p-3">
                   <p className="font-medium">{s.employeeName ?? "Employee"}</p>
@@ -85,15 +85,14 @@ export default function PayrollDetailPage() {
                 <td className="p-3 text-right text-xs">{formatCurrency(s.pfAmount)}</td>
                 <td className="p-3 text-right text-xs">{formatCurrency(s.esiAmount)}</td>
                 <td className="p-3 text-right text-xs">{formatCurrency(s.otherDeductions)}</td>
-                <td className="p-3 text-right font-semibold text-primary">{formatCurrency(s.net)}</td>
+                <td className="p-3 right font-semibold text-primary">{formatCurrency(s.net)}</td>
                 <td className="p-3 text-right">
                   <button onClick={() => downloadPayslip(s.id)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     <Download className="h-3 w-3" /> Slip
                   </button>
                 </td>
               </tr>
-            ))}
-            {(!run.payslips || run.payslips.length === 0) && (
+            )) : (
               <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No payslips generated</td></tr>
             )}
           </tbody>

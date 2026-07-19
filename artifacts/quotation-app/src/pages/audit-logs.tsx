@@ -14,7 +14,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function AuditLogsPage() {
   const { data, isLoading } = useListAuditLogs({ limit: 50 });
-  const logs = data ?? [];
+  const logs = Array.isArray(data) ? data : [];
 
   return (
     
