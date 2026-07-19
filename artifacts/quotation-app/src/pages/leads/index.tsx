@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
-import { useListLeads, useCreateLead, useDeleteLead, useSyncIndiamartLeads } from "@workspace/api-client-react";
+import { useCreateLead, useDeleteLead, useSyncIndiamartLeads, customFetch } from "@workspace/api-client-react";
 import type { Lead, LeadInput } from "@workspace/api-client-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Download, Flame, Trash2, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Download, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -81,53 +81,49 @@ const STATUS_COLORS: Record<string, string> = {
   won: "bg-emerald-500/15 text-emerald-400",
 };
 
-type SortKey = "name" | "phone" | "company" | "city" | "priority" | "score" | "source" | "createdAt";
-type SortDir = "asc" | "desc";
-
 const PAGE_SIZE = 50;
+
+interface LeadsResponse { data: Lead[]; total: number; totalPages: number; page: number; }
+
+function useLeadsQuery(params: { search: string; priority: string; status: string; page: number }) {
+  const qp = new URLSearchParams();
+  if (params.search) qp.set("search", params.search);
+  if (params.priority !== "all") qp.set("priority", params.priority);
+  if (params.status !== "all") qp.set("status", params.status);
+  qp.set("page", String(params.page));
+  qp.set("limit", String(PAGE_SIZE));
+  const url = `/api/leads?${qp.toString()}`;
+  return useQuery<LeadsResponse>({
+    queryKey: ["/api/leads", { search: params.search, priority: params.priority, status: params.status, page: params.page }],
+    queryFn: () => customFetch<LeadsResponse>(url),
+    placeholderData: (prev) => prev,
+  });
+}
 
 export default function LeadsPage() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data, isLoading } = useListLeads();
-  const leads = (data ?? [])
-    .filter((l) => priorityFilter === "all" || l.priority === priorityFilter)
-    .filter((l) => statusFilter === "all" || l.status === statusFilter)
-    .filter((l) =>
-      !search
-        ? true
-        : `${l.name} ${l.company ?? ""} ${l.email ?? ""} ${l.phone ?? ""} ${(l as any).sourceBy ?? ""}`.toLowerCase().includes(search.toLowerCase()),
-    );
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sorted = [...leads].sort((a, b) => {
-    const aVal = String((a as any)[sortKey] ?? "").toLowerCase();
-    const bVal = String((b as any)[sortKey] ?? "").toLowerCase();
-    if (sortKey === "score") {
-      const diff = (Number((a as any).score) || 0) - (Number((b as any).score) || 0);
-      return sortDir === "asc" ? diff : -diff;
-    }
-    return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-  });
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const handleSearch = useCallback((val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setDebouncedSearch(val); setPage(1); }, 300);
+  }, []);
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-    setPage(1);
-  }
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
+
+  const { data, isLoading } = useLeadsQuery({ search: debouncedSearch, priority: priorityFilter, status: statusFilter, page });
+  const paged = data?.data ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const total = data?.total ?? 0;
 
   const createMut = useCreateLead({
     mutation: {
@@ -192,7 +188,7 @@ export default function LeadsPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold">Leads</h1>
-          <p className="text-sm text-muted-foreground">{leads.length} leads</p>
+          <p className="text-sm text-muted-foreground">{total} leads</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
@@ -207,7 +203,7 @@ export default function LeadsPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name, phone, GSTIN, company, source..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-9" />
+          <Input placeholder="Search by name, phone, GSTIN, company, source..." value={search} onChange={(e) => handleSearch(e.target.value)} className="pl-9" />
         </div>
         <div className="flex gap-2 flex-wrap">
           {["all", "hot", "warm", "cold"].map((p) => (
@@ -234,10 +230,9 @@ export default function LeadsPage() {
 
       {isLoading ? (
         <div className="text-muted-foreground py-10 text-center">Loading leads...</div>
-      ) : leads.length === 0 ? (
+      ) : paged.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">
-          <Flame className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-          <p className="text-muted-foreground">No leads yet. Add one or sync from IndiaMart.</p>
+          <p className="text-muted-foreground">No leads found.</p>
         </div>
       ) : (
         <>
@@ -246,29 +241,17 @@ export default function LeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => toggleSort("name")}>
-                      <span className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3" /></span>
-                    </th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => toggleSort("phone")}>
-                      <span className="flex items-center gap-1">WhatsApp No. <ArrowUpDown className="h-3 w-3" /></span>
-                    </th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Name</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">WhatsApp No.</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">GST No.</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => toggleSort("company")}>
-                      <span className="flex items-center gap-1">Company <ArrowUpDown className="h-3 w-3" /></span>
-                    </th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => toggleSort("city")}>
-                      <span className="flex items-center gap-1">City <ArrowUpDown className="h-3 w-3" /></span>
-                    </th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Company</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">City</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">State</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => toggleSort("source")}>
-                      <span className="flex items-center gap-1">Source <ArrowUpDown className="h-3 w-3" /></span>
-                    </th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Source</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Source By</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Priority</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => toggleSort("score")}>
-                      <span className="flex items-center gap-1 justify-end">Score <ArrowUpDown className="h-3 w-3" /></span>
-                    </th>
+                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Score</th>
                     <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Approx Budget</th>
                     <th className="text-center px-3 py-2.5 font-medium text-muted-foreground w-10"></th>
                   </tr>
@@ -322,7 +305,7 @@ export default function LeadsPage() {
 
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
-              Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
+              Showing {total > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}-{Math.min(page * PAGE_SIZE, total)} of {total}
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>

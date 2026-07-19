@@ -58,7 +58,7 @@ import "@/lib/auth";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000 },
+    queries: { retry: 2, staleTime: 60_000, gcTime: 300_000, refetchOnWindowFocus: false },
   },
 });
 

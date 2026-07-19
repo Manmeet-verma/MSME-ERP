@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { getDb } from "../lib/firebase";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
-const JWT_EXPIRES_IN = "7d";
+const JWT_EXPIRES_IN = "30d";
 
 export type MemberRole = "owner" | "admin" | "sales" | "viewer";
 

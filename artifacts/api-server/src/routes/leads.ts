@@ -39,7 +39,9 @@ function formatLead(id: string, l: Record<string, any>) {
 
 leadsRouter.get("/leads", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
-  const { status, priority, source, search } = req.query as Record<string, string | undefined>;
+  const { status, priority, source, search, page: pageStr, limit: limitStr } = req.query as Record<string, string | undefined>;
+  const pageSize = Math.min(Number(limitStr) || 50, 100);
+  const pageNum = Math.max(Number(pageStr) || 1, 1);
   const snap = await db().collection("leads").where("organizationId", "==", orgId).get();
   let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   rows.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
@@ -58,7 +60,10 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
         (r.sourceBy ?? "").toLowerCase().includes(s),
     );
   }
-  res.json(rows.map((r) => formatLead(r.id, r)));
+  const total = rows.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const paged = rows.slice((pageNum - 1) * pageSize, pageNum * pageSize);
+  res.json({ data: paged.map((r) => formatLead(r.id, r)), total, totalPages, page: pageNum });
 });
 
 leadsRouter.post("/leads", requireAuth, async (req, res) => {

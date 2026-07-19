@@ -360,12 +360,34 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
-
-  if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+  let lastError: unknown;
+  const maxRetries = method === "GET" ? 2 : 1;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, attempt * 1000));
+      if (_authTokenGetter && !headers.has("authorization")) {
+        const freshToken = await _authTokenGetter();
+        if (freshToken) headers.set("authorization", `Bearer ${freshToken}`);
+      }
+    }
+    try {
+      const response = await fetch(input, { ...init, method, headers });
+      if (response.ok) {
+        return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+      }
+      if (response.status === 401 && attempt < maxRetries) {
+        lastError = new ApiError(response, await parseErrorBody(response, method), requestInfo);
+        continue;
+      }
+      const errorData = await parseErrorBody(response, method);
+      throw new ApiError(response, errorData, requestInfo);
+    } catch (err) {
+      if (attempt < maxRetries && (err instanceof TypeError || (err as any)?.code === "ECONNREFUSED")) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
   }
-
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  throw lastError;
 }
