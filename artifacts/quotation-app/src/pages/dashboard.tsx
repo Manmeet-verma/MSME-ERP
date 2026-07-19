@@ -175,9 +175,9 @@ export default function DashboardPage() {
             <h2 className="font-semibold text-sm">Today's AI insights</h2>
             {insights?.cached && <span className="text-[10px] text-muted-foreground">cached</span>}
           </div>
-          {insights ? (
+          {insights?.insights ? (
             <>
-              <p className="text-sm font-medium mb-2">{insights.insights.headline}</p>
+              <p className="text-sm font-medium mb-2">{insights.insights.headline ?? "Activity summary"}</p>
               <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 mb-3">
                 {(Array.isArray(insights.insights.bullets) ? insights.insights.bullets : []).map((b, i) => <li key={i}>{b}</li>)}
               </ul>
