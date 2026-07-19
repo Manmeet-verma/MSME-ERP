@@ -21,21 +21,46 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
+
+      const msg = this.state.error?.message || "";
+      const isServerDown = msg.includes("502") || msg.includes("503") || msg.includes("Bad Gateway");
+
       return (
         <div className="min-h-screen flex items-center justify-center p-6">
           <div className="text-center max-w-md">
-            <h2 className="text-lg font-bold text-foreground mb-2">Something went wrong</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {this.state.error?.message || "An unexpected error occurred."}
-            </p>
-            <div className="flex gap-2 justify-center">
-              <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false })}>
-                Try again
-              </Button>
-              <Button size="sm" onClick={() => window.location.reload()}>
-                Reload page
-              </Button>
-            </div>
+            {isServerDown ? (
+              <>
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                  <svg className="h-6 w-6 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-foreground mb-2">Server is waking up</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Our server was sleeping and needs a moment to start. This usually takes 10-30 seconds.
+                  The page will try again automatically.
+                </p>
+                <Button size="sm" onClick={() => window.location.reload()}>
+                  Try again
+                </Button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-foreground mb-2">Something went wrong</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {msg || "An unexpected error occurred."}
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false })}>
+                    Try again
+                  </Button>
+                  <Button size="sm" onClick={() => window.location.reload()}>
+                    Reload page
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
