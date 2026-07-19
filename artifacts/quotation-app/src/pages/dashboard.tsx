@@ -35,7 +35,8 @@ const MODULE_LINKS: Partial<Record<ModuleKey, string>> = {
 };
 
 function LowStockPanel() {
-  const { data: rows = [] } = useGetLowStock();
+  const { data } = useGetLowStock();
+  const rows = Array.isArray(data) ? data : [];
   if (rows.length === 0) return null;
   return (
     <div className="bg-card border border-card-border rounded-xl p-4 mb-6">
@@ -148,7 +149,8 @@ export default function DashboardPage() {
   const limits = getLimits(org);
   const { data: summary } = useGetDashboardSummary();
   const { data: widgets } = useGetDashboardWidgets();
-  const { data: members } = useListMembers();
+  const { data: membersRaw } = useListMembers();
+  const members = Array.isArray(membersRaw) ? membersRaw : [];
   const { data: insights } = useGetAiInsights();
   const [query, setQuery] = useState("");
   const nlSearch = useAiNlSearch();
@@ -177,9 +179,9 @@ export default function DashboardPage() {
             <>
               <p className="text-sm font-medium mb-2">{insights.insights.headline}</p>
               <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 mb-3">
-                {insights.insights.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                {(Array.isArray(insights.insights.bullets) ? insights.insights.bullets : []).map((b, i) => <li key={i}>{b}</li>)}
               </ul>
-              {insights.insights.suggestions?.length > 0 && (
+              {Array.isArray(insights.insights.suggestions) && insights.insights.suggestions.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {insights.insights.suggestions.map((s, i) => (
                     <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary">{s}</span>
@@ -202,10 +204,10 @@ export default function DashboardPage() {
           </form>
           {nlSearch.data && (
             <div className="mt-3 text-xs space-y-1">
-              <p className="text-muted-foreground italic">{nlSearch.data.plan.explanation}</p>
-              <p className="text-[11px] text-muted-foreground">{nlSearch.data.results.length} result{nlSearch.data.results.length === 1 ? "" : "s"}</p>
+              <p className="text-muted-foreground italic">{nlSearch.data.plan?.explanation ?? "Search complete"}</p>
+              <p className="text-[11px] text-muted-foreground">{Array.isArray(nlSearch.data.results) ? nlSearch.data.results.length : 0} result{(Array.isArray(nlSearch.data.results) ? nlSearch.data.results.length : 0) === 1 ? "" : "s"}</p>
               <ul className="space-y-0.5 max-h-40 overflow-y-auto">
-                {nlSearch.data.results.slice(0, 6).map((r, i) => {
+                {(Array.isArray(nlSearch.data.results) ? nlSearch.data.results : []).slice(0, 6).map((r, i) => {
                   const row = r as Record<string, unknown>;
                   return <li key={i} className="truncate">• {Object.entries(row).slice(0, 4).map(([k, v]) => `${k}: ${String(v)}`).join(" · ")}</li>;
                 })}
