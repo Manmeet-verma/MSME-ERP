@@ -58,12 +58,10 @@ export default function QuotationsPage() {
             <p className="text-sm text-muted-foreground">{quotations.length} total quotations</p>
           </div>
           <Link href="/quotations/new">
-            <a>
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Quotation
-              </Button>
-            </a>
+            <Button size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Quotation
+            </Button>
           </Link>
         </div>
 
@@ -126,7 +124,7 @@ export default function QuotationsPage() {
                     <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
                     <p className="text-muted-foreground text-sm">No quotations found</p>
                     <Link href="/quotations/new">
-                      <a className="text-xs text-primary hover:underline mt-1 inline-block">Create one</a>
+                      <span className="text-xs text-primary hover:underline mt-1 inline-block">Create one</span>
                     </Link>
                   </td>
                 </tr>
@@ -135,7 +133,7 @@ export default function QuotationsPage() {
                   <tr key={q.id} className="border-b border-border/50 hover:bg-card/40 transition-colors">
                     <td className="px-5 py-3">
                       <Link href={`/quotations/${q.id}`}>
-                        <a className="font-mono text-xs text-primary hover:underline">{q.quotationNumber}</a>
+                        <span className="font-mono text-xs text-primary hover:underline">{q.quotationNumber}</span>
                       </Link>
                     </td>
                     <td className="px-3 py-3 text-xs text-muted-foreground">

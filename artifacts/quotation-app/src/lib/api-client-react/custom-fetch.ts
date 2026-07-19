@@ -361,10 +361,10 @@ export async function customFetch<T = unknown>(
   const requestInfo = { method, url: resolveUrl(input) };
 
   let lastError: unknown;
-  const maxRetries = method === "GET" ? 2 : 1;
+  const maxRetries = method === "GET" ? 3 : 1;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, attempt * 1000));
+      await new Promise((r) => setTimeout(r, attempt * 2000));
       if (_authTokenGetter && !headers.has("authorization")) {
         const freshToken = await _authTokenGetter();
         if (freshToken) headers.set("authorization", `Bearer ${freshToken}`);
@@ -375,7 +375,8 @@ export async function customFetch<T = unknown>(
       if (response.ok) {
         return (await parseSuccessBody(response, responseType, requestInfo)) as T;
       }
-      if (response.status === 401 && attempt < maxRetries) {
+      const retryable = response.status === 401 || response.status >= 500;
+      if (retryable && attempt < maxRetries) {
         lastError = new ApiError(response, await parseErrorBody(response, method), requestInfo);
         continue;
       }

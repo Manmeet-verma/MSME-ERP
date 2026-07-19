@@ -37,7 +37,7 @@ export default function VendorBillDetailPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
-      <Link href="/vendor-bills"><a className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Back</a></Link>
+      <Link href="/vendor-bills"><span className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Back</span></Link>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">{bill.billNumber}</h1>

@@ -54,7 +54,7 @@ export default function PayrollPage() {
         <div className="space-y-2">
           {runs.map((r) => (
             <Link key={r.id} href={`/payroll/${r.id}`}>
-              <a className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors">
+              <span className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors">
                 <div>
                   <p className="font-semibold text-sm">{MONTHS[r.periodMonth - 1]} {r.periodYear}</p>
                   <p className="text-xs text-muted-foreground capitalize">{r.status}{r.paidAt ? ` · paid ${new Date(r.paidAt).toLocaleDateString()}` : ""}</p>
@@ -65,7 +65,7 @@ export default function PayrollPage() {
                   <div><span className="text-muted-foreground">Net</span> <span className="font-semibold ml-1 text-primary">{formatCurrency(r.totalNet)}</span></div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              </a>
+              </span>
             </Link>
           ))}
         </div>

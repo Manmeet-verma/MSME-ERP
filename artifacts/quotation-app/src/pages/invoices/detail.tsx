@@ -56,7 +56,7 @@ export default function InvoiceDetailPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
       <div className="flex justify-between items-center print:hidden">
-        <Link href="/invoices"><a className="text-sm text-muted-foreground flex items-center gap-1"><ArrowLeft className="h-4 w-4" />Back</a></Link>
+        <Link href="/invoices"><span className="text-sm text-muted-foreground flex items-center gap-1"><ArrowLeft className="h-4 w-4" />Back</span></Link>
         <div className="flex gap-2 flex-wrap">
           <select value={inv.status} onChange={(e) => statusMut.mutate({ id, data: { status: e.target.value as InvoiceStatus } })}
             className="px-3 py-1.5 rounded-lg text-sm bg-secondary border border-border">

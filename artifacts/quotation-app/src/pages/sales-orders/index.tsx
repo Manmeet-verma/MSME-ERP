@@ -31,7 +31,7 @@ export default function SalesOrdersPage() {
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id} className="border-t border-border hover:bg-secondary/50">
-                  <td className="p-3 font-medium"><Link href={`/sales-orders/${o.id}`}><a className="text-primary">{o.orderNumber}</a></Link></td>
+                  <td className="p-3 font-medium"><Link href={`/sales-orders/${o.id}`}><span className="text-primary">{o.orderNumber}</span></Link></td>
                   <td className="p-3">{o.clientName ?? "—"}</td>
                   <td className="p-3 capitalize">{o.status}</td>
                   <td className="p-3 text-right">{formatCurrency(o.total)}</td>

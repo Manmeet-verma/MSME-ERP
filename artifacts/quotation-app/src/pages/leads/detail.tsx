@@ -94,9 +94,9 @@ export default function LeadDetailPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <Link href="/leads">
-        <a className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground">
+        <span className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to leads
-        </a>
+        </span>
       </Link>
 
       <div className="bg-card border border-card-border rounded-xl p-5">

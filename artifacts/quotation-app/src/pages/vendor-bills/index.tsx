@@ -85,7 +85,7 @@ export default function VendorBillsPage() {
             <tbody>
               {bills.map((b) => (
                 <tr key={b.id} className="border-t border-border hover:bg-secondary/50">
-                  <td className="p-3 font-medium"><Link href={`/vendor-bills/${b.id}`}><a className="text-primary">{b.billNumber}</a></Link></td>
+                  <td className="p-3 font-medium"><Link href={`/vendor-bills/${b.id}`}><span className="text-primary">{b.billNumber}</span></Link></td>
                   <td className="p-3">{b.vendorName ?? "—"}</td>
                   <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[b.status] ?? ""}`}>{b.status}</span></td>
                   <td className="p-3 text-right">{formatCurrency(b.total)}</td>

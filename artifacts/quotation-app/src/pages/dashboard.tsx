@@ -44,7 +44,7 @@ function LowStockPanel() {
           <PackageOpen className="h-4 w-4 text-red-400" /> Low-stock items
         </h3>
         <Link href="/inventory">
-          <a className="text-xs text-muted-foreground hover:text-foreground">View all</a>
+          <span className="text-xs text-muted-foreground hover:text-foreground">View all</span>
         </Link>
       </div>
       <ul className="divide-y divide-border text-sm">
@@ -57,9 +57,9 @@ function LowStockPanel() {
               </p>
             </div>
             <Link href={`/purchase-orders?createForItem=${r.itemId}`}>
-              <a className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
+              <span className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
                 Create PO →
-              </a>
+              </span>
             </Link>
           </li>
         ))}
@@ -139,7 +139,7 @@ function KpiCard({ icon: Icon, label, value, tint, href }: {
       <p className="text-lg font-bold mt-1.5">{value}</p>
     </div>
   );
-  return href ? <Link href={href}><a>{card}</a></Link> : card;
+  return href ? <Link href={href}>{card}</Link> : card;
 }
 
 export default function DashboardPage() {

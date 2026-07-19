@@ -39,7 +39,7 @@ export default function PayrollDetailPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div>
-        <Link href="/payroll"><a className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> Back</a></Link>
+        <Link href="/payroll"><span className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> Back</span></Link>
         <div className="flex items-center justify-between mt-2 gap-3 flex-wrap">
           <div>
             <h1 className="text-xl font-bold">Payroll · {MONTHS[run.periodMonth - 1]} {run.periodYear}</h1>

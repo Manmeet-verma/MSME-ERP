@@ -97,7 +97,7 @@ export default function PurchaseOrderDetailPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <Link href="/purchase-orders"><a className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Back to purchase orders</a></Link>
+      <Link href="/purchase-orders"><span className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Back to purchase orders</span></Link>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">{po.poNumber}</h1>

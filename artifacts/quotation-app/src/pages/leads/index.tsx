@@ -261,7 +261,7 @@ export default function LeadsPage() {
                     <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                       <td className="px-3 py-2">
                         <Link href={`/leads/${l.id}`}>
-                          <a className="font-medium text-foreground hover:text-primary">{l.name}</a>
+                          <span className="font-medium text-foreground hover:text-primary">{l.name}</span>
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{l.phone || "-"}</td>

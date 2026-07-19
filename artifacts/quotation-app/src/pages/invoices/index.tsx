@@ -53,7 +53,7 @@ export default function InvoicesPage() {
             <tbody>
               {invoices.map((i) => (
                 <tr key={i.id} className="border-t border-border hover:bg-secondary/50">
-                  <td className="p-3 font-medium"><Link href={`/invoices/${i.id}`}><a className="text-primary">{i.invoiceNumber}</a></Link></td>
+                  <td className="p-3 font-medium"><Link href={`/invoices/${i.id}`}><span className="text-primary">{i.invoiceNumber}</span></Link></td>
                   <td className="p-3">{i.clientName ?? "—"}</td>
                   <td className="p-3"><span className={`text-[10px] uppercase px-2 py-0.5 rounded ${STATUS_COLORS[i.status]}`}>{i.status}</span></td>
                   <td className="p-3 text-right">{formatCurrency(i.total ?? 0)}</td>
