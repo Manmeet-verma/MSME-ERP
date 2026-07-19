@@ -24,9 +24,13 @@ aiRouter.get("/ai/insights", requireAuth, async (req, res) => {
     .get();
   if (!cachedSnap.empty && req.query.refresh !== "1") {
     const cached = cachedSnap.docs[0].data();
+    let insightsBundle = cached.insights;
+    if (typeof insightsBundle === "string") {
+      try { insightsBundle = JSON.parse(insightsBundle); } catch { /* keep as-is */ }
+    }
     res.json({
       forDate: cached.forDate,
-      insights: cached.insights,
+      insights: insightsBundle && typeof insightsBundle === "object" && insightsBundle.headline ? insightsBundle : null,
       metricsSnapshot: cached.metricsSnapshot,
       cached: true,
     });
@@ -148,7 +152,7 @@ aiRouter.get("/ai/insights", requireAuth, async (req, res) => {
   }
   res.json({
     forDate: row.forDate,
-    insights: row.insights,
+    insights: row.insights && typeof row.insights === "object" && row.insights.headline ? row.insights : null,
     metricsSnapshot: row.metricsSnapshot,
     cached: false,
   });
