@@ -42,4 +42,8 @@ app.use("/api/uploads", express.static("uploads", { maxAge: "30d" }));
 
 app.use("/api", router);
 
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 export default app;
