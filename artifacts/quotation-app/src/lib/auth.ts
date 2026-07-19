@@ -1,7 +1,11 @@
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import type { Organization, OrgSummary, User, MemberRole } from "@workspace/api-client-react";
 
 export type CachedOrg = Organization | (OrgSummary & Partial<Organization>);
+
+const API_BASE = import.meta.env.DEV
+  ? ""
+  : "https://msme-erp-api-3s11.onrender.com";
 
 const TOKEN_KEY = "saas_token";
 const USER_KEY = "saas_user";
@@ -68,3 +72,4 @@ export function hasOrg() {
 }
 
 setAuthTokenGetter(getAuthToken);
+setBaseUrl(API_BASE);
