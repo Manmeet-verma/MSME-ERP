@@ -3,7 +3,8 @@ import { formatCurrency } from "@/lib/format";
 import { Truck } from "lucide-react";
 
 export default function VendorAgeingPage() {
-  const { data: rows = [], isLoading } = useGetVendorAgeing();
+  const { data, isLoading } = useGetVendorAgeing();
+  const rows = Array.isArray(data) ? data : [];
   const totals = rows.reduce(
     (s, r) => ({
       current: s.current + r.current,

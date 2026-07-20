@@ -31,8 +31,10 @@ export default function MembersPage() {
   const limits = getLimits(org);
   const canManage = role === "owner" || role === "admin";
 
-  const { data: members = [] } = useListMembers();
-  const { data: invites = [] } = useListInvitations();
+  const { data: membersRaw } = useListMembers();
+  const members = Array.isArray(membersRaw) ? membersRaw : [];
+  const { data: invitesRaw } = useListInvitations();
+  const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
 
   const [form, setForm] = useState<{ email: string; role: InvitationInputRole }>({ email: "", role: "sales" });
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);

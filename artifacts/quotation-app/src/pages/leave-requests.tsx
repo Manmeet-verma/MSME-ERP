@@ -34,9 +34,12 @@ export default function LeaveRequestsPage() {
   const role = getCurrentRole();
   const isApprover = role === "owner" || role === "admin";
 
-  const { data: requests = [] } = useListLeaveRequests();
-  const { data: employees = [] } = useListEmployees();
-  const { data: balances = [] } = useGetLeaveBalances();
+  const { data: requestsRaw } = useListLeaveRequests();
+  const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
+  const { data: employeesRaw } = useListEmployees();
+  const employees = Array.isArray(employeesRaw) ? employeesRaw : [];
+  const { data: balancesRaw } = useGetLeaveBalances();
+  const balances = Array.isArray(balancesRaw) ? balancesRaw : [];
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
   const balMap = useMemo(() => new Map(balances.map((b) => [b.employeeId, b])), [balances]);

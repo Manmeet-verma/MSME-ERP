@@ -18,7 +18,8 @@ export default function TasksPage() {
   const [filter, setFilter] = useState<"all" | "open" | "done">("open");
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: tasks = [] } = useListTasks();
+  const { data: tasksRaw } = useListTasks();
+  const tasks = Array.isArray(tasksRaw) ? tasksRaw : [];
   const filtered = tasks.filter((t) => filter === "all" || t.status === filter);
 
   const createMut = useCreateTask({

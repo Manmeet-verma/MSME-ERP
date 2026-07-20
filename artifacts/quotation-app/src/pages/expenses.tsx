@@ -32,8 +32,10 @@ const empty = (): Form => ({
 export default function ExpensesPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: expenses = [] } = useListExpenses();
-  const { data: categories = [] } = useListExpenseCategories();
+  const { data: expensesRaw } = useListExpenses();
+  const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
+  const { data: categoriesRaw } = useListExpenseCategories();
+  const categories = Array.isArray(categoriesRaw) ? categoriesRaw : [];
   const [open, setOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [form, setForm] = useState<Form>(empty);

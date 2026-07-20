@@ -30,8 +30,10 @@ const TONES = ["professional", "casual", "festive", "urgent", "playful"];
 export default function SocialPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: posts = [] } = useListSocialPosts();
-  const { data: accounts = [] } = useListSocialAccounts();
+  const { data: postsRaw } = useListSocialPosts();
+  const posts = Array.isArray(postsRaw) ? postsRaw : [];
+  const { data: accountsRaw } = useListSocialAccounts();
+  const accounts = Array.isArray(accountsRaw) ? accountsRaw : [];
 
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");

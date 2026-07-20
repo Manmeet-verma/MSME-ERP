@@ -21,7 +21,8 @@ export default function InventoryPage() {
   const { data: valuation } = useGetStockValuation();
   const { data: low = [] } = useGetLowStock();
   const { data: items = [] } = useListItems();
-  const { data: warehouses = [] } = useListWarehouses();
+  const { data: warehousesRaw } = useListWarehouses();
+  const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
   const { toast } = useToast();
   const qc = useQueryClient();
 
