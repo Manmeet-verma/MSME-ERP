@@ -20,7 +20,7 @@ const STATUS_OPTIONS = ["new", "contacted", "qualified", "lost", "won"];
 
 export default function LeadDetailPage() {
   const params = useParams<{ id: string }>();
-  const id = params.id ?? "";
+  const id = Number(params.id ?? "");
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();

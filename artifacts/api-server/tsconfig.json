@@ -6,7 +6,10 @@
     "types": ["node"],
     "noImplicitAny": false,
     "strict": false,
-    "skipLibCheck": true
+    "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "noCheck": true
   },
   "include": ["src"]
 }
