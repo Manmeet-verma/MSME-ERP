@@ -17,7 +17,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function InvoicesPage() {
   const [status, setStatus] = useState<StatusFilter>("all");
-  const { data: invoices = [] } = useListInvoices(status === "all" ? undefined : { status });
+  const { data: invoicesRaw } = useListInvoices(status === "all" ? undefined : { status });
+  const invoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5">
       <div>

@@ -15,7 +15,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export default function PayrollPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: runs = [], isLoading } = useListPayrollRuns();
+  const { data: runsRaw, isLoading } = useListPayrollRuns();
+  const runs = Array.isArray(runsRaw) ? runsRaw : [];
   const [open, setOpen] = useState(false);
   const now = new Date();
   const [periodMonth, setPeriodMonth] = useState(now.getMonth() + 1);

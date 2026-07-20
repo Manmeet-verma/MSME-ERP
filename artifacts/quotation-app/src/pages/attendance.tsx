@@ -25,9 +25,12 @@ export default function AttendancePage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const { data: employees = [] } = useListEmployees();
-  const { data: attendance = [] } = useListAttendance({ from: date, to: date });
-  const { data: balances = [] } = useGetLeaveBalances();
+  const { data: employeesRaw } = useListEmployees();
+  const employees = Array.isArray(employeesRaw) ? employeesRaw : [];
+  const { data: attendanceRaw } = useListAttendance({ from: date, to: date });
+  const attendance = Array.isArray(attendanceRaw) ? attendanceRaw : [];
+  const { data: balancesRaw } = useGetLeaveBalances();
+  const balances = Array.isArray(balancesRaw) ? balancesRaw : [];
 
   const existing = useMemo(() => {
     const map = new Map<number, AttendanceStatus>();

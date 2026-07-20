@@ -25,8 +25,10 @@ export default function LeadDetailPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: lead } = useGetLead(id);
-  const { data: calls = [] } = useListCalls({ leadId: id });
-  const { data: emails = [] } = useListEmails({ leadId: id });
+  const { data: callsRaw } = useListCalls({ leadId: id });
+  const calls = Array.isArray(callsRaw) ? callsRaw : [];
+  const { data: emailsRaw } = useListEmails({ leadId: id });
+  const emails = Array.isArray(emailsRaw) ? emailsRaw : [];
   const [callOpen, setCallOpen] = useState(false);
   const [agentNumber, setAgentNumber] = useState("");
   const [emailOpen, setEmailOpen] = useState(false);

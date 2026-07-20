@@ -16,11 +16,15 @@ type Tab = "levels" | "movements" | "valuation" | "low-stock";
 
 export default function InventoryPage() {
   const [tab, setTab] = useState<Tab>("levels");
-  const { data: levels = [] } = useGetStockLevels();
-  const { data: movements = [] } = useListStockMovements();
+  const { data: levelsRaw } = useGetStockLevels();
+  const levels = Array.isArray(levelsRaw) ? levelsRaw : [];
+  const { data: movementsRaw } = useListStockMovements();
+  const movements = Array.isArray(movementsRaw) ? movementsRaw : [];
   const { data: valuation } = useGetStockValuation();
-  const { data: low = [] } = useGetLowStock();
-  const { data: items = [] } = useListItems();
+  const { data: lowRaw } = useGetLowStock();
+  const low = Array.isArray(lowRaw) ? lowRaw : [];
+  const { data: itemsRaw } = useListItems();
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
   const { data: warehousesRaw } = useListWarehouses();
   const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
   const { toast } = useToast();

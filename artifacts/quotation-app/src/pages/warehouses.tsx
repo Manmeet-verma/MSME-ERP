@@ -15,7 +15,8 @@ const empty: Form = { name: "", code: "", city: "", state: "", address: "", isDe
 export default function WarehousesPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: warehouses = [] } = useListWarehouses();
+  const { data: warehousesRaw } = useListWarehouses();
+  const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Warehouse | null>(null);
   const [form, setForm] = useState<Form>(empty);

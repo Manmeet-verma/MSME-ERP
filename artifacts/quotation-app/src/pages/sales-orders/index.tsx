@@ -4,7 +4,8 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { ShoppingCart } from "lucide-react";
 
 export default function SalesOrdersPage() {
-  const { data: orders = [] } = useListSalesOrders();
+  const { data: ordersRaw } = useListSalesOrders();
+  const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5">
       <div>

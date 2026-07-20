@@ -24,10 +24,14 @@ export default function PurchaseOrdersPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
-  const { data: pos = [] } = useListPurchaseOrders();
-  const { data: vendors = [] } = useListVendors();
-  const { data: warehouses = [] } = useListWarehouses();
-  const { data: items = [] } = useListItems();
+  const { data: posRaw } = useListPurchaseOrders();
+  const pos = Array.isArray(posRaw) ? posRaw : [];
+  const { data: vendorsRaw } = useListVendors();
+  const vendors = Array.isArray(vendorsRaw) ? vendorsRaw : [];
+  const { data: warehousesRaw } = useListWarehouses();
+  const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
+  const { data: itemsRaw } = useListItems();
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
   const [open, setOpen] = useState(false);
   const [vendorId, setVendorId] = useState<number | "">("");
   const [warehouseId, setWarehouseId] = useState<number | "">("");

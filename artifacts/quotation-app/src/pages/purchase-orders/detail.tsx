@@ -19,8 +19,10 @@ export default function PurchaseOrderDetailPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: po } = useGetPurchaseOrder(id);
-  const { data: grns = [] } = useListGrn({ purchaseOrderId: id });
-  const { data: warehouses = [] } = useListWarehouses();
+  const { data: grnsRaw } = useListGrn({ purchaseOrderId: id });
+  const grns = Array.isArray(grnsRaw) ? grnsRaw : [];
+  const { data: warehousesRaw } = useListWarehouses();
+  const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
 
   const [grnOpen, setGrnOpen] = useState(false);
   const [whId, setWhId] = useState<number | "">("");
@@ -58,7 +60,7 @@ export default function PurchaseOrderDetailPage() {
   }
 
   function openGrn() {
-    const def = warehouses.find((w) => w.isDefault) ?? warehouses[0];
+    const def = (Array.isArray(warehouses) ? warehouses : []).find((w) => w.isDefault) ?? warehouses[0];
     setWhId(def?.id ?? "");
     const initial: Record<number, number> = {};
     for (const it of (Array.isArray(po?.items) ? po.items : [])) {

@@ -23,9 +23,12 @@ export default function VendorBillsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
-  const { data: bills = [] } = useListVendorBills();
-  const { data: vendors = [] } = useListVendors();
-  const { data: pos = [] } = useListPurchaseOrders();
+  const { data: billsRaw } = useListVendorBills();
+  const bills = Array.isArray(billsRaw) ? billsRaw : [];
+  const { data: vendorsRaw } = useListVendors();
+  const vendors = Array.isArray(vendorsRaw) ? vendorsRaw : [];
+  const { data: posRaw } = useListPurchaseOrders();
+  const pos = Array.isArray(posRaw) ? posRaw : [];
   const [open, setOpen] = useState(false);
   const [vendorId, setVendorId] = useState<number | "">("");
   const [poId, setPoId] = useState<number | "">("");

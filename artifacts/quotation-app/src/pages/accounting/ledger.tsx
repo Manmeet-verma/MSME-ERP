@@ -6,7 +6,8 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { BookOpen } from "lucide-react";
 
 export default function LedgerPage() {
-  const { data: accounts = [] } = useListAccounts();
+  const { data: accountsRaw } = useListAccounts();
+  const accounts = Array.isArray(accountsRaw) ? accountsRaw : [];
   const [accountId, setAccountId] = useState<number | null>(null);
   const today = new Date();
   const [from, setFrom] = useState(new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10));

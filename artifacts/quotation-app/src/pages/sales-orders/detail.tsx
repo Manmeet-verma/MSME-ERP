@@ -13,8 +13,10 @@ export default function SalesOrderDetailPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: order } = useGetSalesOrder(id);
-  const { data: items = [] } = useListItems();
-  const { data: warehouses = [] } = useListWarehouses();
+  const { data: itemsRaw } = useListItems();
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
+  const { data: warehousesRaw } = useListWarehouses();
+  const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
   const promoteMut = usePromoteSalesOrderToInvoice({
     mutation: {
       onSuccess(inv) {
@@ -32,7 +34,7 @@ export default function SalesOrderDetailPage() {
         const e = err as { response?: { data?: { error?: string; shortages?: Array<{ itemId: number; needed: number; available: number }>; unlinkedLines?: Array<{ description: string }> } } };
         const data = e?.response?.data;
         if (data?.shortages?.length) {
-          const lines = data.shortages
+          const lines = (Array.isArray(data.shortages) ? data.shortages : [])
             .map((s) => {
               const it = items.find((i) => i.id === s.itemId);
               return `${it?.name ?? `Item #${s.itemId}`}: need ${s.needed}, have ${s.available}`;
@@ -42,7 +44,7 @@ export default function SalesOrderDetailPage() {
         } else if (data?.unlinkedLines?.length) {
           toast({
             title: "Link inventory items first",
-            description: data.unlinkedLines.map((u) => u.description).join(", "),
+            description: (Array.isArray(data.unlinkedLines) ? data.unlinkedLines : []).map((u) => u.description).join(", "),
             variant: "destructive",
           });
         } else {
@@ -57,11 +59,11 @@ export default function SalesOrderDetailPage() {
     updateMut.mutate({ id, data: body });
   }
   function linkLineItem(lineId: number, itemId: number | null) {
-    if (!order?.items) return;
+    if (!Array.isArray(order?.items)) return;
     // When the user picks an inventory item, auto-fill description and unit
     // price from that item (matches the PO form UX). When clearing the link,
     // leave description and price as-is.
-    const picked = itemId ? items.find((i) => i.id === itemId) : null;
+    const picked = itemId ? (Array.isArray(items) ? items : []).find((i) => i.id === itemId) : null;
     updateMut.mutate({
       id,
       data: {
@@ -85,7 +87,7 @@ export default function SalesOrderDetailPage() {
     });
   }
   if (!order) return <div className="p-6">Loading...</div>;
-  const itemMap = new Map(items.map((i) => [i.id, i]));
+  const itemMap = new Map((Array.isArray(items) ? items : []).map((i) => [i.id, i]));
   const orderWhId = order.warehouseId ?? null;
   // Detect oversell up front so the confirm button can be visually warned.
   const oversellLines = (Array.isArray(order.items) ? order.items : []).filter((it) => {

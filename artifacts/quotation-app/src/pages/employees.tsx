@@ -34,7 +34,8 @@ const empty: Form = {
 export default function EmployeesPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: employees = [], isLoading } = useListEmployees();
+  const { data: employeesRaw, isLoading } = useListEmployees();
+  const employees = Array.isArray(employeesRaw) ? employeesRaw : [];
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [form, setForm] = useState<Form>(empty);

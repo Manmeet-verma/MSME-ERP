@@ -23,7 +23,8 @@ function formatCell(key: string, value: unknown): string {
 }
 
 export default function ReportsPage() {
-  const { data: catalog = [], isLoading } = useGetReportsCatalog();
+  const { data: catalogRaw, isLoading } = useGetReportsCatalog();
+  const catalog = Array.isArray(catalogRaw) ? catalogRaw : [];
   const [active, setActive] = useState<string | null>(null);
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loadingRows, setLoadingRows] = useState(false);

@@ -13,7 +13,8 @@ import { Trash2, Plus } from "lucide-react";
 export default function SuppressionsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: rows = [] } = useListEmailSuppressions();
+  const { data: rowsRaw } = useListEmailSuppressions();
+  const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
 

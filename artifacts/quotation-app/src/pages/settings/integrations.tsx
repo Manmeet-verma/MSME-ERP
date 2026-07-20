@@ -15,7 +15,8 @@ import { getAuthToken } from "@/lib/auth";
 export default function IntegrationsSettingsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: integrations = [] } = useListIntegrations();
+  const { data: integrationsRaw } = useListIntegrations();
+  const integrations = Array.isArray(integrationsRaw) ? integrationsRaw : [];
   const upsertMut = useUpsertIntegration({
     mutation: {
       onSuccess() {
@@ -112,7 +113,8 @@ const SOCIAL_PROVIDERS: { key: "facebook" | "instagram" | "linkedin"; label: str
 function SocialAccountsPanel() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: accounts = [] } = useListSocialAccounts();
+  const { data: accountsRaw } = useListSocialAccounts();
+  const accounts = Array.isArray(accountsRaw) ? accountsRaw : [];
   const [oauthCfg, setOauthCfg] = useState<{ facebook: boolean; instagram: boolean; linkedin: boolean }>({ facebook: false, instagram: false, linkedin: false });
   useEffect(() => {
     fetch("/api/social/oauth/config", { headers: { Authorization: `Bearer ${getAuthToken()}` } })

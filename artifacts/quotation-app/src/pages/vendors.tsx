@@ -15,7 +15,8 @@ const empty: Form = { name: "", contactName: "", email: "", phone: "", address: 
 export default function VendorsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: vendors = [] } = useListVendors();
+  const { data: vendorsRaw } = useListVendors();
+  const vendors = Array.isArray(vendorsRaw) ? vendorsRaw : [];
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Vendor | null>(null);
   const [form, setForm] = useState<Form>(empty);

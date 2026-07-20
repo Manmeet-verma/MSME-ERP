@@ -377,7 +377,18 @@ export async function customFetch<T = unknown>(
         // Normalize GET responses: unwrap common wrapper patterns and throw for
         // clearly invalid responses so React Query stores undefined and
         // destructuring defaults (e.g. = []) kick in.
-        if (method === "GET" && body != null && typeof body === "object" && !Array.isArray(body)) {
+        if (method === "GET") {
+          // null body on GET → throw so React Query sets data=undefined
+          // and destructuring defaults (e.g. = []) kick in.
+          if (body == null) {
+            throw new ApiError(
+              { ok: true, status: 200, statusText: "Empty response", headers: new Headers(), url: resolveUrl(input) } as Response,
+              body,
+              requestInfo,
+            );
+          }
+        }
+        if (method === "GET" && typeof body === "object" && !Array.isArray(body)) {
           const record = body as Record<string, unknown>;
           const keys = Object.keys(record);
           // Empty object or error-only object — throw so React Query sets data=undefined

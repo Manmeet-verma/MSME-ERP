@@ -26,7 +26,8 @@ export default function CampaignsPage() {
   const [form, setForm] = useState(empty);
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: campaigns = [] } = useListCampaigns();
+  const { data: campaignsRaw } = useListCampaigns();
+  const campaigns = Array.isArray(campaignsRaw) ? campaignsRaw : [];
   const createMut = useCreateCampaign({
     mutation: { onSuccess() {
       toast({ title: "Campaign created" });

@@ -29,7 +29,8 @@ const emptyForm = {
 export default function DripsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: sequences = [] } = useListDripSequences();
+  const { data: sequencesRaw } = useListDripSequences();
+  const sequences = Array.isArray(sequencesRaw) ? sequencesRaw : [];
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
 

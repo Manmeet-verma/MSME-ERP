@@ -34,7 +34,8 @@ function parseCsv(text: string): Array<Record<string, string>> {
 export default function ItemsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: items = [] } = useListItems();
+  const { data: itemsRaw } = useListItems();
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
   const [form, setForm] = useState<Form>(empty);
