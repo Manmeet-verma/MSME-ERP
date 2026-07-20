@@ -374,18 +374,21 @@ export async function customFetch<T = unknown>(
       const response = await fetch(input, { ...init, method, headers });
       if (response.ok) {
         const body = await parseSuccessBody(response, responseType, requestInfo);
-        // Normalize GET responses: unwrap common wrapper patterns and return null
-        // for clearly invalid responses so React Query stores undefined and
+        // Normalize GET responses: unwrap common wrapper patterns and throw for
+        // clearly invalid responses so React Query stores undefined and
         // destructuring defaults (e.g. = []) kick in.
         if (method === "GET" && body != null && typeof body === "object" && !Array.isArray(body)) {
           const record = body as Record<string, unknown>;
           const keys = Object.keys(record);
-          // Empty object or error-only object
+          // Empty object or error-only object — throw so React Query sets data=undefined
           if (keys.length === 0 || (keys.length === 1 && keys[0] === "error")) {
-            return null as T;
+            throw new ApiError(
+              { ok: true, status: 200, statusText: "Empty response", headers: new Headers(), url: resolveUrl(input) } as Response,
+              body,
+              requestInfo,
+            );
           }
           // Unwrap single-key array wrappers: { data: [...] }, { items: [...] }, etc.
-          // This handles paginated endpoints that wrap arrays.
           if (keys.length === 1 && Array.isArray(record[keys[0]])) {
             return record[keys[0]] as T;
           }
