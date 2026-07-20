@@ -159,7 +159,7 @@ export default function PurchaseOrderDetailPage() {
                   <p className="font-medium">{g.grnNumber}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(g.receivedAt)}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{g.warehouseName} · {(g.items ?? []).length} items</p>
+                <p className="text-xs text-muted-foreground">{g.warehouseName} · {(Array.isArray(g.items) ? g.items : []).length} items</p>
               </div>
             ))}
           </div>

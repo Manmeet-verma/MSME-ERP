@@ -19,7 +19,8 @@ export default function LoginPage() {
       onSuccess(data) {
         setAuthToken(data.token);
         setCurrentUser(data.user);
-        const active = data.organizations.find((o) => o.id === data.activeOrgId) ?? data.organizations[0];
+        const orgs = Array.isArray(data.organizations) ? data.organizations : [];
+        const active = orgs.find((o) => o.id === data.activeOrgId) ?? orgs[0];
         if (active) {
           setCurrentOrg(active);
           setCurrentRole(active.role);

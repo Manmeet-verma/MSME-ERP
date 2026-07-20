@@ -102,7 +102,7 @@ export default function AttendancePage() {
                   <p className="text-[11px] text-muted-foreground font-mono">{e.employeeCode}</p>
                   {bal && (
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Leaves used: {Object.entries(bal.used).map(([k, v]) => `${k}:${v}`).join(" · ") || "0"}
+                      Leaves used: {(bal.used ? Object.entries(bal.used) : []).map(([k, v]) => `${k}:${v}`).join(" · ") || "0"}
                     </p>
                   )}
                 </div>

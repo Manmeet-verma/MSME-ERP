@@ -68,7 +68,7 @@ export default function LedgerPage() {
                   <td className="p-3 text-right font-semibold">{formatCurrency(l.balance)}</td>
                 </tr>
               ))}
-              {ledger.lines.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No transactions in this period</td></tr>}
+              {(Array.isArray(ledger.lines) ? ledger.lines.length : 0) === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No transactions in this period</td></tr>}
             </tbody>
           </table>
         </div>

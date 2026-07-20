@@ -104,7 +104,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const modules = getModules(org);
 
   const { data: me } = useGetMe();
-  const memberships = me?.organizations ?? [];
+  const memberships = Array.isArray(me?.organizations) ? me.organizations : [];
 
   useEffect(() => {
     if (org && (org as { modules?: unknown }).modules) return;
