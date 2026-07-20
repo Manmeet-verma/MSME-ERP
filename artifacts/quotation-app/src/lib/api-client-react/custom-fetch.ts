@@ -373,7 +373,16 @@ export async function customFetch<T = unknown>(
     try {
       const response = await fetch(input, { ...init, method, headers });
       if (response.ok) {
-        return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+        const body = await parseSuccessBody(response, responseType, requestInfo);
+        // Normalize GET responses: if the caller expects an array but the server
+        // returned an empty object {} or an error-shaped object, return null so
+        // React Query stores undefined and destructuring defaults kick in.
+        if (method === "GET" && body != null && typeof body === "object" && !Array.isArray(body)) {
+          const keys = Object.keys(body);
+          if (keys.length === 0) return null as T;
+          if (keys.length === 1 && keys[0] === "error") return null as T;
+        }
+        return body as T;
       }
       const retryable = response.status === 401 || response.status >= 500;
       if (retryable && attempt < maxRetries) {
