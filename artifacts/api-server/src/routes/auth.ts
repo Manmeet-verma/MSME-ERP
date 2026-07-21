@@ -52,15 +52,17 @@ authRouter.post("/auth/signup", async (req, res) => {
       const userDoc = existing.docs[0];
       await userDoc.ref.update({ lastLogin: new Date().toISOString() });
       const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+      const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
+      const orgSnaps = await Promise.all(orgIds.map((id) => db().collection("organizations").doc(id).get()));
       let activeOrgId: string | null = null;
       const orgs: Array<{ id: string; name: string; slug: string; role: string }> = [];
-      for (const mDoc of memberSnap.docs) {
-        const m = mDoc.data();
-        const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+      for (let i = 0; i < memberSnap.docs.length; i++) {
+        const m = memberSnap.docs[i].data();
+        const orgSnap = orgSnaps[i];
         if (orgSnap.exists) {
           const org = orgSnap.data()!;
-          orgs.push({ id: m.organizationId, name: org.name, slug: org.slug, role: m.role });
-          if (!activeOrgId) activeOrgId = m.organizationId;
+          orgs.push({ id: orgIds[i], name: org.name, slug: org.slug, role: m.role });
+          if (!activeOrgId) activeOrgId = orgIds[i];
         }
       }
       const token = signToken({ userId: userDoc.id, email: normalizedEmail, activeOrgId });
@@ -108,15 +110,17 @@ authRouter.post("/auth/signup-with-org", async (req, res) => {
       const userDoc = existing.docs[0];
       await userDoc.ref.update({ lastLogin: new Date().toISOString() });
       const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+      const orgIds2 = memberSnap.docs.map((m) => m.data().organizationId as string);
+      const orgSnaps2 = await Promise.all(orgIds2.map((id) => db().collection("organizations").doc(id).get()));
       let activeOrgId: string | null = null;
       const orgs: Array<{ id: string; name: string; slug: string; role: string }> = [];
-      for (const mDoc of memberSnap.docs) {
-        const m = mDoc.data();
-        const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+      for (let i = 0; i < memberSnap.docs.length; i++) {
+        const m = memberSnap.docs[i].data();
+        const orgSnap = orgSnaps2[i];
         if (orgSnap.exists) {
           const org = orgSnap.data()!;
-          orgs.push({ id: m.organizationId, name: org.name, slug: org.slug, role: m.role });
-          if (!activeOrgId) activeOrgId = m.organizationId;
+          orgs.push({ id: orgIds2[i], name: org.name, slug: org.slug, role: m.role });
+          if (!activeOrgId) activeOrgId = orgIds2[i];
         }
       }
       const token = signToken({ userId: userDoc.id, email: normalizedEmail, activeOrgId });
@@ -189,13 +193,15 @@ authRouter.post("/auth/login", async (req, res) => {
   await userDoc.ref.update({ lastLogin: new Date().toISOString() });
 
   const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+  const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
+  const orgSnaps = await Promise.all(orgIds.map((id) => db().collection("organizations").doc(id).get()));
   const memberships: Array<{ orgId: string; role: string; orgName: string; orgSlug: string }> = [];
-  for (const mDoc of memberSnap.docs) {
-    const m = mDoc.data();
-    const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+  for (let i = 0; i < memberSnap.docs.length; i++) {
+    const m = memberSnap.docs[i].data();
+    const orgSnap = orgSnaps[i];
     if (orgSnap.exists) {
       const org = orgSnap.data()!;
-      memberships.push({ orgId: m.organizationId, role: m.role, orgName: org.name, orgSlug: org.slug });
+      memberships.push({ orgId: orgIds[i], role: m.role, orgName: org.name, orgSlug: org.slug });
     }
   }
 
@@ -213,21 +219,25 @@ authRouter.post("/auth/login", async (req, res) => {
 
 authRouter.get("/auth/me", requireUser, async (req, res) => {
   const userId = req.user!.userId;
-  const userSnap = await db().collection("users").doc(userId).get();
+  const [userSnap, memberSnap] = await Promise.all([
+    db().collection("users").doc(userId).get(),
+    db().collection("organization_members").where("userId", "==", userId).get(),
+  ]);
   if (!userSnap.exists) {
     res.status(404).json({ error: "User not found" });
     return;
   }
   const user = userSnap.data()!;
 
-  const memberSnap = await db().collection("organization_members").where("userId", "==", userId).get();
+  const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
+  const orgSnaps = await Promise.all(orgIds.map((id) => db().collection("organizations").doc(id).get()));
   const memberships: Array<{ orgId: string; role: string; orgName: string; orgSlug: string }> = [];
-  for (const mDoc of memberSnap.docs) {
-    const m = mDoc.data();
-    const orgSnap = await db().collection("organizations").doc(m.organizationId).get();
+  for (let i = 0; i < memberSnap.docs.length; i++) {
+    const m = memberSnap.docs[i].data();
+    const orgSnap = orgSnaps[i];
     if (orgSnap.exists) {
       const org = orgSnap.data()!;
-      memberships.push({ orgId: m.organizationId, role: m.role, orgName: org.name, orgSlug: org.slug });
+      memberships.push({ orgId: orgIds[i], role: m.role, orgName: org.name, orgSlug: org.slug });
     }
   }
 

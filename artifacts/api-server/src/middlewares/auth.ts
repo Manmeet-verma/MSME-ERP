@@ -78,33 +78,34 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const userSnap = await getDb().collection("users").doc(decoded.userId).get();
+    const db = getDb();
+    const [userSnap, memberSnap, orgSnap] = await Promise.all([
+      db.collection("users").doc(decoded.userId).get(),
+      db.collection("organization_members")
+        .where("userId", "==", decoded.userId)
+        .where("organizationId", "==", decoded.activeOrgId)
+        .limit(1)
+        .get(),
+      db.collection("organizations").doc(decoded.activeOrgId).get(),
+    ]);
+
     const user = userSnap.data();
     if (!user || !user.isActive) {
       res.status(401).json({ error: "User not found or inactive" });
       return;
     }
 
-    // Find membership
-    const memberSnap = await getDb()
-      .collection("organization_members")
-      .where("userId", "==", decoded.userId)
-      .where("organizationId", "==", decoded.activeOrgId)
-      .limit(1)
-      .get();
-
     if (memberSnap.empty) {
       res.status(403).json({ error: "You are not a member of this organization." });
       return;
     }
 
-    const member = memberSnap.docs[0].data();
-
-    const orgSnap = await getDb().collection("organizations").doc(decoded.activeOrgId).get();
     if (!orgSnap.exists) {
       res.status(404).json({ error: "Organization not found" });
       return;
     }
+
+    const member = memberSnap.docs[0].data();
 
     req.user = {
       userId: decoded.userId,
