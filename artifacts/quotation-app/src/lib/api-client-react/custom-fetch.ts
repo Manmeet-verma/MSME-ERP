@@ -15,7 +15,12 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 // Module-level configuration
 // ---------------------------------------------------------------------------
 
-let _baseUrl: string | null = null;
+// NUCLEAR FIX: In production builds, hardcode the API base URL so requests
+// NEVER fall through to the Vercel domain (which returns 405 for POST/PUT/PATCH).
+// setBaseUrl() in auth.ts can still override this at runtime.
+const _isProd = import.meta.env?.PROD ?? (typeof window !== "undefined" && window.location.hostname !== "localhost");
+const _prodBaseUrl = "https://msme-erp-api-3s11.onrender.com";
+let _baseUrl: string | null = _isProd ? _prodBaseUrl : null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
 /**
