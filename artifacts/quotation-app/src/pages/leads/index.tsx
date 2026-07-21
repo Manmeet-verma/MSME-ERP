@@ -180,7 +180,28 @@ export default function LeadsPage() {
       product: form.product || undefined,
       notes: form.notes || undefined,
     };
-    createMut.mutate({ data: payload as any });
+    createMut.mutate({ data: payload as any }, {
+      onError(fallbackErr: any) {
+        if (fallbackErr?.status === 405 || fallbackErr?.message?.includes("405")) {
+          customFetch("/api/leads", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).then(() => {
+            toast({ title: "Lead created" });
+            qc.invalidateQueries({ queryKey: ["/api/leads"] });
+            setOpen(false);
+            setForm(emptyForm);
+          }).catch((retryErr: any) => {
+            const msg = retryErr?.data?.error ?? retryErr?.message ?? "Failed to create lead";
+            toast({ title: msg, variant: "destructive" });
+          });
+        } else {
+          const msg = fallbackErr?.data?.error ?? fallbackErr?.message ?? "Failed to create lead";
+          toast({ title: msg, variant: "destructive" });
+        }
+      },
+    });
   }
 
   return (

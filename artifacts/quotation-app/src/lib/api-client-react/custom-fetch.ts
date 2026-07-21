@@ -410,7 +410,7 @@ export async function customFetch<T = unknown>(
         }
         return body as T;
       }
-      const retryable = response.status === 401 || response.status >= 500;
+      const retryable = response.status === 401 || response.status === 405 || response.status >= 500;
       if (retryable && attempt < maxRetries) {
         lastError = new ApiError(response, await parseErrorBody(response, method), requestInfo);
         continue;
