@@ -9,6 +9,12 @@
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
     }
   ],
   "rewrites": [
@@ -17,7 +23,7 @@
       "destination": "/assets/:path*"
     },
     {
-      "source": "/((?!assets/|favicon|robots|manifest|sw\\.js|workbox|icons|logo).*)",
+      "source": "/((?!assets/|api/|favicon|robots|manifest|sw\\.js|workbox|icons|logo).*)",
       "destination": "/index.html"
     }
   ]

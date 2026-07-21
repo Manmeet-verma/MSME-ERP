@@ -15,13 +15,18 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 // Module-level configuration
 // ---------------------------------------------------------------------------
 
-// NUCLEAR FIX: In production builds, hardcode the API base URL so requests
-// NEVER fall through to the Vercel domain (which returns 405 for POST/PUT/PATCH).
-// setBaseUrl() in auth.ts can still override this at runtime.
-const _isProd = import.meta.env?.PROD ?? (typeof window !== "undefined" && window.location.hostname !== "localhost");
-const _prodBaseUrl = "https://msme-erp-api-3s11.onrender.com";
-let _baseUrl: string | null = _isProd ? _prodBaseUrl : null;
+let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+
+const RENDER_API_URL = "https://msme-erp-api-3s11.onrender.com";
+
+function getEffectiveBaseUrl(): string | null {
+  if (_baseUrl) return _baseUrl;
+  if (typeof window === "undefined") return null;
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return null;
+  return RENDER_API_URL;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -66,12 +71,13 @@ function isUrl(input: RequestInfo | URL): input is URL {
 }
 
 function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
-  if (!_baseUrl) return input;
+  const baseUrl = getEffectiveBaseUrl();
+  if (!baseUrl) return input;
   const url = resolveUrl(input);
   // Only prepend to relative paths (starting with /)
   if (!url.startsWith("/")) return input;
 
-  const absolute = `${_baseUrl}${url}`;
+  const absolute = `${baseUrl}${url}`;
   if (typeof input === "string") return absolute;
   if (isUrl(input)) return new URL(absolute);
   return new Request(absolute, input as Request);
