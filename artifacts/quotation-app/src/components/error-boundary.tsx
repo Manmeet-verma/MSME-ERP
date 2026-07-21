@@ -9,13 +9,25 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
+  retries: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, retries: 0 };
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch() {
+    const msg = this.state.error?.message || "";
+    const isColdStart = msg.includes("502") || msg.includes("503") || msg.includes("Bad Gateway") || msg.includes("Failed to fetch");
+    if (isColdStart && this.state.retries < 5) {
+      const delay = Math.min(3000 * (this.state.retries + 1), 15000);
+      setTimeout(() => {
+        this.setState((s) => ({ hasError: false, retries: s.retries + 1 }));
+      }, delay);
+    }
   }
 
   render() {
@@ -23,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       const msg = this.state.error?.message || "";
-      const isServerDown = msg.includes("502") || msg.includes("503") || msg.includes("Bad Gateway");
+      const isServerDown = msg.includes("502") || msg.includes("503") || msg.includes("Bad Gateway") || msg.includes("Failed to fetch");
 
       return (
         <div className="min-h-screen flex items-center justify-center p-6">
@@ -38,8 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </div>
                 <h2 className="text-lg font-bold text-foreground mb-2">Server is waking up</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Our server was sleeping and needs a moment to start. This usually takes 10-30 seconds.
-                  The page will try again automatically.
+                  Our server needs a moment to start (typically 5-15 seconds). Auto-retrying...
                 </p>
                 <Button size="sm" onClick={() => window.location.reload()}>
                   Try again
@@ -52,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   {msg || "An unexpected error occurred."}
                 </p>
                 <div className="flex gap-2 justify-center">
-                  <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false })}>
+                  <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, retries: 0 })}>
                     Try again
                   </Button>
                   <Button size="sm" onClick={() => window.location.reload()}>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { setAuthToken, setCurrentUser, setCurrentOrg, setCurrentRole } from "@/lib/auth";
@@ -13,6 +13,10 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    fetch("https://msme-erp-api-3s11.onrender.com/api/health").catch(() => {});
+  }, []);
 
   const loginMutation = useLogin({
     mutation: {

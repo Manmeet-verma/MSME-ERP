@@ -21,3 +21,10 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
     }).catch(() => {});
   });
 }
+
+const API_BASE = "https://msme-erp-api-3s11.onrender.com";
+function keepAlive() {
+  fetch(`${API_BASE}/api/health`).catch(() => {});
+}
+keepAlive();
+setInterval(keepAlive, 4 * 60 * 1000);

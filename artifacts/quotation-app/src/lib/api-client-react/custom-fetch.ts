@@ -375,7 +375,7 @@ export async function customFetch<T = unknown>(
   const maxRetries = method === "GET" ? 3 : 1;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, attempt * 5000));
+      await new Promise((r) => setTimeout(r, attempt * 2000));
       if (_authTokenGetter && !headers.has("authorization")) {
         const freshToken = await _authTokenGetter();
         if (freshToken) headers.set("authorization", `Bearer ${freshToken}`);
