@@ -1,4 +1,4 @@
-const CACHE = "msme-pro-shell-v1";
+const CACHE = "msme-pro-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -13,12 +13,17 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  // Network-first for API; cache-first fallback for shell
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(req).catch(() => new Response("{\"error\":\"offline\"}", { status: 503, headers: { "Content-Type": "application/json" } })));
     return;
