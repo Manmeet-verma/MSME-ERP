@@ -414,10 +414,6 @@ export async function customFetch<T = unknown>(
           if (keys.length === 1 && Array.isArray(record[keys[0]])) {
             return record[keys[0]] as T;
           }
-          // Unwrap common "data" wrapper even if there are other keys
-          if (Array.isArray(record["data"])) {
-            return record["data"] as T;
-          }
         }
         return body as T;
       }
