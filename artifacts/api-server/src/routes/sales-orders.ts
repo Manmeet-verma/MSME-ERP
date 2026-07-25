@@ -28,7 +28,7 @@ async function getSalesSettings(organizationId: string): Promise<OrgSalesSetting
 
 async function resolveSOWarehouse(organizationId: string, soWarehouseId: string | null): Promise<string> {
   if (soWarehouseId) return soWarehouseId;
-  return ensureDefaultWarehouse(organizationId as any) as any;
+  return ensureDefaultWarehouse(organizationId);
 }
 
 async function postSOMovements(opts: {
@@ -55,16 +55,16 @@ async function postSOMovements(opts: {
     const linked = linkedMap.get(it.itemId);
     if (!linked) continue;
     await recordMovement({
-      organizationId: opts.organizationId as any,
-      itemId: it.itemId as any,
-      warehouseId: opts.warehouseId as any,
+      organizationId: opts.organizationId,
+      itemId: it.itemId,
+      warehouseId: opts.warehouseId,
       direction: opts.direction,
       quantity: it.quantity,
       unitCost: Number(linked.avgCost),
       reason: opts.reason,
       referenceType: "sales_order",
-      referenceId: opts.salesOrderId as any,
-      createdById: opts.userId as any,
+      referenceId: opts.salesOrderId,
+      createdById: opts.userId,
     });
   }
 }
@@ -134,135 +134,150 @@ async function validateSOOwnership(
 }
 
 salesOrdersRouter.get("/sales-orders", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const snap = await db().collection("sales_orders").where("organizationId", "==", orgId).orderBy("createdAt", "desc").get();
-  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  res.json(await Promise.all(rows.map(fmt)));
+  try {
+    const orgId = req.user!.organizationId;
+    const snap = await db().collection("sales_orders").where("organizationId", "==", orgId).orderBy("createdAt", "desc").get();
+    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    res.json(await Promise.all(rows.map(fmt)));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to list sales orders" });
+  }
 });
 
 salesOrdersRouter.post("/sales-orders", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const b = req.body ?? {};
-  const ownErr = await validateSOOwnership(orgId, b);
-  if (ownErr) {
-    res.status(400).json({ error: ownErr });
-    return;
-  }
-  if (b.status !== undefined && b.status !== "draft") {
-    res
-      .status(400)
-      .json({ error: "Sales orders must be created in draft. Confirm via PATCH to deduct stock." });
-    return;
-  }
-  const now = new Date().toISOString();
-  const soData = {
-    organizationId: orgId,
-    orderNumber: genNumber(),
-    clientId: b.clientId ?? null,
-    warehouseId: b.warehouseId ?? null,
-    status: "draft",
-    subtotal: "0",
-    discountAmount: "0",
-    taxAmount: "0",
-    total: "0",
-    expectedDeliveryAt: b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt).toISOString() : null,
-    notes: b.notes ?? null,
-    createdById: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const soRef = await db().collection("sales_orders").add(soData);
-  const s = { id: soRef.id, ...soData };
+  try {
+    const orgId = req.user!.organizationId;
+    const b = req.body ?? {};
+    const ownErr = await validateSOOwnership(orgId, b);
+    if (ownErr) {
+      res.status(400).json({ error: ownErr });
+      return;
+    }
+    if (b.status !== undefined && b.status !== "draft") {
+      res
+        .status(400)
+        .json({ error: "Sales orders must be created in draft. Confirm via PATCH to deduct stock." });
+      return;
+    }
+    const now = new Date().toISOString();
+    const soData = {
+      organizationId: orgId,
+      orderNumber: genNumber(),
+      clientId: b.clientId ?? null,
+      warehouseId: b.warehouseId ?? null,
+      status: "draft",
+      subtotal: "0",
+      discountAmount: "0",
+      taxAmount: "0",
+      total: "0",
+      expectedDeliveryAt: b.expectedDeliveryAt ? new Date(b.expectedDeliveryAt).toISOString() : null,
+      notes: b.notes ?? null,
+      createdById: req.user!.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const soRef = await db().collection("sales_orders").add(soData);
+    const s = { id: soRef.id, ...soData };
 
-  if (Array.isArray(b.items) && b.items.length > 0) {
-    const itemPromises = b.items.map(
-      async (it: { itemId?: string | null; description: string; quantity: number; unitPrice: number }) => {
-        const itemData = {
+    if (Array.isArray(b.items) && b.items.length > 0) {
+      const itemPromises = b.items.map(
+        async (it: { itemId?: string | null; description: string; quantity: number; unitPrice: number }) => {
+          const itemData = {
+            salesOrderId: s.id,
+            itemId: it.itemId ?? null,
+            description: it.description,
+            quantity: it.quantity,
+            unitPrice: String(it.unitPrice),
+            totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+          };
+          const ref = await db().collection("sales_order_items").add(itemData);
+          return { id: ref.id, ...itemData };
+        },
+      );
+      await Promise.all(itemPromises);
+      await recalc(s.id);
+    }
+
+    const settings = await getSalesSettings(orgId);
+    if (settings.reserveStockOnDraft && Array.isArray(b.items) && b.items.length > 0) {
+      const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
+      await db().runTransaction(async (tx) => {
+        await setReservationsForSO({
+          organizationId: orgId,
           salesOrderId: s.id,
-          itemId: it.itemId ?? null,
-          description: it.description,
-          quantity: it.quantity,
-          unitPrice: String(it.unitPrice),
-          totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-        };
-        const ref = await db().collection("sales_order_items").add(itemData);
-        return { id: ref.id, ...itemData };
-      },
-    );
-    await Promise.all(itemPromises);
-    await recalc(s.id);
-  }
+          lines: b.items.map((it: { itemId?: string | null; quantity: number }) => ({
+            itemId: it.itemId,
+            quantity: it.quantity,
+          })),
+          warehouseId: whId,
+          executor: tx,
+        });
+      });
+    }
 
-  const settings = await getSalesSettings(orgId);
-  if (settings.reserveStockOnDraft && Array.isArray(b.items) && b.items.length > 0) {
-    const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
-    await setReservationsForSO({
-      organizationId: orgId as any,
-      salesOrderId: s.id as any,
-      lines: b.items.map((it: { itemId?: string | null; quantity: number }) => ({
-        itemId: it.itemId as any,
-        quantity: it.quantity,
-      })),
-      warehouseId: whId as any,
-    } as any);
+    const updatedDoc = await db().collection("sales_orders").doc(s.id).get();
+    const updated = { id: updatedDoc.id, ...updatedDoc.data() };
+    await logAction(req, "CREATE", "sales_order", s.id as any);
+    res.status(201).json(await fmt(updated));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to create sales order" });
   }
-
-  const updatedDoc = await db().collection("sales_orders").doc(s.id).get();
-  const updated = { id: updatedDoc.id, ...updatedDoc.data() };
-  await logAction(req, "CREATE", "sales_order", s.id as any);
-  res.status(201).json(await fmt(updated));
 });
 
 salesOrdersRouter.get("/sales-orders/:id", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const id = req.params.id;
-  const soDoc = await db().collection("sales_orders").doc(id).get();
-  if (!soDoc.exists || (soDoc.data() as any).organizationId !== orgId) {
-    res.status(404).json({ error: "Sales order not found" });
-    return;
-  }
-  const s = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
-
-  const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
-  const warehousesSnap = await db().collection("warehouses").where("organizationId", "==", orgId).get();
-  const warehouses = warehousesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  const linkedItemIds = Array.from(
-    new Set(items.map((i: any) => i.itemId).filter((x): x is string => x != null)),
-  );
-  const availability = new Map<string, Array<{ warehouseId: string; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }>>();
-  for (const itemId of linkedItemIds) {
-    const rows: Array<{ warehouseId: string; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }> = [];
-    for (const wh of warehouses) {
-      const onHand = await getStockLevel(orgId as any, itemId as any, wh.id as any);
-      const reserved = await getReservedStock(orgId as any, itemId as any, wh.id as any, id as any);
-      rows.push({
-        warehouseId: wh.id,
-        warehouseName: (wh as any).name,
-        isOrderWarehouse: wh.id === whId,
-        onHand,
-        reserved,
-        available: onHand - reserved,
-      });
+  try {
+    const orgId = req.user!.organizationId;
+    const id = req.params.id;
+    const soDoc = await db().collection("sales_orders").doc(id).get();
+    if (!soDoc.exists || (soDoc.data() as any).organizationId !== orgId) {
+      res.status(404).json({ error: "Sales order not found" });
+      return;
     }
-    availability.set(itemId, rows);
-  }
+    const s = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
 
-  res.json({
-    ...(await fmt(s)),
-    items: items.map((i: any) => ({
-      id: i.id,
-      itemId: i.itemId ?? null,
-      description: i.description,
-      quantity: i.quantity,
-      unitPrice: Number(i.unitPrice),
-      totalPrice: Number(i.totalPrice),
-      availability: i.itemId ? (availability.get(i.itemId) ?? []) : [],
-    })),
-  });
+    const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
+    const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
+    const warehousesSnap = await db().collection("warehouses").where("organizationId", "==", orgId).get();
+    const warehouses = warehousesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const linkedItemIds = Array.from(
+      new Set(items.map((i: any) => i.itemId).filter((x): x is string => x != null)),
+    );
+    const availability = new Map<string, Array<{ warehouseId: string; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }>>();
+    for (const itemId of linkedItemIds) {
+      const rows: Array<{ warehouseId: string; warehouseName: string; isOrderWarehouse: boolean; onHand: number; reserved: number; available: number }> = [];
+      for (const wh of warehouses) {
+        const onHand = await getStockLevel(orgId, itemId, wh.id);
+        const reserved = await getReservedStock(orgId, itemId, wh.id, id);
+        rows.push({
+          warehouseId: wh.id,
+          warehouseName: (wh as any).name,
+          isOrderWarehouse: wh.id === whId,
+          onHand,
+          reserved,
+          available: onHand - reserved,
+        });
+      }
+      availability.set(itemId, rows);
+    }
+
+    res.json({
+      ...(await fmt(s)),
+      items: items.map((i: any) => ({
+        id: i.id,
+        itemId: i.itemId ?? null,
+        description: i.description,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        totalPrice: Number(i.totalPrice),
+        availability: i.itemId ? (availability.get(i.itemId) ?? []) : [],
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to get sales order" });
+  }
 });
 
 salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
@@ -393,8 +408,8 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
         }
         const shortages: Array<{ itemId: string; needed: number; available: number }> = [];
         for (const [itemId, needed] of need) {
-          const have = await getStockLevel(orgId as any, itemId as any, whId as any);
-          const reserved = await getReservedStock(orgId as any, itemId as any, whId as any, id as any);
+          const have = await getStockLevel(orgId, itemId, whId);
+          const reserved = await getReservedStock(orgId, itemId, whId, id);
           const available = have - reserved;
           if (available < needed) shortages.push({ itemId, needed, available });
         }
@@ -416,11 +431,11 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
           reason: "sale",
           userId: req.user!.userId,
         });
-        await clearReservationsForSO(orgId as any, id as any);
+        await clearReservationsForSO(orgId, id, tx);
       }
 
       if (willBeCancelled) {
-        await clearReservationsForSO(orgId as any, id as any);
+        await clearReservationsForSO(orgId, id, tx);
       } else if (willEndAsDraft) {
         if (settings.reserveStockOnDraft) {
           const finalLinesSnap = await db().collection("sales_order_items").where("salesOrderId", "==", id).get();
@@ -429,13 +444,14 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
           const refreshed = refreshedDoc.data() as Record<string, any>;
           const whId = await resolveSOWarehouse(orgId, refreshed.warehouseId ?? null);
           await setReservationsForSO({
-            organizationId: orgId as any,
-            salesOrderId: id as any,
-            lines: finalLines.map((l) => ({ itemId: l.itemId as any, quantity: l.quantity })),
-            warehouseId: whId as any,
-          } as any);
+            organizationId: orgId,
+            salesOrderId: id,
+            lines: finalLines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+            warehouseId: whId,
+            executor: tx,
+          });
         } else {
-          await clearReservationsForSO(orgId as any, id as any);
+          await clearReservationsForSO(orgId, id, tx);
         }
       }
     });
@@ -467,67 +483,74 @@ salesOrdersRouter.patch("/sales-orders/:id", requireAuth, async (req, res) => {
 });
 
 salesOrdersRouter.post("/sales-orders/from-quotation/:quotationId", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const qid = req.params.quotationId;
+  try {
+    const orgId = req.user!.organizationId;
+    const qid = req.params.quotationId;
 
-  const qDoc = await db().collection("quotations").doc(qid).get();
-  if (!qDoc.exists || (qDoc.data() as any).organizationId !== orgId) {
-    res.status(404).json({ error: "Quotation not found" });
-    return;
-  }
-  const q = { id: qDoc.id, ...qDoc.data() } as Record<string, any>;
-
-  const itemsSnap = await db().collection("quotation_items").where("quotationId", "==", qid).get();
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  const now = new Date().toISOString();
-  const soData = {
-    organizationId: orgId,
-    orderNumber: genNumber(),
-    clientId: q.clientId,
-    quotationId: qid,
-    status: "draft",
-    subtotal: q.subtotal,
-    discountAmount: q.discountAmount,
-    taxAmount: q.taxAmount,
-    total: q.total,
-    createdById: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const soRef = await db().collection("sales_orders").add(soData);
-  const s = { id: soRef.id, ...soData };
-
-  if (items.length > 0) {
-    for (const i of items) {
-      const itemData = {
-        salesOrderId: s.id,
-        itemId: i.itemId ?? null,
-        description: i.description,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        totalPrice: i.totalPrice,
-      };
-      await db().collection("sales_order_items").add(itemData);
+    const qDoc = await db().collection("quotations").doc(qid).get();
+    if (!qDoc.exists || (qDoc.data() as any).organizationId !== orgId) {
+      res.status(404).json({ error: "Quotation not found" });
+      return;
     }
-  }
+    const q = { id: qDoc.id, ...qDoc.data() } as Record<string, any>;
 
-  const settings = await getSalesSettings(orgId);
-  if (settings.reserveStockOnDraft && items.length > 0) {
-    const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
-    await setReservationsForSO({
-      organizationId: orgId as any,
-      salesOrderId: s.id as any,
-      lines: items.map((i: any) => ({
-        itemId: i.itemId as any,
-        quantity: Number(i.quantity),
-      })),
-      warehouseId: whId as any,
-    } as any);
-  }
+    const itemsSnap = await db().collection("quotation_items").where("quotationId", "==", qid).get();
+    const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  await logAction(req, "PROMOTE", "sales_order", s.id as any, `From quotation ${q.quotationNumber}`);
-  res.status(201).json(await fmt(s));
+    const now = new Date().toISOString();
+    const soData = {
+      organizationId: orgId,
+      orderNumber: genNumber(),
+      clientId: q.clientId,
+      quotationId: qid,
+      status: "draft",
+      subtotal: q.subtotal,
+      discountAmount: q.discountAmount,
+      taxAmount: q.taxAmount,
+      total: q.total,
+      createdById: req.user!.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const soRef = await db().collection("sales_orders").add(soData);
+    const s = { id: soRef.id, ...soData };
+
+    if (items.length > 0) {
+      for (const i of items) {
+        const itemData = {
+          salesOrderId: s.id,
+          itemId: i.itemId ?? null,
+          description: i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          totalPrice: i.totalPrice,
+        };
+        await db().collection("sales_order_items").add(itemData);
+      }
+    }
+
+    const settings = await getSalesSettings(orgId);
+    if (settings.reserveStockOnDraft && items.length > 0) {
+      const whId = await resolveSOWarehouse(orgId, s.warehouseId ?? null);
+      await db().runTransaction(async (tx) => {
+        await setReservationsForSO({
+          organizationId: orgId,
+          salesOrderId: s.id,
+          lines: items.map((i: any) => ({
+            itemId: i.itemId,
+            quantity: Number(i.quantity),
+          })),
+          warehouseId: whId,
+          executor: tx,
+        });
+      });
+    }
+
+    await logAction(req, "PROMOTE", "sales_order", s.id as any, `From quotation ${q.quotationNumber}`);
+    res.status(201).json(await fmt(s));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to create sales order from quotation" });
+  }
 });
 
 export default salesOrdersRouter;

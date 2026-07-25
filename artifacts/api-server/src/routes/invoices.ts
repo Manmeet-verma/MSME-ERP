@@ -102,151 +102,65 @@ async function recalc(invoiceId: string) {
 }
 
 invoicesRouter.get("/invoices", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  let snap = await db().collection("invoices").where("organizationId", "==", orgId).orderBy("createdAt", "desc").get();
-  let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const statusQ = req.query.status as string | undefined;
-  if (statusQ) rows = rows.filter((r) => r.status === statusQ);
-  res.json(await Promise.all(rows.map(fmt)));
+  try {
+    const orgId = req.user!.organizationId;
+    let snap = await db().collection("invoices").where("organizationId", "==", orgId).orderBy("createdAt", "desc").get();
+    let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const statusQ = req.query.status as string | undefined;
+    if (statusQ) rows = rows.filter((r) => r.status === statusQ);
+    res.json(await Promise.all(rows.map(fmt)));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to list invoices" });
+  }
 });
 
 invoicesRouter.post("/invoices", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const b = req.body ?? {};
+  try {
+    const orgId = req.user!.organizationId;
+    const b = req.body ?? {};
 
-  const orgDoc = await db().collection("organizations").doc(orgId).get();
-  const org = orgDoc.exists ? orgDoc.data() : null;
+    const orgDoc = await db().collection("organizations").doc(orgId).get();
+    const org = orgDoc.exists ? orgDoc.data() : null;
 
-  let buyerState: string | null = null;
-  if (b.clientId) {
-    const clientDoc = await db().collection("clients").doc(b.clientId).get();
-    if (clientDoc.exists) buyerState = (clientDoc.data() as any).state ?? null;
-  }
-
-  const now = new Date().toISOString();
-  const invData = {
-    organizationId: orgId,
-    invoiceNumber: genNumber(),
-    clientId: b.clientId ?? null,
-    salesOrderId: b.salesOrderId ?? null,
-    status: "draft",
-    issueDate: now,
-    dueDate: b.dueDate ? new Date(b.dueDate).toISOString() : null,
-    sellerState: org?.state ?? null,
-    buyerState,
-    subtotal: "0",
-    discountAmount: "0",
-    taxableAmount: "0",
-    cgst: "0",
-    sgst: "0",
-    igst: "0",
-    taxRate: b.taxRate !== undefined && b.taxRate !== null ? String(b.taxRate) : "18",
-    total: "0",
-    amountPaid: "0",
-    notes: b.notes ?? null,
-    terms: b.terms ?? "Payment due within 30 days. GST as applicable.",
-    createdById: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const invRef = await db().collection("invoices").add(invData);
-  const inv = { id: invRef.id, ...invData };
-
-  if (Array.isArray(b.items) && b.items.length > 0) {
-    for (const it of b.items) {
-      const itemData = {
-        invoiceId: inv.id,
-        description: it.description,
-        quantity: it.quantity,
-        unitPrice: String(it.unitPrice),
-        totalPrice: (it.quantity * it.unitPrice).toFixed(2),
-      };
-      await db().collection("invoice_items").add(itemData);
+    let buyerState: string | null = null;
+    if (b.clientId) {
+      const clientDoc = await db().collection("clients").doc(b.clientId).get();
+      if (clientDoc.exists) buyerState = (clientDoc.data() as any).state ?? null;
     }
-  }
 
-  await recalc(inv.id);
-  const updatedDoc = await db().collection("invoices").doc(inv.id).get();
-  const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
-  await logAction(req, "CREATE", "invoice", inv.id as any);
-  res.status(201).json(await fmt(updated));
-});
+    const now = new Date().toISOString();
+    const invData = {
+      organizationId: orgId,
+      invoiceNumber: genNumber(),
+      clientId: b.clientId ?? null,
+      salesOrderId: b.salesOrderId ?? null,
+      status: "draft",
+      issueDate: now,
+      dueDate: b.dueDate ? new Date(b.dueDate).toISOString() : null,
+      sellerState: org?.state ?? null,
+      buyerState,
+      subtotal: "0",
+      discountAmount: "0",
+      taxableAmount: "0",
+      cgst: "0",
+      sgst: "0",
+      igst: "0",
+      taxRate: b.taxRate !== undefined && b.taxRate !== null ? String(b.taxRate) : "18",
+      total: "0",
+      amountPaid: "0",
+      notes: b.notes ?? null,
+      terms: b.terms ?? "Payment due within 30 days. GST as applicable.",
+      createdById: req.user!.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const invRef = await db().collection("invoices").add(invData);
+    const inv = { id: invRef.id, ...invData };
 
-invoicesRouter.get("/invoices/:id", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const id = req.params.id;
-  const invDoc = await db().collection("invoices").doc(id).get();
-  if (!invDoc.exists || (invDoc.data() as any).organizationId !== orgId) {
-    res.status(404).json({ error: "Invoice not found" });
-    return;
-  }
-  const inv = { id: invDoc.id, ...invDoc.data() } as Record<string, any>;
-
-  const itemsSnap = await db().collection("invoice_items").where("invoiceId", "==", id).get();
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  const paysSnap = await db().collection("payments").where("invoiceId", "==", id).get();
-  const pays = paysSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  let client: Record<string, any> | null = null;
-  if (inv.clientId) {
-    const clientDoc = await db().collection("clients").doc(inv.clientId).get();
-    if (clientDoc.exists) client = { id: clientDoc.id, ...clientDoc.data() } as Record<string, any>;
-  }
-
-  res.json({
-    ...(await fmt(inv)),
-    items: items.map((i: any) => ({
-      id: i.id,
-      description: i.description,
-      quantity: i.quantity,
-      unitPrice: Number(i.unitPrice),
-      totalPrice: Number(i.totalPrice),
-    })),
-    payments: pays.map((p: any) => ({
-      id: p.id,
-      invoiceId: p.invoiceId,
-      amount: Number(p.amount),
-      method: p.method,
-      reference: p.reference ?? null,
-      paidAt: p.paidAt,
-      notes: p.notes ?? null,
-      recordedByName: null,
-      createdAt: p.createdAt,
-    })),
-    client: client ?? null,
-  });
-});
-
-invoicesRouter.patch("/invoices/:id", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const id = req.params.id;
-  const b = req.body ?? {};
-
-  const invDoc = await db().collection("invoices").doc(id).get();
-  if (!invDoc.exists || (invDoc.data() as any).organizationId !== orgId) {
-    res.status(404).json({ error: "Invoice not found" });
-    return;
-  }
-
-  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
-  for (const f of ["clientId", "salesOrderId", "notes", "terms"] as const) {
-    if (b[f] !== undefined) updates[f] = b[f];
-  }
-  if (b.dueDate !== undefined) updates.dueDate = b.dueDate ? new Date(b.dueDate).toISOString() : null;
-  if (b.taxRate !== undefined && b.taxRate !== null) updates.taxRate = String(b.taxRate);
-
-  await db().collection("invoices").doc(id).update(updates);
-
-  if (Array.isArray(b.items)) {
-    const existingSnap = await db().collection("invoice_items").where("invoiceId", "==", id).get();
-    for (const doc of existingSnap.docs) {
-      await doc.ref.delete();
-    }
-    if (b.items.length > 0) {
+    if (Array.isArray(b.items) && b.items.length > 0) {
       for (const it of b.items) {
         const itemData = {
-          invoiceId: id,
+          invoiceId: inv.id,
           description: it.description,
           quantity: it.quantity,
           unitPrice: String(it.unitPrice),
@@ -255,108 +169,218 @@ invoicesRouter.patch("/invoices/:id", requireAuth, async (req, res) => {
         await db().collection("invoice_items").add(itemData);
       }
     }
-  }
 
-  await recalc(id);
-  const updatedDoc = await db().collection("invoices").doc(id).get();
-  const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
-  res.json(await fmt(updated));
+    await recalc(inv.id);
+    const updatedDoc = await db().collection("invoices").doc(inv.id).get();
+    const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
+    await logAction(req, "CREATE", "invoice", inv.id as any);
+    res.status(201).json(await fmt(updated));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to create invoice" });
+  }
+});
+
+invoicesRouter.get("/invoices/:id", requireAuth, async (req, res) => {
+  try {
+    const orgId = req.user!.organizationId;
+    const id = req.params.id;
+    const invDoc = await db().collection("invoices").doc(id).get();
+    if (!invDoc.exists || (invDoc.data() as any).organizationId !== orgId) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+    const inv = { id: invDoc.id, ...invDoc.data() } as Record<string, any>;
+
+    const itemsSnap = await db().collection("invoice_items").where("invoiceId", "==", id).get();
+    const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const paysSnap = await db().collection("payments").where("invoiceId", "==", id).get();
+    const pays = paysSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    let client: Record<string, any> | null = null;
+    if (inv.clientId) {
+      const clientDoc = await db().collection("clients").doc(inv.clientId).get();
+      if (clientDoc.exists) client = { id: clientDoc.id, ...clientDoc.data() } as Record<string, any>;
+    }
+
+    res.json({
+      ...(await fmt(inv)),
+      items: items.map((i: any) => ({
+        id: i.id,
+        description: i.description,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        totalPrice: Number(i.totalPrice),
+      })),
+      payments: pays.map((p: any) => ({
+        id: p.id,
+        invoiceId: p.invoiceId,
+        amount: Number(p.amount),
+        method: p.method,
+        reference: p.reference ?? null,
+        paidAt: p.paidAt,
+        notes: p.notes ?? null,
+        recordedByName: null,
+        createdAt: p.createdAt,
+      })),
+      client: client ?? null,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to get invoice" });
+  }
+});
+
+invoicesRouter.patch("/invoices/:id", requireAuth, async (req, res) => {
+  try {
+    const orgId = req.user!.organizationId;
+    const id = req.params.id;
+    const b = req.body ?? {};
+
+    const invDoc = await db().collection("invoices").doc(id).get();
+    if (!invDoc.exists || (invDoc.data() as any).organizationId !== orgId) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+
+    const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    for (const f of ["clientId", "salesOrderId", "notes", "terms"] as const) {
+      if (b[f] !== undefined) updates[f] = b[f];
+    }
+    if (b.dueDate !== undefined) updates.dueDate = b.dueDate ? new Date(b.dueDate).toISOString() : null;
+    if (b.taxRate !== undefined && b.taxRate !== null) updates.taxRate = String(b.taxRate);
+
+    await db().collection("invoices").doc(id).update(updates);
+
+    if (Array.isArray(b.items)) {
+      const existingSnap = await db().collection("invoice_items").where("invoiceId", "==", id).get();
+      for (const doc of existingSnap.docs) {
+        await doc.ref.delete();
+      }
+      if (b.items.length > 0) {
+        for (const it of b.items) {
+          const itemData = {
+            invoiceId: id,
+            description: it.description,
+            quantity: it.quantity,
+            unitPrice: String(it.unitPrice),
+            totalPrice: (it.quantity * it.unitPrice).toFixed(2),
+          };
+          await db().collection("invoice_items").add(itemData);
+        }
+      }
+    }
+
+    await recalc(id);
+    const updatedDoc = await db().collection("invoices").doc(id).get();
+    const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
+    res.json(await fmt(updated));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to update invoice" });
+  }
 });
 
 invoicesRouter.patch("/invoices/:id/status", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const id = req.params.id;
-  const { status } = req.body ?? {};
-  if (!["draft", "sent", "partial", "paid", "overdue", "cancelled"].includes(status)) {
-    res.status(400).json({ error: "Invalid status" });
-    return;
+  try {
+    const orgId = req.user!.organizationId;
+    const id = req.params.id;
+    const { status } = req.body ?? {};
+    if (!["draft", "sent", "partial", "paid", "overdue", "cancelled"].includes(status)) {
+      res.status(400).json({ error: "Invalid status" });
+      return;
+    }
+
+    const invDoc = await db().collection("invoices").doc(id).get();
+    if (!invDoc.exists || (invDoc.data() as any).organizationId !== orgId) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+
+    await db().collection("invoices").doc(id).update({
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await logAction(req, "STATUS_CHANGE", "invoice", id as any, `Status changed to ${status}`);
+    const updatedDoc = await db().collection("invoices").doc(id).get();
+    const inv = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
+    res.json(await fmt(inv));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to update invoice status" });
   }
-
-  const invDoc = await db().collection("invoices").doc(id).get();
-  if (!invDoc.exists || (invDoc.data() as any).organizationId !== orgId) {
-    res.status(404).json({ error: "Invoice not found" });
-    return;
-  }
-
-  await db().collection("invoices").doc(id).update({
-    status,
-    updatedAt: new Date().toISOString(),
-  });
-
-  await logAction(req, "STATUS_CHANGE", "invoice", id as any, `Status changed to ${status}`);
-  const updatedDoc = await db().collection("invoices").doc(id).get();
-  const inv = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
-  res.json(await fmt(inv));
 });
 
 invoicesRouter.post("/invoices/from-sales-order/:salesOrderId", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId;
-  const soId = req.params.salesOrderId;
+  try {
+    const orgId = req.user!.organizationId;
+    const soId = req.params.salesOrderId;
 
-  const soDoc = await db().collection("sales_orders").doc(soId).get();
-  if (!soDoc.exists || (soDoc.data() as any).organizationId !== orgId) {
-    res.status(404).json({ error: "Sales order not found" });
-    return;
-  }
-  const so = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
-
-  const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", soId).get();
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  const orgDoc = await db().collection("organizations").doc(orgId).get();
-  const org = orgDoc.exists ? orgDoc.data() : null;
-
-  let buyerState: string | null = null;
-  if (so.clientId) {
-    const clientDoc = await db().collection("clients").doc(so.clientId).get();
-    if (clientDoc.exists) buyerState = (clientDoc.data() as any).state ?? null;
-  }
-
-  const now = new Date().toISOString();
-  const invData = {
-    organizationId: orgId,
-    invoiceNumber: genNumber(),
-    clientId: so.clientId,
-    salesOrderId: soId,
-    status: "sent",
-    issueDate: now,
-    dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
-    sellerState: org?.state ?? null,
-    buyerState,
-    subtotal: "0",
-    discountAmount: "0",
-    taxableAmount: "0",
-    cgst: "0",
-    sgst: "0",
-    igst: "0",
-    taxRate: "18",
-    total: "0",
-    amountPaid: "0",
-    createdById: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const invRef = await db().collection("invoices").add(invData);
-  const inv = { id: invRef.id, ...invData };
-
-  if (items.length > 0) {
-    for (const i of items) {
-      const itemData = {
-        invoiceId: inv.id,
-        description: i.description,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        totalPrice: i.totalPrice,
-      };
-      await db().collection("invoice_items").add(itemData);
+    const soDoc = await db().collection("sales_orders").doc(soId).get();
+    if (!soDoc.exists || (soDoc.data() as any).organizationId !== orgId) {
+      res.status(404).json({ error: "Sales order not found" });
+      return;
     }
-  }
+    const so = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
 
-  await recalc(inv.id);
-  const updatedDoc = await db().collection("invoices").doc(inv.id).get();
-  const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
-  await logAction(req, "PROMOTE", "invoice", inv.id as any, `From SO ${so.orderNumber}`);
-  res.status(201).json(await fmt(updated));
+    const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", soId).get();
+    const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const orgDoc = await db().collection("organizations").doc(orgId).get();
+    const org = orgDoc.exists ? orgDoc.data() : null;
+
+    let buyerState: string | null = null;
+    if (so.clientId) {
+      const clientDoc = await db().collection("clients").doc(so.clientId).get();
+      if (clientDoc.exists) buyerState = (clientDoc.data() as any).state ?? null;
+    }
+
+    const now = new Date().toISOString();
+    const invData = {
+      organizationId: orgId,
+      invoiceNumber: genNumber(),
+      clientId: so.clientId,
+      salesOrderId: soId,
+      status: "sent",
+      issueDate: now,
+      dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
+      sellerState: org?.state ?? null,
+      buyerState,
+      subtotal: "0",
+      discountAmount: "0",
+      taxableAmount: "0",
+      cgst: "0",
+      sgst: "0",
+      igst: "0",
+      taxRate: "18",
+      total: "0",
+      amountPaid: "0",
+      createdById: req.user!.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const invRef = await db().collection("invoices").add(invData);
+    const inv = { id: invRef.id, ...invData };
+
+    if (items.length > 0) {
+      for (const i of items) {
+        const itemData = {
+          invoiceId: inv.id,
+          description: i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          totalPrice: i.totalPrice,
+        };
+        await db().collection("invoice_items").add(itemData);
+      }
+    }
+
+    await recalc(inv.id);
+    const updatedDoc = await db().collection("invoices").doc(inv.id).get();
+    const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
+    await logAction(req, "PROMOTE", "invoice", inv.id as any, `From SO ${so.orderNumber}`);
+    res.status(201).json(await fmt(updated));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Failed to create invoice from sales order" });
+  }
 });
 
 export { recalc as recalcInvoice };
