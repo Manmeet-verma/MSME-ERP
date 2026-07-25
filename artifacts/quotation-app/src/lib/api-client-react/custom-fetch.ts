@@ -421,7 +421,20 @@ export async function customFetch<T = unknown>(
         }
         return body as T;
       }
-      const retryable = response.status === 401 || response.status === 405 || response.status >= 500;
+      if (response.status === 401) {
+        // Auth failure — clear stale credentials and force login redirect
+        try {
+          localStorage.removeItem("saas_token");
+          localStorage.removeItem("saas_user");
+          localStorage.removeItem("saas_org");
+          localStorage.removeItem("saas_role");
+        } catch { /* noop */ }
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login";
+        }
+        throw new ApiError(response, await parseErrorBody(response, method), requestInfo);
+      }
+      const retryable = response.status === 405 || response.status >= 500;
       if (retryable && attempt < maxRetries) {
         lastError = new ApiError(response, await parseErrorBody(response, method), requestInfo);
         continue;
