@@ -134,7 +134,7 @@ export default function LeadsPage() {
         setForm(emptyForm);
       },
       onError(err: any) {
-        const msg = err?.response?.data?.error ?? err?.message ?? "Failed to create lead";
+        const msg = err?.data?.error ?? err?.message ?? "Failed to create lead";
         toast({ title: msg, variant: "destructive" });
       },
     },
@@ -166,7 +166,7 @@ export default function LeadsPage() {
       toast({ title: "Phone number or name is required", variant: "destructive" });
       return;
     }
-    const payload: any = {
+    const payload = {
       name: form.name || form.phone || "",
       email: form.email || undefined,
       phone: form.phone || undefined,
@@ -176,32 +176,11 @@ export default function LeadsPage() {
       state: form.state || undefined,
       source: form.source,
       sourceBy: form.sourceBy || undefined,
-      approxBudget: form.approxBudget || undefined,
+      approxBudget: form.approxBudget ? Number(form.approxBudget) : undefined,
       product: form.product || undefined,
       notes: form.notes || undefined,
     };
-    createMut.mutate({ data: payload as any }, {
-      onError(fallbackErr: any) {
-        if (fallbackErr?.status === 405 || fallbackErr?.message?.includes("405")) {
-          customFetch("/api/leads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }).then(() => {
-            toast({ title: "Lead created" });
-            qc.invalidateQueries({ queryKey: ["/api/leads"] });
-            setOpen(false);
-            setForm(emptyForm);
-          }).catch((retryErr: any) => {
-            const msg = retryErr?.data?.error ?? retryErr?.message ?? "Failed to create lead";
-            toast({ title: msg, variant: "destructive" });
-          });
-        } else {
-          const msg = fallbackErr?.data?.error ?? fallbackErr?.message ?? "Failed to create lead";
-          toast({ title: msg, variant: "destructive" });
-        }
-      },
-    });
+    createMut.mutate({ data: payload as any });
   }
 
   return (
