@@ -26,18 +26,42 @@ app.use(
   }),
 );
 
+const ALLOWED_ORIGINS = [
+  "https://msme-erp.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:4173",
+];
+
 const corsMiddleware = cors({
-  origin: true,
+  origin(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true,
   methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
   maxAge: 86400,
 });
-app.use(corsMiddleware);
 
-// Explicitly handle ALL OPTIONS preflight requests before any other middleware.
-// This prevents 405 errors when browsers send OPTIONS before POST/PUT/PATCH/DELETE.
-app.options("*", corsMiddleware);
+// Handle CORS and OPTIONS preflight BEFORE everything else — including
+// the catch-all. This ensures every response carries proper CORS headers.
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,Accept,Origin");
+  res.header("Access-Control-Max-Age", "86400");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+app.use(corsMiddleware);
 
 app.use(
   express.json({
@@ -59,7 +83,12 @@ app.get("/api/health", (_req, res) => {
 app.use("/api", router);
 
 // Catch-all for unmatched /api routes — return proper 405 instead of defaulting to HTML
+// NOTE: Must NOT match OPTIONS (preflights are already handled above).
 app.all("/api/*", (req: Request, res: Response) => {
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
   res.status(405).json({ error: `Method ${req.method} not allowed on ${req.path}` });
 });
 
