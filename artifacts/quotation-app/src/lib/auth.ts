@@ -63,13 +63,39 @@ export function getCurrentRole(): MemberRole | null {
   return (localStorage.getItem(ROLE_KEY) as MemberRole | null) ?? null;
 }
 
-export function isAuthenticated() {
-  return !!getAuthToken();
+export function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
+export function isAuthenticated(): boolean {
+  const token = getAuthToken();
+  if (!token) return false;
+  if (isTokenExpired(token)) {
+    clearAuth();
+    return false;
+  }
+  return true;
 }
 
 export function hasOrg() {
   return !!getCurrentOrg();
 }
 
-setAuthTokenGetter(getAuthToken);
+setAuthTokenGetter(() => {
+  const token = getAuthToken();
+  if (token && isTokenExpired(token)) {
+    clearAuth();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    return null;
+  }
+  return token;
+});
 setBaseUrl(API_BASE);
