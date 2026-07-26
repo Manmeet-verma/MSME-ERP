@@ -1,5 +1,4 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -27,29 +26,6 @@ app.use(
   }),
 );
 
-const ALLOWED_ORIGINS = [
-  "https://msme-erp.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:4173",
-];
-
-const corsMiddleware = cors({
-  origin(origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true);
-    }
-  },
-  credentials: true,
-  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
-  maxAge: 86400,
-});
-
-// Handle CORS and OPTIONS preflight BEFORE everything else — including
-// the catch-all. This ensures every response carries proper CORS headers.
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -62,7 +38,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(corsMiddleware);
 
 app.use(
   express.json({
@@ -96,6 +71,8 @@ app.all("/api/*path", (req: Request, res: Response) => {
 // Global error handler — last resort, prevents crashes
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err }, "Unhandled error");
+  res.header("Access-Control-Allow-Origin", _req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
   res.status(500).json({ error: "Internal server error" });
 });
 

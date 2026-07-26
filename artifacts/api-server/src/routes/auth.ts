@@ -235,6 +235,7 @@ authRouter.post("/auth/login", async (req, res) => {
 });
 
 authRouter.get("/auth/me", requireUser, async (req, res) => {
+  try {
   const userId = req.user!.userId;
 
   const cacheKey = `me:${userId}`;
@@ -276,6 +277,10 @@ authRouter.get("/auth/me", requireUser, async (req, res) => {
 
   cacheSet(cacheKey, result, AUTH_CACHE_TTL);
   res.json(result);
+  } catch (err) {
+    logger.error({ err }, "auth/me failed");
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
 });
 
 authRouter.post("/auth/switch-org", requireUser, async (req, res) => {

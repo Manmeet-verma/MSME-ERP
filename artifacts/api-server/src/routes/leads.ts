@@ -43,12 +43,15 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
     const { status, priority, source, search, page: pageStr, limit: limitStr } = req.query as Record<string, string | undefined>;
     const pageSize = Math.min(Number(limitStr) || 50, 100);
     const pageNum = Math.max(Number(pageStr) || 1, 1);
-    const snap = await db().collection("leads").where("organizationId", "==", orgId).get();
+
+    let query = db().collection("leads").where("organizationId", "==", orgId) as any;
+    if (status) query = query.where("status", "==", status);
+    if (priority) query = query.where("priority", "==", priority);
+    if (source) query = query.where("source", "==", source);
+
+    const snap = await query.orderBy("createdAt", "desc").get();
     let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    rows.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-    if (status) rows = rows.filter((r) => r.status === status);
-    if (priority) rows = rows.filter((r) => r.priority === priority);
-    if (source) rows = rows.filter((r) => r.source === source);
+
     if (search) {
       const s = search.toLowerCase();
       rows = rows.filter(
