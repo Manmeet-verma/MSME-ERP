@@ -43,13 +43,14 @@ leadsRouter.get("/leads", requireAuth, async (req, res) => {
     const { status, priority, source, search, page: pageStr, limit: limitStr } = req.query as Record<string, string | undefined>;
     const pageSize = Math.min(Number(limitStr) || 50, 100);
     const pageNum = Math.max(Number(pageStr) || 1, 1);
+    const FIRESTORE_HARD_CAP = 500;
 
     let query = db().collection("leads").where("organizationId", "==", orgId) as any;
     if (status) query = query.where("status", "==", status);
     if (priority) query = query.where("priority", "==", priority);
     if (source) query = query.where("source", "==", source);
 
-    const snap = await query.orderBy("createdAt", "desc").get();
+    const snap = await query.orderBy("createdAt", "desc").limit(FIRESTORE_HARD_CAP).get();
     let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     if (search) {
@@ -142,16 +143,14 @@ leadsRouter.get("/leads/:id", requireAuth, async (req, res) => {
       return;
     }
     const l = snap.data()!;
-    const actSnap = await db().collection("lead_activities").where("leadId", "==", id).get();
+    const actSnap = await db().collection("lead_activities").where("leadId", "==", id).limit(100).get();
     const acts = actSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     acts.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     const userIds = [...new Set(acts.map((a) => a.userId).filter(Boolean))];
     const userMap: Record<string, string> = {};
-    for (const uid of userIds) {
-      const userSnap = await db().collection("users").doc(uid).get();
-      if (userSnap.exists) {
-        userMap[uid] = userSnap.data()!.name;
-      }
+    if (userIds.length > 0) {
+      const userSnaps = await Promise.all(userIds.map((uid) => db().collection("users").doc(uid).get()));
+      userIds.forEach((uid, i) => { if (userSnaps[i].exists) userMap[uid] = userSnaps[i].data()!.name; });
     }
     res.json({
       ...formatLead(id, l),
@@ -236,16 +235,14 @@ leadsRouter.get("/leads/:id/activities", requireAuth, async (req, res) => {
       res.status(404).json({ error: "Lead not found" });
       return;
     }
-    const actSnap = await db().collection("lead_activities").where("leadId", "==", id).get();
+    const actSnap = await db().collection("lead_activities").where("leadId", "==", id).limit(100).get();
     const acts = actSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     acts.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     const userIds = [...new Set(acts.map((a) => a.userId).filter(Boolean))];
     const userMap: Record<string, string> = {};
-    for (const uid of userIds) {
-      const userSnap = await db().collection("users").doc(uid).get();
-      if (userSnap.exists) {
-        userMap[uid] = userSnap.data()!.name;
-      }
+    if (userIds.length > 0) {
+      const userSnaps = await Promise.all(userIds.map((uid) => db().collection("users").doc(uid).get()));
+      userIds.forEach((uid, i) => { if (userSnaps[i].exists) userMap[uid] = userSnaps[i].data()!.name; });
     }
     res.json(
       acts.map((a) => ({

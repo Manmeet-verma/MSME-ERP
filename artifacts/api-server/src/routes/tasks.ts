@@ -28,17 +28,24 @@ function fmt(t: Record<string, any>, assignedToName: string | null) {
 tasksRouter.get("/tasks", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const { status, dueWithinDays } = req.query as Record<string, string | undefined>;
-  const snap = await db().collection("tasks").where("organizationId", "==", orgId).get();
+  const FIRESTORE_HARD_CAP = 200;
+
+  let query = db().collection("tasks").where("organizationId", "==", orgId) as any;
+  if (status) query = query.where("status", "==", status);
+
+  const snap = await query.limit(FIRESTORE_HARD_CAP).get();
   let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  // Fetch assigned user names
+
+  // Batch user lookups instead of N+1
   const assignedIds = [...new Set(rows.map((r) => r.assignedToId).filter(Boolean))];
   const userMap: Record<string, string> = {};
-  for (const uid of assignedIds) {
-    const userSnap = await db().collection("users").doc(uid).get();
-    if (userSnap.exists) {
-      userMap[uid] = userSnap.data()!.name;
-    }
+  if (assignedIds.length > 0) {
+    const userSnaps = await Promise.all(assignedIds.map((uid) => db().collection("users").doc(uid).get()));
+    assignedIds.forEach((uid, i) => {
+      if (userSnaps[i].exists) userMap[uid] = userSnaps[i].data()!.name;
+    });
   }
+
   // Sort: dueAt ascending (nulls last), then createdAt descending
   rows.sort((a, b) => {
     if (!a.dueAt && !b.dueAt) return (b.createdAt || "").localeCompare(a.createdAt || "");
@@ -50,7 +57,6 @@ tasksRouter.get("/tasks", requireAuth, async (req, res) => {
     return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
   let result = rows.map((r) => fmt(r, r.assignedToId ? userMap[r.assignedToId] ?? null : null));
-  if (status) result = result.filter((r) => r.status === status);
   if (dueWithinDays) {
     const days = Number(dueWithinDays);
     const cutoff = Date.now() + days * 86400000;

@@ -99,28 +99,71 @@ async function loadOrgQuotation(orgId: string, id: string) {
 quotationsRouter.get("/quotations", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId as string;
   const { status, clientId, search } = req.query;
-  const snap = await db()
-    .collection("quotations")
-    .where("organizationId", "==", orgId)
-    .get();
-  let rows = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  if (status) rows = rows.filter((q: any) => q.status === status);
-  if (clientId) rows = rows.filter((q: any) => q.clientId === String(clientId));
+  const FIRESTORE_HARD_CAP = 100;
 
-  const result = await Promise.all(rows.map((q: any) => formatQuotation(q)));
+  let query = db()
+    .collection("quotations")
+    .where("organizationId", "==", orgId) as any;
+  if (status) query = query.where("status", "==", status);
+  if (clientId) query = query.where("clientId", "==", String(clientId));
+
+  const snap = await query.limit(FIRESTORE_HARD_CAP).get();
+  let rows = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
   if (search && typeof search === "string") {
     const s = search.toLowerCase();
-    res.json(
-      result.filter(
-        (q) =>
-          q.quotationNumber.toLowerCase().includes(s) ||
-          (q.clientName ?? "").toLowerCase().includes(s) ||
-          (q.clientCompany ?? "").toLowerCase().includes(s),
-      ),
+    rows = rows.filter((q: any) =>
+      (q.quotationNumber ?? "").toLowerCase().includes(s) ||
+      (q.clientId ?? "").toLowerCase().includes(s),
     );
-    return;
   }
+
+  // Batch-fetch clients, creators, and items instead of N+1
+  const clientIds = [...new Set(rows.map((q: any) => q.clientId).filter(Boolean))];
+  const creatorIds = [...new Set(rows.map((q: any) => q.createdById).filter(Boolean))];
+  const quotationIds = rows.map((q) => q.id);
+
+  const [clientSnaps, creatorSnaps, itemsSnaps] = await Promise.all([
+    clientIds.length ? Promise.all(clientIds.map((id) => db().collection("clients").doc(id).get())) : [],
+    creatorIds.length ? Promise.all(creatorIds.map((id) => db().collection("users").doc(id).get())) : [],
+    quotationIds.length ? Promise.all(quotationIds.map((id) => db().collection("quotation_items").where("quotationId", "==", id).limit(50).get())) : [],
+  ]);
+
+  const clientMap = new Map<string, any>();
+  clientIds.forEach((id, i) => { if (clientSnaps[i]?.exists) clientMap.set(id, clientSnaps[i]!.data()); });
+
+  const creatorMap = new Map<string, any>();
+  creatorIds.forEach((id, i) => { if (creatorSnaps[i]?.exists) creatorMap.set(id, creatorSnaps[i]!.data()); });
+
+  const itemCountMap = new Map<string, number>();
+  quotationIds.forEach((id, i) => { itemCountMap.set(id, itemsSnaps[i]?.size ?? 0); });
+
+  const result = rows.map((q: any) => {
+    const client = q.clientId ? clientMap.get(q.clientId) : null;
+    const creator = q.createdById ? creatorMap.get(q.createdById) : null;
+    return {
+      id: q.id,
+      quotationNumber: q.quotationNumber,
+      clientId: q.clientId ?? null,
+      clientName: client?.name ?? null,
+      clientCompany: client?.company ?? null,
+      createdByName: creator?.name ?? null,
+      status: q.status,
+      validUntil: q.validUntil ?? null,
+      subtotal: Number(q.subtotal),
+      discountAmount: Number(q.discountAmount),
+      discountPercent: Number(q.discountPercent),
+      taxAmount: Number(q.taxAmount),
+      taxPercent: Number(q.taxPercent),
+      total: Number(q.total),
+      notes: q.notes ?? null,
+      terms: q.terms ?? null,
+      itemCount: itemCountMap.get(q.id) ?? 0,
+      createdAt: q.createdAt,
+      updatedAt: q.updatedAt,
+    };
+  });
+
   res.json(result);
 });
 
