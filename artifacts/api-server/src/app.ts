@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { cacheStats } from "./lib/ttl-cache";
 
 const app: Express = express();
 
@@ -77,7 +78,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/uploads", express.static("uploads", { maxAge: "30d" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), cache: cacheStats() });
 });
 
 app.use("/api", router);

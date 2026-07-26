@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { getDb } from "../lib/firebase";
 import { signToken, requireUser, requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
+import { cacheDeletePrefix, cacheDelete } from "../lib/ttl-cache";
 
 const authRouter = Router();
 const db = () => getDb();
@@ -235,6 +236,14 @@ authRouter.post("/auth/login", async (req, res) => {
 
 authRouter.get("/auth/me", requireUser, async (req, res) => {
   const userId = req.user!.userId;
+
+  const cacheKey = `me:${userId}`;
+  const cached = cacheGet<unknown>(cacheKey);
+  if (cached) {
+    res.json(cached);
+    return;
+  }
+
   const [userSnap, memberSnap] = await Promise.all([
     db().collection("users").doc(userId).get(),
     db().collection("organization_members").where("userId", "==", userId).get(),
@@ -257,13 +266,16 @@ authRouter.get("/auth/me", requireUser, async (req, res) => {
     }
   }
 
-  res.json({
+  const result = {
     user: { id: userId, name: user.name, email: user.email, phone: user.phone ?? null },
     activeOrgId: req.user!.activeOrgId,
     organizations: memberships.map((m) => ({
       id: m.orgId, name: m.orgName, slug: m.orgSlug, role: m.role,
     })),
-  });
+  };
+
+  cacheSet(cacheKey, result, AUTH_CACHE_TTL);
+  res.json(result);
 });
 
 authRouter.post("/auth/switch-org", requireUser, async (req, res) => {
@@ -288,10 +300,13 @@ authRouter.post("/auth/switch-org", requireUser, async (req, res) => {
     email: req.user!.email,
     activeOrgId: organizationId,
   });
+  cacheDeletePrefix(`auth:${req.user!.userId}:`);
   res.json({ token, activeOrgId: organizationId, role: targetMembership.role });
 });
 
 authRouter.post("/auth/logout", requireAuth, async (_req, res) => {
+  cacheDeletePrefix(`auth:${_req.user!.userId}:`);
+  cacheDelete(`user:${_req.user!.userId}`);
   res.json({ message: "Logged out" });
 });
 

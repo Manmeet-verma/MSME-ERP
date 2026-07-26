@@ -1,13 +1,24 @@
 import { Router } from "express";
 import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
+import { cacheGet, cacheSet } from "../lib/ttl-cache";
 
 const db = () => getDb();
 
 const dashboardWidgetsRouter = Router();
 
+const DASHBOARD_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
 dashboardWidgetsRouter.get("/dashboard/widgets", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
+
+  const cacheKey = `dashboard:${orgId}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    res.json(cached);
+    return;
+  }
+
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString();
@@ -65,7 +76,7 @@ dashboardWidgetsRouter.get("/dashboard/widgets", requireAuth, async (req, res) =
 
   const openPOs = poSnap.docs.filter((d) => ["draft", "sent", "partial"].includes(d.data().status)).length;
 
-  res.json({
+  const result = {
     newLeadsToday,
     hotLeads,
     callsThisWeek,
@@ -78,7 +89,10 @@ dashboardWidgetsRouter.get("/dashboard/widgets", requireAuth, async (req, res) =
     lowStockItems,
     openPurchaseOrders: openPOs,
     stockValue,
-  });
+  };
+
+  cacheSet(cacheKey, result, DASHBOARD_CACHE_TTL);
+  res.json(result);
 });
 
 export default dashboardWidgetsRouter;

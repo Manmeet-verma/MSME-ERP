@@ -1,9 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { getDb } from "../lib/firebase";
+import { cacheGet, cacheSet, cacheDeletePrefix } from "../lib/ttl-cache";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const JWT_EXPIRES_IN = "30d";
+
+const AUTH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export type MemberRole = "owner" | "admin" | "sales" | "viewer";
 
@@ -42,8 +45,14 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
     const token = header.slice(7);
     const decoded = verifyToken(token);
 
-    const userSnap = await getDb().collection("users").doc(decoded.userId).get();
-    const user = userSnap.data();
+    const cacheKey = `user:${decoded.userId}`;
+    let user = cacheGet<{ email: string; isActive: boolean }>(cacheKey);
+    if (!user) {
+      const userSnap = await getDb().collection("users").doc(decoded.userId).get();
+      user = userSnap.data() as { email: string; isActive: boolean } | undefined;
+      if (user) cacheSet(cacheKey, user, AUTH_CACHE_TTL);
+    }
+
     if (!user || !user.isActive) {
       res.status(401).json({ error: "User not found or inactive" });
       return;
@@ -62,6 +71,14 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
   }
 }
 
+interface CachedAuth {
+  userId: string;
+  email: string;
+  activeOrgId: string;
+  organizationId: string;
+  role: MemberRole;
+}
+
 /** Full tenant-aware auth */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -75,6 +92,14 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     if (!decoded.activeOrgId) {
       res.status(403).json({ error: "No active organization. Create or select one first." });
+      return;
+    }
+
+    const cacheKey = `auth:${decoded.userId}:${decoded.activeOrgId}`;
+    const cached = cacheGet<CachedAuth>(cacheKey);
+    if (cached) {
+      req.user = cached;
+      next();
       return;
     }
 
@@ -107,13 +132,16 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     const member = memberSnap.docs[0].data();
 
-    req.user = {
+    const authData: CachedAuth = {
       userId: decoded.userId,
       email: user.email,
       activeOrgId: decoded.activeOrgId,
       organizationId: decoded.activeOrgId,
       role: member.role as MemberRole,
     };
+
+    cacheSet(cacheKey, authData, AUTH_CACHE_TTL);
+    req.user = authData;
     next();
   } catch {
     res.status(401).json({ error: "Invalid auth token" });
