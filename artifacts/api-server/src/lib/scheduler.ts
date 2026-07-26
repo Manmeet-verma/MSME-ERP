@@ -101,12 +101,16 @@ export async function tickPayrollAutoRuns(): Promise<{ created: number }> {
 
 export function startScheduler(): void {
   if (started) return;
+  if (process.env.ENABLE_SCHEDULER !== "true") {
+    logger.info("Scheduler disabled (set ENABLE_SCHEDULER=true to enable)");
+    return;
+  }
   started = true;
   timer = setInterval(() => {
     void tick();
-  }, 60_000);
+  }, 300_000);
   setTimeout(() => void tick(), 5_000);
-  logger.info("Round 4 scheduler started (social + drips)");
+  logger.info("Round 4 scheduler started (social + drips) — 5 min interval");
 }
 
 export function stopScheduler(): void {
