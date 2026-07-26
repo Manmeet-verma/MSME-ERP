@@ -229,7 +229,7 @@ authRouter.post("/auth/login", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err }, "Login failed");
-    res.status(500).json({ error: "Login failed" });
+    res.status(500).json({ error: "Login failed", detail: err instanceof Error ? err.message : String(err) });
   }
 });
 
