@@ -84,7 +84,7 @@ app.use("/api", router);
 
 // Catch-all for unmatched /api routes — return proper 405 instead of defaulting to HTML
 // NOTE: Must NOT match OPTIONS (preflights are already handled above).
-app.all("/api/*", (req: Request, res: Response) => {
+app.all("/api/*path", (req: Request, res: Response) => {
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
