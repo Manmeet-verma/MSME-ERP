@@ -27,7 +27,7 @@ app.use(
 );
 
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Origin", "https://msme-erp.vercel.app");
   res.header("Access-Control-Allow-Credentials", "true");
   res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,Accept,Origin");
@@ -71,7 +71,7 @@ app.all("/api/*path", (req: Request, res: Response) => {
 // Global error handler — last resort, prevents crashes
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err }, "Unhandled error");
-  res.header("Access-Control-Allow-Origin", _req.headers.origin || "*");
+  res.header("Access-Control-Allow-Origin", "https://msme-erp.vercel.app");
   res.header("Access-Control-Allow-Credentials", "true");
   res.status(500).json({ error: "Internal server error" });
 });
