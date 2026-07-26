@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { getDb } from "../lib/firebase";
 import { signToken, requireUser, requireAuth } from "../middlewares/auth";
+import { logger } from "../lib/logger";
 
 const authRouter = Router();
 const db = () => getDb();
@@ -34,6 +35,7 @@ async function ensureUniqueSlug(base: string): Promise<string> {
 }
 
 authRouter.post("/auth/signup", async (req, res) => {
+  try {
   const { name, email, password } = req.body ?? {};
   if (!name || !email || !password) {
     res.status(400).json({ error: "name, email, password required" });
@@ -89,9 +91,14 @@ authRouter.post("/auth/signup", async (req, res) => {
     activeOrgId: null,
     organizations: [],
   });
+  } catch (err) {
+    logger.error({ err }, "Signup failed");
+    res.status(500).json({ error: "Signup failed" });
+  }
 });
 
 authRouter.post("/auth/signup-with-org", async (req, res) => {
+  try {
   const { name, email, password, organizationName, industry } = req.body ?? {};
   if (!name || !email || !password || !organizationName) {
     res.status(400).json({ error: "name, email, password, organizationName required" });
@@ -165,56 +172,65 @@ authRouter.post("/auth/signup-with-org", async (req, res) => {
     activeOrgId: orgRef.id,
     organizations: [{ id: orgRef.id, name: organizationName, slug, role: "owner" }],
   });
+  } catch (err) {
+    logger.error({ err }, "Signup with org failed");
+    res.status(500).json({ error: "Signup failed" });
+  }
 });
 
 authRouter.post("/auth/login", async (req, res) => {
-  const { email, password } = req.body ?? {};
-  if (!email || !password) {
-    res.status(400).json({ error: "email and password required" });
-    return;
-  }
-  const normalizedEmail = String(email).trim().toLowerCase();
-  const userSnap = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
-  if (userSnap.empty) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
-  const userDoc = userSnap.docs[0];
-  const user = userDoc.data();
-  if (!user.isActive) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
-  await userDoc.ref.update({ lastLogin: new Date().toISOString() });
-
-  const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
-  const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
-  const orgSnaps = await Promise.all(orgIds.map((id) => db().collection("organizations").doc(id).get()));
-  const memberships: Array<{ orgId: string; role: string; orgName: string; orgSlug: string }> = [];
-  for (let i = 0; i < memberSnap.docs.length; i++) {
-    const m = memberSnap.docs[i].data();
-    const orgSnap = orgSnaps[i];
-    if (orgSnap.exists) {
-      const org = orgSnap.data()!;
-      memberships.push({ orgId: orgIds[i], role: m.role, orgName: org.name, orgSlug: org.slug });
+  try {
+    const { email, password } = req.body ?? {};
+    if (!email || !password) {
+      res.status(400).json({ error: "email and password required" });
+      return;
     }
-  }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const userSnap = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+    if (userSnap.empty) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+    const userDoc = userSnap.docs[0];
+    const user = userDoc.data();
+    if (!user.isActive) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+    await userDoc.ref.update({ lastLogin: new Date().toISOString() });
 
-  const activeOrgId = memberships[0]?.orgId ?? null;
-  const token = signToken({ userId: userDoc.id, email: user.email, activeOrgId });
-  res.json({
-    token,
-    user: { id: userDoc.id, name: user.name, email: user.email },
-    activeOrgId,
-    organizations: memberships.map((m) => ({
-      id: m.orgId, name: m.orgName, slug: m.orgSlug, role: m.role,
-    })),
-  });
+    const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
+    const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
+    const orgSnaps = await Promise.all(orgIds.map((id) => db().collection("organizations").doc(id).get()));
+    const memberships: Array<{ orgId: string; role: string; orgName: string; orgSlug: string }> = [];
+    for (let i = 0; i < memberSnap.docs.length; i++) {
+      const m = memberSnap.docs[i].data();
+      const orgSnap = orgSnaps[i];
+      if (orgSnap.exists) {
+        const org = orgSnap.data()!;
+        memberships.push({ orgId: orgIds[i], role: m.role, orgName: org.name, orgSlug: org.slug });
+      }
+    }
+
+    const activeOrgId = memberships[0]?.orgId ?? null;
+    const token = signToken({ userId: userDoc.id, email: user.email, activeOrgId });
+    res.json({
+      token,
+      user: { id: userDoc.id, name: user.name, email: user.email },
+      activeOrgId,
+      organizations: memberships.map((m) => ({
+        id: m.orgId, name: m.orgName, slug: m.orgSlug, role: m.role,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "Login failed");
+    res.status(500).json({ error: "Login failed" });
+  }
 });
 
 authRouter.get("/auth/me", requireUser, async (req, res) => {
