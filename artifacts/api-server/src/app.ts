@@ -3,6 +3,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { cacheStats } from "./lib/ttl-cache";
+import { getFirebaseStatus } from "./lib/firebase";
 
 const app: Express = express();
 
@@ -53,7 +54,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/uploads", express.static("uploads", { maxAge: "30d" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), cache: cacheStats() });
+  const firebase = getFirebaseStatus();
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    cache: cacheStats(),
+    firebase: {
+      configured: firebase.configured,
+      projectId: firebase.projectId ?? null,
+      error: firebase.error ?? null,
+    },
+  });
 });
 
 app.use("/api", router);

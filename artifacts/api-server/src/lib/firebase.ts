@@ -44,3 +44,17 @@ export function getDb(): Firestore {
   if (!firestore) initFirebase();
   return firestore;
 }
+
+export function getFirebaseStatus(): { configured: boolean; projectId?: string; error?: string } {
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = cleanPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+  if (projectId && clientEmail && privateKey) {
+    return { configured: true, projectId };
+  }
+  return {
+    configured: false,
+    projectId: projectId || undefined,
+    error: `Missing: ${!projectId ? "FIREBASE_PROJECT_ID " : ""}${!clientEmail ? "FIREBASE_CLIENT_EMAIL " : ""}${!privateKey ? "FIREBASE_PRIVATE_KEY" : ""}`,
+  };
+}

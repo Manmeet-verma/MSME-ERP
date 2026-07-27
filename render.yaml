@@ -14,5 +14,7 @@ services:
         sync: false
       - key: FIREBASE_PRIVATE_KEY
         sync: false
-      - key: FIREBASE_API_KEY
+      - key: JWT_SECRET
         sync: false
+      - key: PORT
+        value: 8080
