@@ -3,8 +3,8 @@ services:
     name: msme-erp-api
     runtime: node
     rootDir: artifacts/api-server
-    buildCommand: cd artifacts/api-server && npm install --legacy-peer-deps && npm run build
-    startCommand: cd artifacts/api-server && node --enable-source-maps ./dist/index.mjs
+    buildCommand: npm install --legacy-peer-deps --no-workspaces && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
