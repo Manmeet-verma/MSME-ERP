@@ -4,12 +4,25 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 let app: App;
 let firestore: Firestore;
 
+function cleanPrivateKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let key = raw;
+  if (key.startsWith('"') && key.endsWith('"')) {
+    key = key.slice(1, -1);
+  }
+  key = key.replace(/\\n/g, "\n").replace(/\\r/g, "");
+  if (!key.includes("BEGIN")) {
+    return undefined;
+  }
+  return key;
+}
+
 export function initFirebase(): App {
   if (app) return app;
 
   const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = cleanPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
   if (projectId && clientEmail && privateKey) {
     app = initializeApp({

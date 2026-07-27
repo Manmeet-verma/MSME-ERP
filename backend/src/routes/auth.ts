@@ -3,7 +3,9 @@ import bcrypt from "bcryptjs";
 import { getDb } from "../lib/firebase";
 import { signToken, requireUser, requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
-import { cacheDeletePrefix, cacheDelete } from "../lib/ttl-cache";
+import { cacheGet, cacheSet, cacheDeletePrefix, cacheDelete } from "../lib/ttl-cache";
+
+const AUTH_CACHE_TTL = 5 * 60 * 1000;
 
 const authRouter = Router();
 const db = () => getDb();
@@ -187,7 +189,14 @@ authRouter.post("/auth/login", async (req, res) => {
       return;
     }
     const normalizedEmail = String(email).trim().toLowerCase();
-    const userSnap = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+    let userSnap;
+    try {
+      userSnap = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+    } catch (dbErr) {
+      logger.error({ err: dbErr }, "Firestore query failed during login");
+      res.status(500).json({ error: "Database error during login" });
+      return;
+    }
     if (userSnap.empty) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
@@ -198,12 +207,28 @@ authRouter.post("/auth/login", async (req, res) => {
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!user.passwordHash) {
+      logger.error({ userId: userDoc.id }, "User has no passwordHash");
+      res.status(500).json({ error: "Login configuration error" });
+      return;
+    }
+    let ok: boolean;
+    try {
+      ok = await bcrypt.compare(String(password), String(user.passwordHash));
+    } catch (bcryptErr) {
+      logger.error({ err: bcryptErr }, "bcrypt compare failed");
+      res.status(500).json({ error: "Authentication error" });
+      return;
+    }
     if (!ok) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
-    await userDoc.ref.update({ lastLogin: new Date().toISOString() });
+    try {
+      await userDoc.ref.update({ lastLogin: new Date().toISOString() });
+    } catch (updateErr) {
+      logger.error({ err: updateErr }, "Failed to update lastLogin");
+    }
 
     const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
     const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
@@ -229,7 +254,7 @@ authRouter.post("/auth/login", async (req, res) => {
       })),
     });
   } catch (err) {
-    logger.error({ err }, "Login failed");
+    logger.error({ err, body: req.body }, "Login failed");
     res.status(500).json({ error: "Login failed" });
   }
 });
