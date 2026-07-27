@@ -1,19 +1,11 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compileOnSave": false,
   "files": [],
   "references": [
-    {
-      "path": "./lib/db"
-    },
-    {
-      "path": "./lib/api-client-react"
-    },
-    {
-      "path": "./lib/api-zod"
-    },
-    {
-      "path": "./lib/integrations-anthropic-ai"
-    }
+    { "path": "./backend/tsconfig.json" },
+    { "path": "./frontend/tsconfig.json" },
+    { "path": "./shared/api-client/tsconfig.json" },
+    { "path": "./shared/api-zod/tsconfig.json" },
+    { "path": "./shared/db/tsconfig.json" },
+    { "path": "./shared/integrations-anthropic-ai/tsconfig.json" }
   ]
 }

@@ -8,7 +8,10 @@ let cachedToken: string | null = null;
 
 export function getBaseUrl(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}`;
+  if (domain) {
+    if (domain.includes("localhost")) return `http://${domain}`;
+    return `https://${domain}`;
+  }
   return "";
 }
 

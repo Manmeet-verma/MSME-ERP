@@ -1,0 +1,5350 @@
+openapi: 3.1.0
+info:
+  title: Quotation App
+  version: 2.0.0
+  description: Multi-tenant SaaS quotation & CRM platform for MSMEs
+
+servers:
+  - url: /api
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Organizations
+  - name: Members
+  - name: Invitations
+  - name: Clients
+  - name: Products
+  - name: Addons
+  - name: Quotations
+  - name: Reports
+  - name: AuditLogs
+  - name: SMS
+  - name: Leads
+  - name: Tasks
+  - name: Calls
+  - name: Emails
+  - name: Campaigns
+  - name: SalesOrders
+  - name: Invoices
+  - name: Payments
+  - name: Integrations
+  - name: AI
+  - name: DashboardWidgets
+  - name: Items
+  - name: Warehouses
+  - name: Vendors
+  - name: PurchaseOrders
+  - name: GRN
+  - name: VendorBills
+  - name: Inventory
+  - name: Employees
+  - name: Attendance
+  - name: Payroll
+  - name: Expenses
+  - name: Accounting
+  - name: Push
+  - name: WhatsApp
+  - name: LeadSources
+
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      security: []
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthCheckResponse"
+
+  # ── Auth ──
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Sign up a new user (without org)
+      operationId: signup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupInput"
+      responses:
+        "201":
+          description: signed up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/signup-with-org:
+    post:
+      tags: [Auth]
+      summary: Sign up a new user and create their organization in one step
+      operationId: signupWithOrg
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupWithOrgInput"
+      responses:
+        "201":
+          description: signed up with org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email + password
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current user and their organizations
+      operationId: getMe
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+
+  /auth/switch-org:
+    post:
+      tags: [Auth]
+      summary: Switch the active organization
+      operationId: switchOrg
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organizationId]
+              properties:
+                organizationId:
+                  type: integer
+      responses:
+        "200":
+          description: switched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwitchOrgResponse"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      operationId: logout
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── Organizations ──
+  /organizations:
+    post:
+      tags: [Organizations]
+      summary: Create a new organization (signed-in user becomes Owner)
+      operationId: createOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInput"
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrgResponse"
+
+  /organizations/current:
+    get:
+      tags: [Organizations]
+      summary: Get the active organization
+      operationId: getCurrentOrganization
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+    patch:
+      tags: [Organizations]
+      summary: Update the active organization
+      operationId: updateCurrentOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationUpdate"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /organizations/current/modules:
+    put:
+      tags: [Organizations]
+      summary: Update enabled modules
+      operationId: updateOrganizationModules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModulesInput"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /organizations/current/members:
+    get:
+      tags: [Members]
+      summary: List members of the active organization
+      operationId: listMembers
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+
+  /organizations/current/members/{userId}:
+    patch:
+      tags: [Members]
+      summary: Update a member's role
+      operationId: updateMemberRole
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/MemberRole"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+    delete:
+      tags: [Members]
+      summary: Remove a member from the active organization
+      operationId: removeMember
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/current/invitations:
+    get:
+      tags: [Invitations]
+      summary: List pending invitations
+      operationId: listInvitations
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invitation"
+    post:
+      tags: [Invitations]
+      summary: Invite a teammate by email
+      operationId: createInvitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationInput"
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+
+  /organizations/current/invitations/{id}:
+    delete:
+      tags: [Invitations]
+      summary: Revoke an invitation
+      operationId: revokeInvitation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /invitations/{token}:
+    get:
+      tags: [Invitations]
+      summary: Get invitation details by token (public)
+      operationId: getInvitation
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationPublic"
+
+  /invitations/{token}/accept:
+    post:
+      tags: [Invitations]
+      summary: Accept an invitation
+      operationId: acceptInvitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwitchOrgResponse"
+
+  # ── Clients ──
+  /clients:
+    get:
+      tags: [Clients]
+      operationId: listClients
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Client" }
+    post:
+      tags: [Clients]
+      operationId: createClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClientInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Client" }
+  /clients/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Clients]
+      operationId: getClient
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Client" }
+    patch:
+      tags: [Clients]
+      operationId: updateClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClientUpdate" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Client" }
+    delete:
+      tags: [Clients]
+      operationId: deleteClient
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Products ──
+  /products:
+    get:
+      tags: [Products]
+      operationId: listProducts
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+    post:
+      tags: [Products]
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Products]
+      operationId: getProduct
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+    patch:
+      tags: [Products]
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductUpdate" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+    delete:
+      tags: [Products]
+      operationId: deleteProduct
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Addons ──
+  /addons:
+    get:
+      tags: [Addons]
+      operationId: listAddons
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Addon" }
+    post:
+      tags: [Addons]
+      operationId: createAddon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddonInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Addon" }
+  /addons/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Addons]
+      operationId: updateAddon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddonUpdate" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Addon" }
+    delete:
+      tags: [Addons]
+      operationId: deleteAddon
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Quotations ──
+  /quotations:
+    get:
+      tags: [Quotations]
+      operationId: listQuotations
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: clientId
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Quotation" }
+    post:
+      tags: [Quotations]
+      operationId: createQuotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotationInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quotation" }
+
+  /quotations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Quotations]
+      operationId: getQuotation
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuotationDetail" }
+    patch:
+      tags: [Quotations]
+      operationId: updateQuotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotationUpdate" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quotation" }
+    delete:
+      tags: [Quotations]
+      operationId: deleteQuotation
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /quotations/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Quotations]
+      operationId: updateQuotationStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotationStatusUpdate" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quotation" }
+
+  /quotations/{id}/duplicate:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Quotations]
+      operationId: duplicateQuotation
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quotation" }
+
+  /quotations/{id}/items:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Quotations]
+      operationId: addQuotationItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotationItemInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuotationItem" }
+
+  /quotations/{id}/items/{itemId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Quotations]
+      operationId: updateQuotationItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotationItemUpdate" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuotationItem" }
+    delete:
+      tags: [Quotations]
+      operationId: deleteQuotationItem
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /quotations/{id}/addons:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Quotations]
+      operationId: addQuotationAddon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotationAddonInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuotationAddon" }
+
+  /quotations/{id}/addons/{addonId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+      - name: addonId
+        in: path
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Quotations]
+      operationId: deleteQuotationAddon
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /quotations/{id}/send-sms:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [SMS]
+      operationId: sendQuotationSms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, message]
+              properties:
+                phone: { type: string }
+                message: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Reports ──
+  /reports/dashboard:
+    get:
+      tags: [Reports]
+      operationId: getDashboardSummary
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardSummary" }
+
+  /reports/monthly:
+    get:
+      tags: [Reports]
+      operationId: getMonthlyReport
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MonthlyStat" }
+
+  /reports/top-products:
+    get:
+      tags: [Reports]
+      operationId: getTopProducts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TopProduct" }
+
+  /reports/pipeline:
+    get:
+      tags: [Reports]
+      operationId: getPipeline
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PipelineStat" }
+
+  /audit-logs:
+    get:
+      tags: [AuditLogs]
+      operationId: listAuditLogs
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AuditLog" }
+
+  # ── Leads ──
+  /leads:
+    get:
+      tags: [Leads]
+      summary: List leads
+      operationId: listLeads
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: priority
+          schema: { type: string }
+        - in: query
+          name: source
+          schema: { type: string }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Lead" }
+    post:
+      tags: [Leads]
+      summary: Create a lead
+      operationId: createLead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lead" }
+  /leads/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Leads]
+      operationId: getLead
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadDetail" }
+    patch:
+      tags: [Leads]
+      operationId: updateLead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lead" }
+    delete:
+      tags: [Leads]
+      operationId: deleteLead
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /leads/{id}/activities:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Leads]
+      operationId: listLeadActivities
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LeadActivity" }
+    post:
+      tags: [Leads]
+      operationId: createLeadActivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadActivityInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadActivity" }
+  /leads/{id}/score:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Leads]
+      summary: Re-score lead (AI + rules)
+      operationId: scoreLead
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lead" }
+  /leads/{id}/convert:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Leads]
+      summary: Convert lead to client (and optionally quotation)
+      operationId: convertLead
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConvertLeadInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConvertLeadResponse" }
+
+  # ── Tasks ──
+  /tasks:
+    get:
+      tags: [Tasks]
+      operationId: listTasks
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: dueWithinDays
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Task" }
+    post:
+      tags: [Tasks]
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+  /tasks/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Tasks]
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+    delete:
+      tags: [Tasks]
+      operationId: deleteTask
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Calls ──
+  /calls:
+    get:
+      tags: [Calls]
+      operationId: listCalls
+      parameters:
+        - in: query
+          name: leadId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Call" }
+  /calls/initiate:
+    post:
+      tags: [Calls]
+      summary: Click-to-call via Twilio (rings user then dials lead)
+      operationId: initiateCall
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InitiateCallInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+  /calls/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Calls]
+      operationId: updateCall
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CallUpdateInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+  /calls/{id}/summarize:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Calls]
+      summary: AI-summarize call transcript
+      operationId: summarizeCall
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+
+  # ── Emails ──
+  /emails:
+    get:
+      tags: [Emails]
+      operationId: listEmails
+      parameters:
+        - in: query
+          name: leadId
+          schema: { type: integer }
+        - in: query
+          name: clientId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Email" }
+    post:
+      tags: [Emails]
+      summary: Send an email
+      operationId: sendEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendEmailInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Email" }
+  /emails/draft:
+    post:
+      tags: [Emails]
+      summary: AI draft email
+      operationId: draftEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DraftEmailInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DraftEmailResponse" }
+  /emails/track/open/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Emails]
+      summary: Open tracking pixel
+      operationId: trackEmailOpen
+      security: []
+      responses:
+        "200":
+          description: 1x1 png
+
+  # ── Campaigns ──
+  /campaigns:
+    get:
+      tags: [Campaigns]
+      operationId: listCampaigns
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Campaign" }
+    post:
+      tags: [Campaigns]
+      operationId: createCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+  /campaigns/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Campaigns]
+      operationId: getCampaign
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CampaignDetail" }
+    patch:
+      tags: [Campaigns]
+      operationId: updateCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+  /campaigns/{id}/send:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Campaigns]
+      summary: Send campaign now
+      operationId: sendCampaign
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Campaign" }
+
+  # ── Sales Orders ──
+  /sales-orders:
+    get:
+      tags: [SalesOrders]
+      operationId: listSalesOrders
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SalesOrder" }
+    post:
+      tags: [SalesOrders]
+      operationId: createSalesOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesOrderInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesOrder" }
+  /sales-orders/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [SalesOrders]
+      operationId: getSalesOrder
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesOrderDetail" }
+    patch:
+      tags: [SalesOrders]
+      operationId: updateSalesOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SalesOrderInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesOrder" }
+  /sales-orders/from-quotation/{quotationId}:
+    parameters:
+      - in: path
+        name: quotationId
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [SalesOrders]
+      summary: Promote quotation to sales order
+      operationId: promoteQuotationToSalesOrder
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SalesOrder" }
+
+  # ── Invoices ──
+  /invoices:
+    get:
+      tags: [Invoices]
+      operationId: listInvoices
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invoice" }
+    post:
+      tags: [Invoices]
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Invoices]
+      operationId: getInvoice
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDetail" }
+    patch:
+      tags: [Invoices]
+      operationId: updateInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/{id}/status:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Invoices]
+      operationId: setInvoiceStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+  /invoices/from-sales-order/{salesOrderId}:
+    parameters:
+      - in: path
+        name: salesOrderId
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Invoices]
+      operationId: promoteSalesOrderToInvoice
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+
+  # ── Payments ──
+  /payments:
+    get:
+      tags: [Payments]
+      operationId: listPayments
+      parameters:
+        - in: query
+          name: invoiceId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Payment" }
+    post:
+      tags: [Payments]
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+  /payments/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Payments]
+      operationId: deletePayment
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Integrations ──
+  /integrations:
+    get:
+      tags: [Integrations]
+      operationId: listIntegrations
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Integration" }
+  /integrations/{provider}:
+    parameters:
+      - in: path
+        name: provider
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Integrations]
+      operationId: upsertIntegration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntegrationInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+    delete:
+      tags: [Integrations]
+      operationId: deleteIntegration
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /integrations/indiamart/sync:
+    post:
+      tags: [Integrations]
+      summary: Manually pull leads from IndiaMart
+      operationId: syncIndiamartLeads
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IndiamartSyncResponse" }
+
+  # ── Lead sources (R6) ──
+  /integrations/tradeindia/sync:
+    post:
+      tags: [LeadSources]
+      summary: Pull leads from TradeIndia
+      operationId: syncTradeindiaLeads
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadSourceSyncResponse" }
+  /integrations/justdial/sync:
+    post:
+      tags: [LeadSources]
+      summary: Pull leads from JustDial
+      operationId: syncJustdialLeads
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadSourceSyncResponse" }
+  /integrations/fb-lead-ads/sync:
+    post:
+      tags: [LeadSources]
+      summary: Pull leads from Facebook Lead Ads
+      operationId: syncFbLeadAds
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeadSourceSyncResponse" }
+
+  # ── Push (R6) ──
+  /push/register:
+    post:
+      tags: [Push]
+      summary: Register an Expo push token for the current user
+      operationId: registerPushToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTokenInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushToken" }
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushToken" }
+    delete:
+      tags: [Push]
+      summary: Unregister an Expo push token
+      operationId: unregisterPushToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTokenDeleteInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /push/tokens:
+    get:
+      tags: [Push]
+      summary: List push tokens for the org
+      operationId: listPushTokens
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PushToken" }
+  /push/test:
+    post:
+      tags: [Push]
+      summary: Send a test push to the current user
+      operationId: sendTestPush
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTestInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushSendResult" }
+
+  # ── WhatsApp (R6) ──
+  /whatsapp/messages:
+    get:
+      tags: [WhatsApp]
+      summary: List WhatsApp messages (optionally filter by leadId)
+      operationId: listWhatsappMessages
+      parameters:
+        - in: query
+          name: leadId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WhatsappMessage" }
+  /whatsapp/send:
+    post:
+      tags: [WhatsApp]
+      summary: Send a WhatsApp message (template or freeform)
+      operationId: sendWhatsappMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsappSendInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatsappMessage" }
+
+  # ── Dashboard widgets (R2) ──
+  /dashboard/widgets:
+    get:
+      tags: [DashboardWidgets]
+      operationId: getDashboardWidgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardWidgets" }
+
+  # ── Items (R3) ──
+  /items:
+    get:
+      tags: [Items]
+      operationId: listItems
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Item" }
+    post:
+      tags: [Items]
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+  /items/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Items]
+      operationId: getItem
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+    patch:
+      tags: [Items]
+      operationId: updateItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+    delete:
+      tags: [Items]
+      operationId: deleteItem
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Warehouses (R3) ──
+  /warehouses:
+    get:
+      tags: [Warehouses]
+      operationId: listWarehouses
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Warehouse" }
+    post:
+      tags: [Warehouses]
+      operationId: createWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarehouseInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Warehouse" }
+  /warehouses/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Warehouses]
+      operationId: updateWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarehouseInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Warehouse" }
+    delete:
+      tags: [Warehouses]
+      operationId: deleteWarehouse
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Vendors (R3) ──
+  /vendors:
+    get:
+      tags: [Vendors]
+      operationId: listVendors
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Vendor" }
+    post:
+      tags: [Vendors]
+      operationId: createVendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+  /vendors/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Vendors]
+      operationId: getVendor
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+    patch:
+      tags: [Vendors]
+      operationId: updateVendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+    delete:
+      tags: [Vendors]
+      operationId: deleteVendor
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Purchase Orders (R3) ──
+  /purchase-orders:
+    get:
+      tags: [PurchaseOrders]
+      operationId: listPurchaseOrders
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PurchaseOrder" }
+    post:
+      tags: [PurchaseOrders]
+      operationId: createPurchaseOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PurchaseOrderInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseOrder" }
+  /purchase-orders/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [PurchaseOrders]
+      operationId: getPurchaseOrder
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseOrderDetail" }
+    patch:
+      tags: [PurchaseOrders]
+      operationId: updatePurchaseOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PurchaseOrderInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseOrder" }
+
+  # ── GRN (R3) ──
+  /grn:
+    get:
+      tags: [GRN]
+      operationId: listGrn
+      parameters:
+        - in: query
+          name: purchaseOrderId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Grn" }
+    post:
+      tags: [GRN]
+      summary: Receive goods (auto-increments stock + updates moving average cost)
+      operationId: createGrn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GrnInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grn" }
+
+  # ── Vendor Bills (R3) ──
+  /vendor-bills:
+    get:
+      tags: [VendorBills]
+      operationId: listVendorBills
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VendorBill" }
+    post:
+      tags: [VendorBills]
+      operationId: createVendorBill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorBillInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorBill" }
+  /vendor-bills/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [VendorBills]
+      operationId: getVendorBill
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorBillDetail" }
+    patch:
+      tags: [VendorBills]
+      operationId: updateVendorBill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorBillInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorBill" }
+
+  # ── Inventory (R3) ──
+  /inventory/stock-levels:
+    get:
+      tags: [Inventory]
+      summary: Per-item per-warehouse stock levels
+      operationId: getStockLevels
+      parameters:
+        - in: query
+          name: warehouseId
+          schema: { type: integer }
+        - in: query
+          name: itemId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockLevel" }
+  /inventory/movements:
+    get:
+      tags: [Inventory]
+      operationId: listStockMovements
+      parameters:
+        - in: query
+          name: itemId
+          schema: { type: integer }
+        - in: query
+          name: warehouseId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockMovement" }
+    post:
+      tags: [Inventory]
+      summary: Manual adjustment / transfer
+      operationId: createStockMovement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StockMovementInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockMovement" }
+  /inventory/valuation:
+    get:
+      tags: [Inventory]
+      summary: Stock valuation report using moving-average cost
+      operationId: getStockValuation
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StockValuation" }
+  /inventory/low-stock:
+    get:
+      tags: [Inventory]
+      operationId: getLowStock
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LowStockItem" }
+
+  # ── Round 4: Social ──
+  /social/accounts:
+    get:
+      tags: [Social]
+      operationId: listSocialAccounts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialAccount" } }
+    post:
+      tags: [Social]
+      operationId: connectSocialAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialAccountInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialAccount" }
+  /social/accounts/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Social]
+      operationId: disconnectSocialAccount
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /social/posts:
+    get:
+      tags: [Social]
+      operationId: listSocialPosts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialPost" } }
+    post:
+      tags: [Social]
+      operationId: createSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialPostInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialPost" }
+  /social/posts/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Social]
+      operationId: updateSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialPostInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialPost" }
+    delete:
+      tags: [Social]
+      operationId: deleteSocialPost
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /social/posts/{id}/publish:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Social]
+      operationId: publishSocialPost
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialPost" }
+  /social/posts/draft:
+    post:
+      tags: [Social]
+      operationId: draftSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialDraftRequest" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialDraftResponse" }
+  /social/posts/rewrite:
+    post:
+      tags: [Social]
+      operationId: rewriteSocialPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, tone]
+              properties:
+                text: { type: string }
+                tone: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text]
+                properties:
+                  text: { type: string }
+  /social/calendar:
+    get:
+      tags: [Social]
+      operationId: getSocialCalendar
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialCalendarEntry" } }
+
+  # ── Round 4: Marketing ──
+  /marketing/suppressions:
+    get:
+      tags: [Marketing]
+      operationId: listEmailSuppressions
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/EmailSuppression" } }
+    post:
+      tags: [Marketing]
+      operationId: createEmailSuppression
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string }
+                reason: { type: string }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmailSuppression" }
+  /marketing/suppressions/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Marketing]
+      operationId: deleteEmailSuppression
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+  /marketing/drips:
+    get:
+      tags: [Marketing]
+      operationId: listDripSequences
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/DripSequence" } }
+    post:
+      tags: [Marketing]
+      operationId: createDripSequence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DripSequenceInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DripSequence" }
+  /marketing/drips/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Marketing]
+      operationId: updateDripSequence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DripSequenceInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DripSequence" }
+  /marketing/drips/{id}/enroll:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      tags: [Marketing]
+      operationId: enrollDripSequence
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enrolled]
+                properties:
+                  enrolled: { type: integer }
+  /marketing/unsubscribe/{token}:
+    parameters:
+      - in: path
+        name: token
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Marketing]
+      operationId: getUnsubscribe
+      security: []
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, status]
+                properties:
+                  email: { type: string }
+                  status: { type: string }
+    post:
+      tags: [Marketing]
+      operationId: confirmUnsubscribe
+      security: []
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  # ── Round 4: AI ──
+  /ai/insights:
+    get:
+      tags: [AI]
+      operationId: getAiInsights
+      parameters:
+        - in: query
+          name: refresh
+          schema: { type: string }
+        - in: query
+          name: date
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiInsightsResponse" }
+  /ai/nl-search:
+    post:
+      tags: [AI]
+      operationId: aiNlSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NlSearchResponse" }
+
+  # ── Round 4: Reports ──
+  /reports/catalog:
+    get:
+      tags: [Reports]
+      operationId: getReportsCatalog
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ReportCatalogEntry" } }
+  /reports/sales-register:
+    get:
+      tags: [Reports]
+      operationId: getSalesRegister
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SalesRegisterRow" } }
+  /reports/purchase-register:
+    get:
+      tags: [Reports]
+      operationId: getPurchaseRegister
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PurchaseRegisterRow" } }
+  /reports/customer-ageing:
+    get:
+      tags: [Reports]
+      operationId: getCustomerAgeing
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/CustomerAgeingRow" } }
+  /reports/top-items:
+    get:
+      tags: [Reports]
+      operationId: getTopItemsReport
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TopItemRow" } }
+  /reports/lead-source-roi:
+    get:
+      tags: [Reports]
+      operationId: getLeadSourceRoi
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LeadSourceRoiRow" } }
+  /reports/social-engagement:
+    get:
+      tags: [Reports]
+      operationId: getSocialEngagementReport
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SocialEngagementRow" } }
+  /reports/email-performance:
+    get:
+      tags: [Reports]
+      operationId: getEmailPerformanceReport
+      parameters:
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/EmailPerformanceRow" } }
+  /employees:
+    get:
+      tags: [Employees]
+      operationId: listEmployees
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Employee" } }
+    post:
+      tags: [Employees]
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+  /employees/{id}:
+    get:
+      tags: [Employees]
+      operationId: getEmployee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+    patch:
+      tags: [Employees]
+      operationId: updateEmployee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+    delete:
+      tags: [Employees]
+      operationId: deleteEmployee
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /attendance:
+    get:
+      tags: [Attendance]
+      operationId: listAttendance
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: employeeId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Attendance" } }
+    post:
+      tags: [Attendance]
+      operationId: markAttendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AttendanceInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attendance" }
+  /attendance/bulk:
+    post:
+      tags: [Attendance]
+      operationId: bulkAttendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, entries]
+              properties:
+                date: { type: string }
+                entries:
+                  type: array
+                  items: { $ref: "#/components/schemas/AttendanceInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Attendance" } }
+  /leaves:
+    get:
+      tags: [Attendance]
+      operationId: listLeaves
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Attendance" } }
+  /leaves/balances:
+    get:
+      tags: [Attendance]
+      operationId: getLeaveBalances
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LeaveBalance" } }
+
+  /leave-requests:
+    get:
+      tags: [Attendance]
+      operationId: listLeaveRequests
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LeaveRequest" } }
+    post:
+      tags: [Attendance]
+      operationId: createLeaveRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeaveRequestInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeaveRequest" }
+  /leave-requests/{id}/approve:
+    post:
+      tags: [Attendance]
+      operationId: approveLeaveRequest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeaveDecisionInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeaveRequest" }
+  /leave-requests/{id}/reject:
+    post:
+      tags: [Attendance]
+      operationId: rejectLeaveRequest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeaveDecisionInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LeaveRequest" }
+
+  /payroll-runs:
+    get:
+      tags: [Payroll]
+      operationId: listPayrollRuns
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PayrollRun" } }
+    post:
+      tags: [Payroll]
+      operationId: createPayrollRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodMonth, periodYear]
+              properties:
+                periodMonth: { type: integer }
+                periodYear: { type: integer }
+                notes: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PayrollRun" }
+  /payroll-runs/{id}:
+    get:
+      tags: [Payroll]
+      operationId: getPayrollRun
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PayrollRunDetail" }
+  /payroll-runs/{id}/mark-paid:
+    post:
+      tags: [Payroll]
+      operationId: markPayrollPaid
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /expense-categories:
+    get:
+      tags: [Expenses]
+      operationId: listExpenseCategories
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ExpenseCategory" } }
+    post:
+      tags: [Expenses]
+      operationId: createExpenseCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                accountCode: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseCategory" }
+  /expenses:
+    get:
+      tags: [Expenses]
+      operationId: listExpenses
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Expense" } }
+    post:
+      tags: [Expenses]
+      operationId: createExpense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpenseInput" }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+  /expenses/{id}:
+    patch:
+      tags: [Expenses]
+      operationId: updateExpense
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpenseInput" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+    delete:
+      tags: [Expenses]
+      operationId: deleteExpense
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageResponse" }
+
+  /accounts:
+    get:
+      tags: [Accounting]
+      operationId: listAccounts
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Account" } }
+    post:
+      tags: [Accounting]
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, type]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                type: { type: string, enum: [asset, liability, equity, income, expense] }
+                subtype: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+  /journal-entries:
+    get:
+      tags: [Accounting]
+      operationId: listJournalEntries
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/JournalEntry" } }
+    post:
+      tags: [Accounting]
+      operationId: createJournalEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entryDate, lines]
+              properties:
+                entryDate: { type: string }
+                memo: { type: ["string", "null"] }
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [accountCode]
+                    properties:
+                      accountCode: { type: string }
+                      debit: { type: ["number", "null"] }
+                      credit: { type: ["number", "null"] }
+                      description: { type: ["string", "null"] }
+      responses:
+        "201":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: integer }
+  /accounting/ledger:
+    get:
+      tags: [Accounting]
+      operationId: getLedger
+      parameters:
+        - in: query
+          name: accountId
+          required: true
+          schema: { type: integer }
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ledger" }
+  /accounting/pnl:
+    get:
+      tags: [Accounting]
+      operationId: getPnl
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: compare
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PnlResponse" }
+  /accounting/gstr1:
+    get:
+      tags: [Accounting]
+      operationId: getGstr1
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Gstr1Response" }
+  /accounting/gstr3b:
+    get:
+      tags: [Accounting]
+      operationId: getGstr3b
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Gstr3bResponse" }
+  /accounting/vendor-ageing:
+    get:
+      tags: [Accounting]
+      operationId: getVendorAgeing
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/VendorAgeingRow" } }
+  /accounting/balance-sheet:
+    get:
+      tags: [Accounting]
+      operationId: getBalanceSheet
+      parameters:
+        - in: query
+          name: asOf
+          schema: { type: string }
+        - in: query
+          name: format
+          schema: { type: string }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BalanceSheetResponse" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    HealthCheckResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+
+    # ── Auth ──
+    User:
+      type: object
+      required: [id, name, email]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: ["string", "null"] }
+
+    MemberRole:
+      type: string
+      enum: [owner, admin, sales, viewer]
+
+    OrgSummary:
+      type: object
+      required: [id, name, slug, role]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        slug: { type: string }
+        role: { $ref: "#/components/schemas/MemberRole" }
+
+    AuthResponse:
+      type: object
+      required: [token, user, activeOrgId, organizations]
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+        activeOrgId: { type: ["integer", "null"] }
+        organizations:
+          type: array
+          items: { $ref: "#/components/schemas/OrgSummary" }
+
+    MeResponse:
+      type: object
+      required: [user, activeOrgId, organizations]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        activeOrgId: { type: ["integer", "null"] }
+        organizations:
+          type: array
+          items: { $ref: "#/components/schemas/OrgSummary" }
+
+    SwitchOrgResponse:
+      type: object
+      required: [token, activeOrgId, role]
+      properties:
+        token: { type: string }
+        activeOrgId: { type: integer }
+        role: { $ref: "#/components/schemas/MemberRole" }
+
+    SignupInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string }
+
+    SignupWithOrgInput:
+      type: object
+      required: [name, email, password, organizationName]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string }
+        organizationName: { type: string }
+        industry: { type: string }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+
+    # ── Organizations ──
+    OrgModules:
+      type: object
+      required: [sales, leads, inventory, purchase, marketing, hr, accounting, social]
+      properties:
+        sales: { type: boolean }
+        leads: { type: boolean }
+        inventory: { type: boolean }
+        purchase: { type: boolean }
+        marketing: { type: boolean }
+        hr: { type: boolean }
+        accounting: { type: boolean }
+        social: { type: boolean }
+
+    OrgLimits:
+      type: object
+      required: [members, leadsPerMonth, emailsPerMonth, storageMB]
+      properties:
+        members: { type: integer }
+        leadsPerMonth: { type: integer }
+        emailsPerMonth: { type: integer }
+        storageMB: { type: integer }
+
+    Organization:
+      type: object
+      required: [id, name, slug, plan, limits, modules, salesSettings, payrollSettings, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        slug: { type: string }
+        plan: { type: string, enum: [free, starter, pro] }
+        industry: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        limits: { $ref: "#/components/schemas/OrgLimits" }
+        modules: { $ref: "#/components/schemas/OrgModules" }
+        salesSettings: { $ref: "#/components/schemas/OrgSalesSettings" }
+        payrollSettings: { $ref: "#/components/schemas/OrgPayrollSettings" }
+        createdAt: { type: string }
+
+    OrgSalesSettings:
+      type: object
+      required: [allowOverselling, reserveStockOnDraft]
+      properties:
+        allowOverselling: { type: boolean }
+        reserveStockOnDraft: { type: boolean }
+
+    OrgPayrollSettings:
+      type: object
+      required: [autoRunEnabled, autoRunDay, emailPayslips]
+      properties:
+        autoRunEnabled: { type: boolean }
+        autoRunDay: { type: integer, minimum: 1, maximum: 28 }
+        emailPayslips: { type: boolean }
+
+    OrganizationInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        industry: { type: string }
+        gstNumber: { type: string }
+        state: { type: string }
+        address: { type: string }
+        phone: { type: string }
+        salesSettings: { $ref: "#/components/schemas/OrgSalesSettings" }
+        payrollSettings: { $ref: "#/components/schemas/OrgPayrollSettings" }
+
+    OrganizationUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        industry: { type: string }
+        gstNumber: { type: string }
+        state: { type: string }
+        address: { type: string }
+        phone: { type: string }
+        salesSettings: { $ref: "#/components/schemas/OrgSalesSettings" }
+        payrollSettings: { $ref: "#/components/schemas/OrgPayrollSettings" }
+
+    CreateOrgResponse:
+      type: object
+      required: [token, organization, role]
+      properties:
+        token: { type: string }
+        organization: { $ref: "#/components/schemas/Organization" }
+        role: { $ref: "#/components/schemas/MemberRole" }
+
+    ModulesInput:
+      type: object
+      properties:
+        sales: { type: boolean }
+        leads: { type: boolean }
+        inventory: { type: boolean }
+        purchase: { type: boolean }
+        marketing: { type: boolean }
+        hr: { type: boolean }
+        accounting: { type: boolean }
+        social: { type: boolean }
+
+    Member:
+      type: object
+      required: [id, userId, name, email, role, isActive, joinedAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        isActive: { type: boolean }
+        lastLogin: { type: ["string", "null"] }
+        joinedAt: { type: string }
+
+    InvitationInput:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [admin, sales, viewer] }
+
+    Invitation:
+      type: object
+      required: [id, email, role, token, expiresAt, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        role: { type: string, enum: [admin, sales, viewer] }
+        token: { type: string }
+        acceptUrl: { type: string }
+        acceptedAt: { type: ["string", "null"] }
+        expiresAt: { type: string }
+        createdAt: { type: string }
+
+    InvitationPublic:
+      type: object
+      required: [email, role, organizationId, organizationName, accepted, expired, expiresAt]
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [admin, sales, viewer] }
+        organizationId: { type: integer }
+        organizationName: { type: string }
+        accepted: { type: boolean }
+        expired: { type: boolean }
+        expiresAt: { type: string }
+
+    # ── Clients ──
+    Client:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        quotationCount: { type: integer }
+        totalValue: { type: number }
+        createdAt: { type: string }
+
+    ClientInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        company: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        gstNumber: { type: string }
+        notes: { type: string }
+
+    ClientUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        company: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        gstNumber: { type: string }
+        notes: { type: string }
+
+    # ── Products ──
+    Product:
+      type: object
+      required: [id, name, category, unit, basePrice, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string }
+        description: { type: ["string", "null"] }
+        unit: { type: string }
+        basePrice: { type: number }
+        pixelPitch: { type: ["string", "null"] }
+        resolution: { type: ["string", "null"] }
+        brightness: { type: ["string", "null"] }
+        application: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+
+    ProductInput:
+      type: object
+      required: [name, category, unit, basePrice]
+      properties:
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        unit: { type: string }
+        basePrice: { type: number }
+        pixelPitch: { type: string }
+        resolution: { type: string }
+        brightness: { type: string }
+        application: { type: string }
+        isActive: { type: boolean }
+
+    ProductUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+        unit: { type: string }
+        basePrice: { type: number }
+        pixelPitch: { type: string }
+        resolution: { type: string }
+        brightness: { type: string }
+        application: { type: string }
+        isActive: { type: boolean }
+
+    # ── Addons ──
+    Addon:
+      type: object
+      required: [id, name, price, priceType, category, isActive]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        price: { type: number }
+        priceType: { type: string, enum: [fixed, percentage] }
+        category: { type: string }
+        isActive: { type: boolean }
+
+    AddonInput:
+      type: object
+      required: [name, price, priceType, category]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        priceType: { type: string, enum: [fixed, percentage] }
+        category: { type: string }
+        isActive: { type: boolean }
+
+    AddonUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        priceType: { type: string, enum: [fixed, percentage] }
+        category: { type: string }
+        isActive: { type: boolean }
+
+    # ── Quotations ──
+    Quotation:
+      type: object
+      required:
+        [id, quotationNumber, status, subtotal, discountAmount, taxAmount, total, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        quotationNumber: { type: string }
+        clientId: { type: ["integer", "null"] }
+        clientName: { type: ["string", "null"] }
+        clientCompany: { type: ["string", "null"] }
+        createdByName: { type: ["string", "null"] }
+        status: { type: string, enum: [draft, sent, approved, rejected, expired] }
+        validUntil: { type: ["string", "null"] }
+        subtotal: { type: number }
+        discountAmount: { type: number }
+        discountPercent: { type: number }
+        taxAmount: { type: number }
+        taxPercent: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        itemCount: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    QuotationDetail:
+      type: object
+      required:
+        [id, quotationNumber, status, subtotal, discountAmount, taxAmount, total, items, quotationAddons, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        quotationNumber: { type: string }
+        clientId: { type: ["integer", "null"] }
+        clientName: { type: ["string", "null"] }
+        clientCompany: { type: ["string", "null"] }
+        clientEmail: { type: ["string", "null"] }
+        clientPhone: { type: ["string", "null"] }
+        clientAddress: { type: ["string", "null"] }
+        clientGstNumber: { type: ["string", "null"] }
+        createdByName: { type: ["string", "null"] }
+        status: { type: string, enum: [draft, sent, approved, rejected, expired] }
+        validUntil: { type: ["string", "null"] }
+        subtotal: { type: number }
+        discountAmount: { type: number }
+        discountPercent: { type: number }
+        taxAmount: { type: number }
+        taxPercent: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/QuotationItem" }
+        quotationAddons:
+          type: array
+          items: { $ref: "#/components/schemas/QuotationAddon" }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    QuotationInput:
+      type: object
+      properties:
+        clientId: { type: integer }
+        validUntil: { type: string }
+        notes: { type: string }
+        terms: { type: string }
+        discountPercent: { type: number }
+        taxPercent: { type: number }
+
+    QuotationUpdate:
+      type: object
+      properties:
+        clientId: { type: integer }
+        validUntil: { type: string }
+        notes: { type: string }
+        terms: { type: string }
+        discountPercent: { type: number }
+        taxPercent: { type: number }
+
+    QuotationStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [draft, sent, approved, rejected, expired] }
+
+    QuotationItem:
+      type: object
+      required: [id, quotationId, description, quantity, unitPrice, totalPrice]
+      properties:
+        id: { type: integer }
+        quotationId: { type: integer }
+        productId: { type: ["integer", "null"] }
+        productName: { type: ["string", "null"] }
+        itemId: { type: ["integer", "null"] }
+        itemName: { type: ["string", "null"] }
+        description: { type: string }
+        widthFt: { type: ["number", "null"] }
+        heightFt: { type: ["number", "null"] }
+        areaSqFt: { type: ["number", "null"] }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+        notes: { type: ["string", "null"] }
+
+    QuotationItemInput:
+      type: object
+      required: [description, quantity, unitPrice]
+      properties:
+        productId: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        description: { type: string }
+        widthFt: { type: number }
+        heightFt: { type: number }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        notes: { type: string }
+
+    QuotationItemUpdate:
+      type: object
+      properties:
+        productId: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        description: { type: string }
+        widthFt: { type: number }
+        heightFt: { type: number }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        notes: { type: string }
+
+    QuotationAddon:
+      type: object
+      required: [id, quotationId, description, quantity, price, totalPrice]
+      properties:
+        id: { type: integer }
+        quotationId: { type: integer }
+        addonId: { type: ["integer", "null"] }
+        addonName: { type: ["string", "null"] }
+        description: { type: string }
+        quantity: { type: integer }
+        price: { type: number }
+        totalPrice: { type: number }
+
+    QuotationAddonInput:
+      type: object
+      required: [description, quantity, price]
+      properties:
+        addonId: { type: integer }
+        description: { type: string }
+        quantity: { type: integer }
+        price: { type: number }
+
+    # ── Reports ──
+    DashboardSummary:
+      type: object
+      required:
+        [totalQuotations, totalClients, totalProducts, pipelineValue, approvedValue, conversionRate, thisMonthQuotations, thisMonthValue, recentQuotations]
+      properties:
+        totalQuotations: { type: integer }
+        totalClients: { type: integer }
+        totalProducts: { type: integer }
+        pipelineValue: { type: number }
+        approvedValue: { type: number }
+        conversionRate: { type: number }
+        thisMonthQuotations: { type: integer }
+        thisMonthValue: { type: number }
+        draftCount: { type: integer }
+        sentCount: { type: integer }
+        approvedCount: { type: integer }
+        rejectedCount: { type: integer }
+        expiredCount: { type: integer }
+        recentQuotations:
+          type: array
+          items: { $ref: "#/components/schemas/Quotation" }
+
+    MonthlyStat:
+      type: object
+      required: [month, year, quotationCount, totalValue, approvedValue, approvedCount]
+      properties:
+        month: { type: integer }
+        year: { type: integer }
+        label: { type: string }
+        quotationCount: { type: integer }
+        totalValue: { type: number }
+        approvedValue: { type: number }
+        approvedCount: { type: integer }
+
+    TopProduct:
+      type: object
+      required: [productId, productName, count, totalRevenue]
+      properties:
+        productId: { type: integer }
+        productName: { type: string }
+        count: { type: integer }
+        totalRevenue: { type: number }
+
+    PipelineStat:
+      type: object
+      required: [status, count, totalValue]
+      properties:
+        status: { type: string }
+        count: { type: integer }
+        totalValue: { type: number }
+
+    AuditLog:
+      type: object
+      required: [id, action, entity, createdAt]
+      properties:
+        id: { type: integer }
+        userId: { type: ["integer", "null"] }
+        userName: { type: ["string", "null"] }
+        action: { type: string }
+        entity: { type: string }
+        entityId: { type: ["integer", "null"] }
+        details: { type: ["string", "null"] }
+        ipAddress: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    Lead:
+      type: object
+      required: [id, name, source, status, priority, score, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        source: { type: string }
+        externalId: { type: ["string", "null"] }
+        status: { type: string }
+        priority: { type: string }
+        score: { type: integer }
+        budget: { type: ["number", "null"] }
+        product: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        nextAction: { type: ["string", "null"] }
+        assignedToId: { type: ["integer", "null"] }
+        convertedClientId: { type: ["integer", "null"] }
+        lastContactedAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    LeadInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        source: { type: string, enum: [manual, indiamart, website, other] }
+        status: { type: string, enum: [new, contacted, qualified, won, lost] }
+        priority: { type: string, enum: [hot, warm, cold] }
+        budget: { type: ["number", "null"] }
+        product: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        nextAction: { type: ["string", "null"] }
+        assignedToId: { type: ["integer", "null"] }
+
+    LeadDetail:
+      allOf:
+        - $ref: "#/components/schemas/Lead"
+        - type: object
+          properties:
+            activities:
+              type: array
+              items: { $ref: "#/components/schemas/LeadActivity" }
+
+    LeadActivity:
+      type: object
+      required: [id, leadId, type, title, createdAt]
+      properties:
+        id: { type: integer }
+        leadId: { type: integer }
+        type: { type: string }
+        title: { type: string }
+        body: { type: ["string", "null"] }
+        userId: { type: ["integer", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    LeadActivityInput:
+      type: object
+      required: [type, title]
+      properties:
+        type: { type: string, enum: [note, call, email, status_change, task, conversion] }
+        title: { type: string }
+        body: { type: ["string", "null"] }
+
+    ConvertLeadInput:
+      type: object
+      properties:
+        createQuotation: { type: boolean, default: false }
+
+    ConvertLeadResponse:
+      type: object
+      required: [clientId]
+      properties:
+        clientId: { type: integer }
+        quotationId: { type: ["integer", "null"] }
+
+    Task:
+      type: object
+      required: [id, title, status, priority, createdAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        status: { type: string }
+        priority: { type: string }
+        dueAt: { type: ["string", "null"] }
+        relatedType: { type: string }
+        relatedId: { type: ["integer", "null"] }
+        assignedToId: { type: ["integer", "null"] }
+        assignedToName: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    TaskInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        status: { type: string, enum: [open, done, cancelled] }
+        priority: { type: string, enum: [low, medium, high] }
+        dueAt: { type: ["string", "null"] }
+        relatedType: { type: string, enum: [lead, client, quotation, invoice, none] }
+        relatedId: { type: ["integer", "null"] }
+        assignedToId: { type: ["integer", "null"] }
+
+    Call:
+      type: object
+      required: [id, toNumber, direction, status, createdAt]
+      properties:
+        id: { type: integer }
+        leadId: { type: ["integer", "null"] }
+        leadName: { type: ["string", "null"] }
+        userId: { type: ["integer", "null"] }
+        userName: { type: ["string", "null"] }
+        direction: { type: string }
+        fromNumber: { type: ["string", "null"] }
+        toNumber: { type: string }
+        status: { type: string }
+        twilioSid: { type: ["string", "null"] }
+        durationSec: { type: ["integer", "null"] }
+        recordingUrl: { type: ["string", "null"] }
+        transcript: { type: ["string", "null"] }
+        aiSummary: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        startedAt: { type: ["string", "null"] }
+        endedAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    InitiateCallInput:
+      type: object
+      required: [toNumber, agentNumber]
+      properties:
+        toNumber: { type: string }
+        agentNumber: { type: string }
+        leadId: { type: ["integer", "null"] }
+
+    CallUpdateInput:
+      type: object
+      properties:
+        notes: { type: ["string", "null"] }
+        transcript: { type: ["string", "null"] }
+        durationSec: { type: ["integer", "null"] }
+        status: { type: ["string", "null"] }
+
+    Email:
+      type: object
+      required: [id, fromEmail, toEmail, subject, status, createdAt]
+      properties:
+        id: { type: integer }
+        leadId: { type: ["integer", "null"] }
+        clientId: { type: ["integer", "null"] }
+        direction: { type: string }
+        fromEmail: { type: string }
+        toEmail: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        status: { type: string }
+        threadId: { type: ["string", "null"] }
+        openedAt: { type: ["string", "null"] }
+        clickedAt: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    SendEmailInput:
+      type: object
+      required: [toEmail, subject, body]
+      properties:
+        toEmail: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        leadId: { type: ["integer", "null"] }
+        clientId: { type: ["integer", "null"] }
+        threadId: { type: ["string", "null"] }
+
+    DraftEmailInput:
+      type: object
+      required: [purpose]
+      properties:
+        purpose: { type: string, description: "Short prompt describing what to write" }
+        leadId: { type: ["integer", "null"] }
+        clientId: { type: ["integer", "null"] }
+        tone: { type: string, enum: [friendly, formal, persuasive, follow_up], default: friendly }
+
+    DraftEmailResponse:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+
+    Campaign:
+      type: object
+      required: [id, name, subject, status, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        fromEmail: { type: string }
+        segment:
+          type: object
+          properties:
+            entity: { type: string }
+            filters:
+              type: object
+              additionalProperties: { type: string }
+        status: { type: string }
+        scheduledAt: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+        stats:
+          type: object
+          properties:
+            total: { type: integer }
+            sent: { type: integer }
+            opened: { type: integer }
+            clicked: { type: integer }
+        subjectB: { type: ["string", "null"] }
+        bodyB: { type: ["string", "null"] }
+        abEnabled: { type: boolean }
+        abSplitPercent: { type: integer }
+        winnerVariant: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    CampaignInput:
+      type: object
+      required: [name, subject, body, fromEmail, segment]
+      properties:
+        name: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        fromEmail: { type: string }
+        segment:
+          type: object
+          required: [entity]
+          properties:
+            entity: { type: string, enum: [leads, clients] }
+            filters:
+              type: object
+              additionalProperties: { type: string }
+        scheduledAt: { type: ["string", "null"] }
+        subjectB: { type: ["string", "null"] }
+        bodyB: { type: ["string", "null"] }
+        abEnabled: { type: boolean }
+        abSplitPercent: { type: integer }
+
+    CampaignRecipient:
+      type: object
+      required: [id, email, status]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        name: { type: ["string", "null"] }
+        leadId: { type: ["integer", "null"] }
+        clientId: { type: ["integer", "null"] }
+        status: { type: string }
+        sentAt: { type: ["string", "null"] }
+        openedAt: { type: ["string", "null"] }
+        clickedAt: { type: ["string", "null"] }
+
+    CampaignDetail:
+      allOf:
+        - $ref: "#/components/schemas/Campaign"
+        - type: object
+          properties:
+            recipients:
+              type: array
+              items: { $ref: "#/components/schemas/CampaignRecipient" }
+
+    SalesOrder:
+      type: object
+      required: [id, orderNumber, status, subtotal, total, createdAt]
+      properties:
+        id: { type: integer }
+        orderNumber: { type: string }
+        clientId: { type: ["integer", "null"] }
+        clientName: { type: ["string", "null"] }
+        quotationId: { type: ["integer", "null"] }
+        warehouseId: { type: ["integer", "null"] }
+        status: { type: string }
+        subtotal: { type: number }
+        discountAmount: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+        expectedDeliveryAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    SalesOrderItem:
+      type: object
+      required: [id, description, quantity, unitPrice, totalPrice]
+      properties:
+        id: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        description: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+        availability:
+          type: array
+          items: { $ref: "#/components/schemas/SOItemAvailability" }
+
+    SOItemAvailability:
+      type: object
+      required: [warehouseId, warehouseName, isOrderWarehouse, onHand, reserved, available]
+      properties:
+        warehouseId: { type: integer }
+        warehouseName: { type: string }
+        isOrderWarehouse: { type: boolean }
+        onHand: { type: number }
+        reserved: { type: number }
+        available: { type: number }
+
+    SalesOrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/SalesOrder"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/SalesOrderItem" }
+
+    SalesOrderInput:
+      type: object
+      properties:
+        clientId: { type: ["integer", "null"] }
+        warehouseId: { type: ["integer", "null"] }
+        status: { type: string, enum: [draft, confirmed, in_production, delivered, cancelled] }
+        expectedDeliveryAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              itemId: { type: ["integer", "null"] }
+              description: { type: string }
+              quantity: { type: integer }
+              unitPrice: { type: number }
+
+    Invoice:
+      type: object
+      required: [id, invoiceNumber, status, total, createdAt]
+      properties:
+        id: { type: integer }
+        invoiceNumber: { type: string }
+        clientId: { type: ["integer", "null"] }
+        clientName: { type: ["string", "null"] }
+        salesOrderId: { type: ["integer", "null"] }
+        status: { type: string }
+        issueDate: { type: string }
+        dueDate: { type: ["string", "null"] }
+        sellerState: { type: ["string", "null"] }
+        buyerState: { type: ["string", "null"] }
+        subtotal: { type: number }
+        discountAmount: { type: number }
+        taxableAmount: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
+        taxRate: { type: number }
+        total: { type: number }
+        amountPaid: { type: number }
+        notes: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    InvoiceItem:
+      type: object
+      required: [id, description, quantity, unitPrice, totalPrice]
+      properties:
+        id: { type: integer }
+        description: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+
+    InvoiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Invoice"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/InvoiceItem" }
+            payments:
+              type: array
+              items: { $ref: "#/components/schemas/Payment" }
+            client:
+              type: ["object", "null"]
+              additionalProperties: true
+
+    InvoiceInput:
+      type: object
+      properties:
+        clientId: { type: ["integer", "null"] }
+        salesOrderId: { type: ["integer", "null"] }
+        dueDate: { type: ["string", "null"] }
+        taxRate: { type: ["number", "null"] }
+        notes: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              description: { type: string }
+              quantity: { type: integer }
+              unitPrice: { type: number }
+
+    Payment:
+      type: object
+      required: [id, invoiceId, amount, method, paidAt, createdAt]
+      properties:
+        id: { type: integer }
+        invoiceId: { type: integer }
+        amount: { type: number }
+        method: { type: string }
+        reference: { type: ["string", "null"] }
+        paidAt: { type: string }
+        notes: { type: ["string", "null"] }
+        recordedByName: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    PaymentInput:
+      type: object
+      required: [invoiceId, amount]
+      properties:
+        invoiceId: { type: integer }
+        amount: { type: number }
+        method: { type: string, enum: [cash, upi, bank_transfer, cheque, card, other] }
+        reference: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    Integration:
+      type: object
+      required: [id, provider, enabled, config, createdAt]
+      properties:
+        id: { type: integer }
+        provider: { type: string }
+        enabled: { type: boolean }
+        config:
+          type: object
+          additionalProperties: { type: string }
+        lastSyncedAt: { type: ["string", "null"] }
+        lastSyncStatus: { type: ["string", "null"] }
+        lastSyncMessage: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    IntegrationInput:
+      type: object
+      required: [enabled, config]
+      properties:
+        enabled: { type: boolean }
+        config:
+          type: object
+          additionalProperties: { type: string }
+
+    IndiamartSyncResponse:
+      type: object
+      required: [imported, message]
+      properties:
+        imported: { type: integer }
+        message: { type: string }
+
+    DashboardWidgets:
+      type: object
+      required:
+        [newLeadsToday, hotLeads, callsThisWeek, emailsSentThisWeek, quotationsSentThisWeek,
+         invoicesUnpaid, revenueThisMonth, overdueAmount, openTasks]
+      properties:
+        newLeadsToday: { type: integer }
+        hotLeads: { type: integer }
+        callsThisWeek: { type: integer }
+        emailsSentThisWeek: { type: integer }
+        quotationsSentThisWeek: { type: integer }
+        invoicesUnpaid: { type: integer }
+        revenueThisMonth: { type: number }
+        overdueAmount: { type: number }
+        openTasks: { type: integer }
+        lowStockItems: { type: integer }
+        openPurchaseOrders: { type: integer }
+        stockValue: { type: number }
+
+    # ── R3 — Inventory & Purchase ──
+    Item:
+      type: object
+      required: [id, sku, name, unit, gstRate, salePrice, purchasePrice, avgCost, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        sku: { type: string }
+        name: { type: string }
+        category: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        unit: { type: string }
+        hsnCode: { type: ["string", "null"] }
+        gstRate: { type: number }
+        salePrice: { type: number }
+        purchasePrice: { type: number }
+        avgCost: { type: number }
+        openingStock: { type: number }
+        lowStockThreshold: { type: number }
+        currentStock: { type: number }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    ItemInput:
+      type: object
+      required: [sku, name, unit]
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        category: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        unit: { type: string }
+        hsnCode: { type: ["string", "null"] }
+        gstRate: { type: ["number", "null"] }
+        salePrice: { type: ["number", "null"] }
+        purchasePrice: { type: ["number", "null"] }
+        openingStock: { type: ["number", "null"] }
+        lowStockThreshold: { type: ["number", "null"] }
+        isActive: { type: ["boolean", "null"] }
+
+    Warehouse:
+      type: object
+      required: [id, name, isDefault, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        code: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        isDefault: { type: boolean }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+    WarehouseInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        code: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        isDefault: { type: ["boolean", "null"] }
+        isActive: { type: ["boolean", "null"] }
+
+    Vendor:
+      type: object
+      required: [id, name, paymentTermsDays, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        contactName: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        paymentTermsDays: { type: integer }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    VendorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        contactName: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        gstNumber: { type: ["string", "null"] }
+        paymentTermsDays: { type: ["integer", "null"] }
+        notes: { type: ["string", "null"] }
+
+    PurchaseOrder:
+      type: object
+      required: [id, poNumber, status, subtotal, total, createdAt]
+      properties:
+        id: { type: integer }
+        poNumber: { type: string }
+        vendorId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        warehouseId: { type: ["integer", "null"] }
+        status: { type: string }
+        expectedDate: { type: ["string", "null"] }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    PurchaseOrderItem:
+      type: object
+      required: [id, description, quantity, unitPrice, totalPrice, receivedQuantity]
+      properties:
+        id: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        itemName: { type: ["string", "null"] }
+        itemSku: { type: ["string", "null"] }
+        description: { type: string }
+        quantity: { type: number }
+        receivedQuantity: { type: number }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+    PurchaseOrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/PurchaseOrder"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PurchaseOrderItem" }
+    PurchaseOrderInput:
+      type: object
+      properties:
+        vendorId: { type: ["integer", "null"] }
+        warehouseId: { type: ["integer", "null"] }
+        status: { type: string, enum: [draft, sent, partial, received, cancelled] }
+        expectedDate: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        taxRate: { type: ["number", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              itemId: { type: ["integer", "null"] }
+              description: { type: string }
+              quantity: { type: number }
+              unitPrice: { type: number }
+
+    Grn:
+      type: object
+      required: [id, grnNumber, warehouseId, receivedAt, createdAt]
+      properties:
+        id: { type: integer }
+        grnNumber: { type: string }
+        purchaseOrderId: { type: ["integer", "null"] }
+        poNumber: { type: ["string", "null"] }
+        warehouseId: { type: integer }
+        warehouseName: { type: ["string", "null"] }
+        receivedAt: { type: string }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GrnItem" }
+        createdAt: { type: string }
+    GrnItem:
+      type: object
+      required: [id, itemId, quantity, unitCost]
+      properties:
+        id: { type: integer }
+        poItemId: { type: ["integer", "null"] }
+        itemId: { type: integer }
+        itemName: { type: ["string", "null"] }
+        itemSku: { type: ["string", "null"] }
+        quantity: { type: number }
+        unitCost: { type: number }
+    GrnInput:
+      type: object
+      required: [warehouseId, items]
+      properties:
+        purchaseOrderId: { type: ["integer", "null"] }
+        warehouseId: { type: integer }
+        receivedAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [itemId, quantity, unitCost]
+            properties:
+              poItemId: { type: ["integer", "null"] }
+              itemId: { type: integer }
+              quantity: { type: number }
+              unitCost: { type: number }
+
+    VendorBill:
+      type: object
+      required: [id, billNumber, status, subtotal, total, amountPaid, createdAt]
+      properties:
+        id: { type: integer }
+        billNumber: { type: string }
+        vendorId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        purchaseOrderId: { type: ["integer", "null"] }
+        status: { type: string }
+        issueDate: { type: string }
+        dueDate: { type: ["string", "null"] }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+        amountPaid: { type: number }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    VendorBillItem:
+      type: object
+      required: [id, description, quantity, unitPrice, totalPrice]
+      properties:
+        id: { type: integer }
+        itemId: { type: ["integer", "null"] }
+        description: { type: string }
+        quantity: { type: number }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+    VendorBillDetail:
+      allOf:
+        - $ref: "#/components/schemas/VendorBill"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/VendorBillItem" }
+    VendorBillInput:
+      type: object
+      properties:
+        billNumber: { type: ["string", "null"] }
+        vendorId: { type: ["integer", "null"] }
+        purchaseOrderId: { type: ["integer", "null"] }
+        status: { type: string, enum: [draft, open, partial, paid, overdue, cancelled] }
+        issueDate: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"] }
+        taxRate: { type: ["number", "null"] }
+        amountPaid: { type: ["number", "null"] }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              itemId: { type: ["integer", "null"] }
+              description: { type: string }
+              quantity: { type: number }
+              unitPrice: { type: number }
+
+    StockLevel:
+      type: object
+      required: [itemId, itemName, warehouseId, warehouseName, quantity]
+      properties:
+        itemId: { type: integer }
+        itemSku: { type: ["string", "null"] }
+        itemName: { type: string }
+        unit: { type: ["string", "null"] }
+        warehouseId: { type: integer }
+        warehouseName: { type: string }
+        quantity: { type: number }
+        avgCost: { type: number }
+        value: { type: number }
+    StockMovement:
+      type: object
+      required: [id, itemId, warehouseId, direction, quantity, reason, createdAt]
+      properties:
+        id: { type: integer }
+        itemId: { type: integer }
+        itemName: { type: ["string", "null"] }
+        itemSku: { type: ["string", "null"] }
+        warehouseId: { type: integer }
+        warehouseName: { type: ["string", "null"] }
+        direction: { type: string }
+        quantity: { type: number }
+        unitCost: { type: number }
+        reason: { type: string }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["integer", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    StockMovementInput:
+      type: object
+      required: [itemId, warehouseId, direction, quantity, reason]
+      properties:
+        itemId: { type: integer }
+        warehouseId: { type: integer }
+        direction: { type: string, enum: [in, out] }
+        quantity: { type: number }
+        unitCost: { type: ["number", "null"] }
+        reason: { type: string, enum: [opening, purchase, sale, adjustment, transfer_in, transfer_out, return] }
+        notes: { type: ["string", "null"] }
+        transferToWarehouseId: { type: ["integer", "null"] }
+    StockValuation:
+      type: object
+      required: [totalValue, totalItems, byWarehouse, byCategory]
+      properties:
+        totalValue: { type: number }
+        totalItems: { type: integer }
+        byWarehouse:
+          type: array
+          items:
+            type: object
+            required: [warehouseId, warehouseName, value, items]
+            properties:
+              warehouseId: { type: integer }
+              warehouseName: { type: string }
+              value: { type: number }
+              items: { type: integer }
+        byCategory:
+          type: array
+          items:
+            type: object
+            required: [category, value, items]
+            properties:
+              category: { type: string }
+              value: { type: number }
+              items: { type: integer }
+    LowStockItem:
+      type: object
+      required: [itemId, itemName, currentStock, lowStockThreshold]
+      properties:
+        itemId: { type: integer }
+        itemSku: { type: ["string", "null"] }
+        itemName: { type: string }
+        unit: { type: ["string", "null"] }
+        currentStock: { type: number }
+        lowStockThreshold: { type: number }
+
+    SocialAccount:
+      type: object
+      required: [id, platform, externalId, accountName, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        platform: { type: string, enum: [facebook, instagram, linkedin] }
+        externalId: { type: string }
+        accountName: { type: string }
+        status: { type: string }
+        expiresAt: { type: ["string", "null"] }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    SocialAccountInput:
+      type: object
+      required: [platform, externalId, accountName, accessToken]
+      properties:
+        platform: { type: string, enum: [facebook, instagram, linkedin] }
+        externalId: { type: string }
+        accountName: { type: string }
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresAt: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    SocialPostResultItem:
+      type: object
+      required: [id, platform, status]
+      properties:
+        id: { type: integer }
+        platform: { type: string }
+        status: { type: string }
+        externalId: { type: ["string", "null"] }
+        externalUrl: { type: ["string", "null"] }
+        error: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"] }
+        metrics: { type: object, additionalProperties: true }
+    SocialPost:
+      type: object
+      required: [id, content, platforms, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        content: { type: string }
+        mediaUrls: { type: array, items: { type: string } }
+        platforms: { type: array, items: { type: string } }
+        variants: { type: object, additionalProperties: { type: string } }
+        status: { type: string }
+        scheduledAt: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"] }
+        context: { type: object, additionalProperties: true }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/SocialPostResultItem" }
+    SocialPostInput:
+      type: object
+      properties:
+        content: { type: string }
+        platforms: { type: array, items: { type: string } }
+        variants: { type: object, additionalProperties: { type: string } }
+        mediaUrls: { type: array, items: { type: string } }
+        scheduledAt: { type: ["string", "null"] }
+        context: { type: object, additionalProperties: true }
+        status: { type: string }
+    SocialDraftRequest:
+      type: object
+      required: [prompt, platforms]
+      properties:
+        prompt: { type: string }
+        platforms: { type: array, items: { type: string } }
+        tone: { type: string }
+        context: { type: string }
+    SocialDraftResponse:
+      type: object
+      required: [base, variants]
+      properties:
+        base: { type: string }
+        variants: { type: object, additionalProperties: { type: string } }
+    SocialCalendarEntry:
+      type: object
+      required: [id, content, platforms, status]
+      properties:
+        id: { type: integer }
+        content: { type: string }
+        platforms: { type: array, items: { type: string } }
+        status: { type: string }
+        scheduledAt: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"] }
+
+    EmailSuppression:
+      type: object
+      required: [id, email, reason, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        reason: { type: string }
+        createdAt: { type: string }
+    DripStep:
+      type: object
+      required: [stepOrder, delayDays, subject, body]
+      properties:
+        id: { type: integer }
+        stepOrder: { type: integer }
+        delayDays: { type: integer }
+        subject: { type: string }
+        body: { type: string }
+    DripSequenceTrigger:
+      type: object
+      required: [entity]
+      properties:
+        entity: { type: string, enum: [leads, clients] }
+        filters: { type: object, additionalProperties: { type: string } }
+    DripSequence:
+      type: object
+      required: [id, name, trigger, fromEmail, status, steps, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        trigger: { $ref: "#/components/schemas/DripSequenceTrigger" }
+        fromEmail: { type: string }
+        status: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        steps: { type: array, items: { $ref: "#/components/schemas/DripStep" } }
+    DripSequenceInput:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        trigger: { $ref: "#/components/schemas/DripSequenceTrigger" }
+        fromEmail: { type: string }
+        status: { type: string }
+        steps: { type: array, items: { $ref: "#/components/schemas/DripStep" } }
+
+    AiInsightsBundle:
+      type: object
+      required: [headline, bullets, suggestions]
+      properties:
+        headline: { type: string }
+        bullets: { type: array, items: { type: string } }
+        suggestions: { type: array, items: { type: string } }
+    AiInsightsResponse:
+      type: object
+      required: [forDate, insights, metricsSnapshot, cached]
+      properties:
+        forDate: { type: string }
+        insights: { $ref: "#/components/schemas/AiInsightsBundle" }
+        metricsSnapshot: { type: object, additionalProperties: true }
+        cached: { type: boolean }
+    NlSearchPlan:
+      type: object
+      required: [intent, entity, filters, explanation]
+      properties:
+        intent: { type: string }
+        entity: { type: string }
+        filters: { type: object, additionalProperties: true }
+        explanation: { type: string }
+    NlSearchResponse:
+      type: object
+      required: [plan, results]
+      properties:
+        plan: { $ref: "#/components/schemas/NlSearchPlan" }
+        results:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    ReportCatalogEntry:
+      type: object
+      required: [key, label, description, path]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        description: { type: string }
+        path: { type: string }
+    SalesRegisterRow:
+      type: object
+      required: [invoiceNumber, issueDate, status, subtotal, cgst, sgst, igst, total, amountPaid, balance]
+      properties:
+        invoiceNumber: { type: string }
+        issueDate: { type: string }
+        clientName: { type: string }
+        status: { type: string }
+        subtotal: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
+        total: { type: number }
+        amountPaid: { type: number }
+        balance: { type: number }
+    PurchaseRegisterRow:
+      type: object
+      required: [poNumber, date, status, subtotal, taxAmount, total]
+      properties:
+        poNumber: { type: string }
+        date: { type: string }
+        vendorName: { type: string }
+        status: { type: string }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+    CustomerAgeingRow:
+      type: object
+      required: [clientId, clientName, current, days30, days60, days90, daysOver90, total]
+      properties:
+        clientId: { type: integer }
+        clientName: { type: string }
+        current: { type: number }
+        days30: { type: number }
+        days60: { type: number }
+        days90: { type: number }
+        daysOver90: { type: number }
+        total: { type: number }
+    TopItemRow:
+      type: object
+      required: [name, quantity, revenue]
+      properties:
+        name: { type: string }
+        quantity: { type: number }
+        revenue: { type: number }
+    LeadSourceRoiRow:
+      type: object
+      required: [source, total, won, lost, conversionPct, revenue]
+      properties:
+        source: { type: string }
+        total: { type: integer }
+        won: { type: integer }
+        lost: { type: integer }
+        conversionPct: { type: integer }
+        revenue: { type: number }
+    SocialEngagementRow:
+      type: object
+      required: [id, content, platforms, likes, comments, shares, impressions]
+      properties:
+        id: { type: integer }
+        content: { type: string }
+        platforms: { type: string }
+        publishedAt: { type: ["string", "null"] }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: integer }
+        impressions: { type: integer }
+    EmailPerformanceRow:
+      type: object
+      required: [campaignId, name, subject, sent, opened, clicked, openRate, clickRate]
+      properties:
+        campaignId: { type: integer }
+        name: { type: string }
+        subject: { type: string }
+        sentAt: { type: ["string", "null"] }
+        sent: { type: integer }
+        opened: { type: integer }
+        clicked: { type: integer }
+        openRate: { type: integer }
+        clickRate: { type: integer }
+    # ── R5 — HR, Payroll & Accounting ──
+    Employee:
+      type: object
+      required: [id, employeeCode, name, status, basic, hra, allowances, otherDeductions, pfEnabled, esiEnabled, leaveBalances, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        employeeCode: { type: string }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+        department: { type: ["string", "null"] }
+        dateOfJoining: { type: ["string", "null"] }
+        status: { type: string, enum: [active, inactive, terminated] }
+        basic: { type: number }
+        hra: { type: number }
+        allowances: { type: number }
+        otherDeductions: { type: number }
+        pfEnabled: { type: boolean }
+        esiEnabled: { type: boolean }
+        bankName: { type: ["string", "null"] }
+        bankAccount: { type: ["string", "null"] }
+        ifsc: { type: ["string", "null"] }
+        panNumber: { type: ["string", "null"] }
+        leaveBalances:
+          type: object
+          additionalProperties: { type: number }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    EmployeeInput:
+      type: object
+      properties:
+        employeeCode: { type: ["string", "null"] }
+        name: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+        department: { type: ["string", "null"] }
+        dateOfJoining: { type: ["string", "null"] }
+        status: { type: ["string", "null"], enum: [active, inactive, terminated, null] }
+        basic: { type: ["number", "null"] }
+        hra: { type: ["number", "null"] }
+        allowances: { type: ["number", "null"] }
+        otherDeductions: { type: ["number", "null"] }
+        pfEnabled: { type: ["boolean", "null"] }
+        esiEnabled: { type: ["boolean", "null"] }
+        bankName: { type: ["string", "null"] }
+        bankAccount: { type: ["string", "null"] }
+        ifsc: { type: ["string", "null"] }
+        panNumber: { type: ["string", "null"] }
+        leaveBalances:
+          type: ["object", "null"]
+          additionalProperties: { type: number }
+
+    Attendance:
+      type: object
+      required: [id, employeeId, date, status, createdAt]
+      properties:
+        id: { type: integer }
+        employeeId: { type: integer }
+        date: { type: string }
+        status: { type: string, enum: [present, absent, half, leave, holiday, weekoff] }
+        leaveType: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    AttendanceInput:
+      type: object
+      required: [employeeId, status]
+      properties:
+        employeeId: { type: integer }
+        date: { type: ["string", "null"] }
+        status: { type: string, enum: [present, absent, half, leave, holiday, weekoff] }
+        leaveType: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    LeaveBalance:
+      type: object
+      required: [employeeId, employeeName, balances, used]
+      properties:
+        employeeId: { type: integer }
+        employeeName: { type: string }
+        balances:
+          type: object
+          additionalProperties: { type: number }
+        used:
+          type: object
+          additionalProperties: { type: number }
+    LeaveRequest:
+      type: object
+      required: [id, organizationId, employeeId, leaveType, fromDate, toDate, days, status, createdAt]
+      properties:
+        id: { type: integer }
+        organizationId: { type: integer }
+        employeeId: { type: integer }
+        leaveType: { type: string }
+        fromDate: { type: string }
+        toDate: { type: string }
+        days: { type: string }
+        reason: { type: ["string", "null"] }
+        status: { type: string, enum: [pending, approved, rejected] }
+        approverId: { type: ["integer", "null"] }
+        decidedAt: { type: ["string", "null"] }
+        decisionNote: { type: ["string", "null"] }
+        createdAt: { type: string }
+    LeaveRequestInput:
+      type: object
+      required: [fromDate, toDate]
+      properties:
+        employeeId: { type: ["integer", "null"] }
+        leaveType: { type: string }
+        fromDate: { type: string }
+        toDate: { type: string }
+        days: { type: ["number", "string", "null"] }
+        reason: { type: ["string", "null"] }
+    LeaveDecisionInput:
+      type: object
+      properties:
+        note: { type: ["string", "null"] }
+
+    PayrollRun:
+      type: object
+      required: [id, periodMonth, periodYear, status, totalGross, totalDeductions, totalNet, createdAt]
+      properties:
+        id: { type: integer }
+        periodMonth: { type: integer }
+        periodYear: { type: integer }
+        status: { type: string, enum: [draft, computed, paid] }
+        totalGross: { type: number }
+        totalDeductions: { type: number }
+        totalNet: { type: number }
+        notes: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+    Payslip:
+      type: object
+      required: [id, payrollRunId, employeeId, basic, hra, allowances, daysWorked, daysInMonth, lopAmount, pfAmount, esiAmount, otherDeductions, gross, deductions, net, status]
+      properties:
+        id: { type: integer }
+        payrollRunId: { type: integer }
+        employeeId: { type: integer }
+        employeeName: { type: ["string", "null"] }
+        employeeCode: { type: ["string", "null"] }
+        basic: { type: number }
+        hra: { type: number }
+        allowances: { type: number }
+        daysWorked: { type: number }
+        daysInMonth: { type: integer }
+        lopAmount: { type: number }
+        pfAmount: { type: number }
+        esiAmount: { type: number }
+        otherDeductions: { type: number }
+        gross: { type: number }
+        deductions: { type: number }
+        net: { type: number }
+        status: { type: string, enum: [pending, paid] }
+        paidAt: { type: ["string", "null"] }
+    PayrollRunDetail:
+      allOf:
+        - $ref: "#/components/schemas/PayrollRun"
+        - type: object
+          properties:
+            payslips:
+              type: array
+              items: { $ref: "#/components/schemas/Payslip" }
+
+    ExpenseCategory:
+      type: object
+      required: [id, name, isSystem, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        accountCode: { type: ["string", "null"] }
+        isSystem: { type: boolean }
+        createdAt: { type: string }
+    Expense:
+      type: object
+      required: [id, expenseDate, amount, gstRate, gstAmount, total, paymentMethod, createdAt]
+      properties:
+        id: { type: integer }
+        expenseDate: { type: string }
+        categoryId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        amount: { type: number }
+        gstRate: { type: number }
+        gstAmount: { type: number }
+        total: { type: number }
+        paymentMethod: { type: string, enum: [cash, bank, upi, card, cheque, other] }
+        receiptUrl: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    ExpenseInput:
+      type: object
+      required: [expenseDate, amount]
+      properties:
+        expenseDate: { type: string }
+        categoryId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        amount: { type: number }
+        gstRate: { type: ["number", "null"] }
+        paymentMethod: { type: ["string", "null"], enum: [cash, bank, upi, card, cheque, other, null] }
+        receiptUrl: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    Account:
+      type: object
+      required: [id, code, name, type, isSystem, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [asset, liability, equity, income, expense] }
+        subtype: { type: ["string", "null"] }
+        isSystem: { type: boolean }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+    JournalLine:
+      type: object
+      required: [id, accountId, accountCode, accountName, debit, credit]
+      properties:
+        id: { type: integer }
+        accountId: { type: integer }
+        accountCode: { type: string }
+        accountName: { type: string }
+        debit: { type: number }
+        credit: { type: number }
+        description: { type: ["string", "null"] }
+    JournalEntry:
+      type: object
+      required: [id, entryDate, lines, createdAt]
+      properties:
+        id: { type: integer }
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        sourceType: { type: ["string", "null"] }
+        sourceId: { type: ["integer", "null"] }
+        createdAt: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/JournalLine" }
+
+    LedgerLine:
+      type: object
+      required: [lineId, entryId, entryDate, debit, credit, balance]
+      properties:
+        lineId: { type: integer }
+        entryId: { type: integer }
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        sourceType: { type: ["string", "null"] }
+        sourceId: { type: ["integer", "null"] }
+        description: { type: ["string", "null"] }
+        debit: { type: number }
+        credit: { type: number }
+        balance: { type: number }
+    Ledger:
+      type: object
+      required: [account, lines, closingBalance]
+      properties:
+        account:
+          type: object
+          required: [id, code, name, type]
+          properties:
+            id: { type: integer }
+            code: { type: string }
+            name: { type: string }
+            type: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/LedgerLine" }
+        closingBalance: { type: number }
+
+    PnlSection:
+      type: object
+      required: [from, to, income, expense, totalIncome, totalExpense, netProfit]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        income:
+          type: array
+          items:
+            type: object
+            required: [code, name, amount]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              amount: { type: number }
+        expense:
+          type: array
+          items:
+            type: object
+            required: [code, name, amount]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              amount: { type: number }
+        totalIncome: { type: number }
+        totalExpense: { type: number }
+        netProfit: { type: number }
+    PnlResponse:
+      type: object
+      required: [current]
+      properties:
+        current: { $ref: "#/components/schemas/PnlSection" }
+        previous:
+          oneOf:
+            - $ref: "#/components/schemas/PnlSection"
+            - type: "null"
+
+    Gstr1Row:
+      type: object
+      required: [invoiceNumber, invoiceDate, clientName, taxableValue, rate, cgst, sgst, igst, invoiceTotal]
+      properties:
+        invoiceNumber: { type: string }
+        invoiceDate: { type: string }
+        clientName: { type: string }
+        gstin: { type: string }
+        placeOfSupply: { type: string }
+        taxableValue: { type: number }
+        rate: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
+        invoiceTotal: { type: number }
+    Gstr1Response:
+      type: object
+      required: [from, to, b2b, b2c, summary]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        b2b:
+          type: array
+          items: { $ref: "#/components/schemas/Gstr1Row" }
+        b2c:
+          type: array
+          items: { $ref: "#/components/schemas/Gstr1Row" }
+        summary:
+          type: object
+          required: [invoices, taxableValue, cgst, sgst, igst, totalTax]
+          properties:
+            invoices: { type: integer }
+            taxableValue: { type: number }
+            cgst: { type: number }
+            sgst: { type: number }
+            igst: { type: number }
+            totalTax: { type: number }
+    Gstr3bResponse:
+      type: object
+      required: [from, to, outwardSupplies, itc, netTaxPayable]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        outwardSupplies:
+          type: object
+          required: [taxable, cgst, sgst, igst]
+          properties:
+            taxable: { type: number }
+            cgst: { type: number }
+            sgst: { type: number }
+            igst: { type: number }
+        itc:
+          type: object
+          required: [cgstSgstInputs, igstInputs, total]
+          properties:
+            cgstSgstInputs: { type: number }
+            igstInputs: { type: number }
+            total: { type: number }
+        netTaxPayable: { type: number }
+    BalanceSheetLine:
+      type: object
+      required: [code, name, amount]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        amount: { type: number }
+    BalanceSheetResponse:
+      type: object
+      required: [asOf, assets, liabilities, equity, totals, equityReconciliation]
+      properties:
+        asOf: { type: string }
+        assets:
+          type: array
+          items: { $ref: "#/components/schemas/BalanceSheetLine" }
+        liabilities:
+          type: array
+          items: { $ref: "#/components/schemas/BalanceSheetLine" }
+        equity:
+          type: array
+          items: { $ref: "#/components/schemas/BalanceSheetLine" }
+        totals:
+          type: object
+          required: [assets, liabilities, equity, liabilitiesAndEquity, difference]
+          properties:
+            assets: { type: number }
+            liabilities: { type: number }
+            equity: { type: number }
+            liabilitiesAndEquity: { type: number }
+            difference: { type: number }
+        equityReconciliation:
+          type: object
+          required: [openingEquity, openingRetainedEarnings, periodNetProfit, totalEquity, fyStart]
+          properties:
+            fyStart: { type: string }
+            openingEquity: { type: number }
+            openingRetainedEarnings: { type: number }
+            periodNetProfit: { type: number }
+            totalEquity: { type: number }
+    VendorAgeingRow:
+      type: object
+      required: [vendorId, vendorName, current, days30, days60, days90, daysOver90, total]
+      properties:
+        vendorId: { type: integer }
+        vendorName: { type: string }
+        current: { type: number }
+        days30: { type: number }
+        days60: { type: number }
+        days90: { type: number }
+        daysOver90: { type: number }
+        total: { type: number }
+
+    PushTokenInput:
+      type: object
+      required: [token, platform]
+      properties:
+        token: { type: string }
+        platform: { type: string, enum: [ios, android, web] }
+        deviceName: { type: string, nullable: true }
+    PushTokenDeleteInput:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    PushToken:
+      type: object
+      required: [id, platform]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        token: { type: string }
+        platform: { type: string, enum: [ios, android, web] }
+        deviceName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+    PushTestInput:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+    PushSendResult:
+      type: object
+      required: [sent, failed]
+      properties:
+        sent: { type: integer }
+        failed: { type: integer }
+    WhatsappMessage:
+      type: object
+      required: [id, direction, phone, status, createdAt]
+      properties:
+        id: { type: integer }
+        leadId: { type: integer, nullable: true }
+        clientId: { type: integer, nullable: true }
+        direction: { type: string, enum: [inbound, outbound] }
+        phone: { type: string }
+        body: { type: string, nullable: true }
+        templateName: { type: string, nullable: true }
+        templateLanguage: { type: string, nullable: true }
+        templateVariables:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [queued, sent, delivered, read, failed, received] }
+        providerMessageId: { type: string, nullable: true }
+        errorMessage: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    WhatsappSendInput:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string }
+        body: { type: string }
+        templateName: { type: string }
+        templateLanguage: { type: string }
+        templateVariables:
+          type: array
+          items: { type: string }
+        leadId: { type: integer }
+        clientId: { type: integer }
+    LeadSourceSyncResponse:
+      type: object
+      required: [imported, message]
+      properties:
+        imported: { type: integer }
+        message: { type: string }
