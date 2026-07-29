@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getDb } from "../lib/firebase";
 import { requireAuth } from "../middlewares/auth";
-import { anthropic } from "../lib/integrations-anthropic-ai";
+import { getAnthropic } from "../lib/integrations-anthropic-ai";
 import { logAction } from "../lib/auditLog";
 
 const db = () => getDb();
@@ -110,7 +110,7 @@ emailsRouter.post("/emails/draft", requireAuth, async (req, res) => {
   }
   const toneText = tone ?? "friendly";
   try {
-    const msg = await anthropic.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 8192,
       messages: [

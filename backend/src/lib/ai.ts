@@ -1,4 +1,4 @@
-import { anthropic } from "./integrations-anthropic-ai";
+import { getAnthropic } from "./integrations-anthropic-ai";
 
 const MODEL = "claude-haiku-4-5";
 
@@ -39,7 +39,7 @@ export async function aiDraftSocialPost(opts: {
   }\n\nReturn JSON with shape {"base": string, "variants": {"facebook": string, "instagram": string, "linkedin": string}}. Only include keys for these platforms: ${opts.platforms.join(
     ", ",
   )}. Keep instagram under 220 chars and add 3-5 relevant hashtags. LinkedIn up to 800 chars, no hashtags.`;
-  const msg = await anthropic.messages.create({
+  const msg = await getAnthropic().messages.create({
     model: MODEL,
     max_tokens: 2048,
     system,
@@ -54,7 +54,7 @@ export async function aiDraftSocialPost(opts: {
 }
 
 export async function aiRewriteTone(opts: { text: string; tone: string }): Promise<string> {
-  const msg = await anthropic.messages.create({
+  const msg = await getAnthropic().messages.create({
     model: MODEL,
     max_tokens: 1024,
     messages: [
@@ -101,7 +101,7 @@ export async function aiDailyInsights(snap: DashboardSnapshot): Promise<{
     suggestions: ["Reach out to hot leads first.", "Send reminders for overdue invoices."],
   };
   try {
-    const msg = await anthropic.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: MODEL,
       max_tokens: 1024,
       system:
@@ -147,7 +147,7 @@ export async function aiPlanNlSearch(query: string): Promise<NlSearchPlan> {
     ENTITY_FILTERS,
   )}. Numeric amounts are in Rupees. Return ONLY JSON with shape {"intent": string, "entity": string, "filters": object, "explanation": string}. Reject anything outside this set by returning entity:"invoices" filters:{} and an explanation.`;
   try {
-    const msg = await anthropic.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: MODEL,
       max_tokens: 512,
       system: sys,
