@@ -153,7 +153,7 @@ export default function SocialPage() {
       <div className="bg-card border border-card-border rounded-xl p-4">
         <h2 className="font-semibold text-sm mb-3">Connected accounts</h2>
         {accounts.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No accounts yet. Connect Facebook, Instagram, or LinkedIn in <a href="/settings/integrations" className="text-primary underline">Settings → Integrations</a>.</p>
+          <p className="text-xs text-muted-foreground">No accounts yet. Connect Facebook, Instagram, or LinkedIn in <a href="/dashboard/settings/integrations" className="text-primary underline">Settings → Integrations</a>.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {accounts.map((a) => (

@@ -268,15 +268,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <p className="px-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Settings</p>
               )}
               <NavLink href="/dashboard/settings/organization" label={collapsed ? "" : "Organization"} icon={Building2} onClick={() => setSidebarOpen(false)} />
-              {(role === "owner" || role === "admin") && (
-                <NavLink href="/dashboard/settings/members" label={collapsed ? "" : "Members"} icon={UserPlus} onClick={() => setSidebarOpen(false)} />
-              )}
-              {role === "owner" && (
-                <NavLink href="/dashboard/settings/modules" label={collapsed ? "" : "Modules"} icon={Puzzle} onClick={() => setSidebarOpen(false)} />
-              )}
-              {(role === "owner" || role === "admin") && (
-                <NavLink href="/dashboard/settings/integrations" label={collapsed ? "" : "Integrations"} icon={Sparkles} onClick={() => setSidebarOpen(false)} />
-              )}
+              <NavLink href="/dashboard/settings/members" label={collapsed ? "" : "Members"} icon={UserPlus} onClick={() => setSidebarOpen(false)} />
+              <NavLink href="/dashboard/settings/modules" label={collapsed ? "" : "Modules"} icon={Puzzle} onClick={() => setSidebarOpen(false)} />
+              <NavLink href="/dashboard/settings/integrations" label={collapsed ? "" : "Integrations"} icon={Sparkles} onClick={() => setSidebarOpen(false)} />
             </div>
           </nav>
 

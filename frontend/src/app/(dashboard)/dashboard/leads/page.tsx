@@ -262,7 +262,7 @@ export default function LeadsPage() {
                   {paged.map((l: Lead) => (
                     <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                       <td className="px-3 py-2">
-                        <Link href={`/leads/${l.id}`}>
+                        <Link href={`/dashboard/leads/${l.id}`}>
                           <span className="font-medium text-foreground hover:text-primary">{l.name}</span>
                         </Link>
                       </td>

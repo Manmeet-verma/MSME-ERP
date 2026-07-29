@@ -48,7 +48,7 @@ export default function PurchaseOrdersPage() {
         toast({ title: "Purchase order created" });
         qc.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
         setOpen(false);
-        router.push(`/purchase-orders/${data.id}`);
+        router.push(`/dashboard/dashboard/purchase-orders/${data.id}`);
       },
     },
   });
@@ -134,7 +134,7 @@ export default function PurchaseOrdersPage() {
             <tbody>
               {pos.map((p) => (
                 <tr key={p.id} className="border-t border-border hover:bg-secondary/50">
-                  <td className="p-3 font-medium"><Link href={`/purchase-orders/${p.id}`}><span className="text-primary">{p.poNumber}</span></Link></td>
+                  <td className="p-3 font-medium"><Link href={`/dashboard/purchase-orders/${p.id}`}><span className="text-primary">{p.poNumber}</span></Link></td>
                   <td className="p-3">{p.vendorName ?? "—"}</td>
                   <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span></td>
                   <td className="p-3 text-right">{formatCurrency(p.total)}</td>

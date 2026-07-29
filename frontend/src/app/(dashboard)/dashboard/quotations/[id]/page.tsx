@@ -67,7 +67,7 @@ function ShareDialog({ quotation }: {
   const { toast } = useToast();
   const smsMutation = useSendQuotationSms();
 
-  const quotationUrl = `${window.location.origin}/quotations/${quotation.id}`;
+  const quotationUrl = `${window.location.origin}/dashboard/quotations/${quotation.id}`;
   const whatsappMessage = buildWhatsAppMessage({ ...quotation, quotationUrl });
   const defaultSmsMessage = buildSmsMessage({ ...quotation, quotationUrl });
 
@@ -272,7 +272,7 @@ export default function QuotationDetailPage() {
       
         <div className="p-6 max-w-4xl mx-auto text-center py-16">
           <p className="text-muted-foreground">Quotation not found</p>
-          <button onClick={() => router.push("/quotations")} className="text-primary text-sm hover:underline mt-2">← Back to quotations</button>
+          <button onClick={() => router.push("/dashboard/quotations")} className="text-primary text-sm hover:underline mt-2">← Back to quotations</button>
         </div>
       
     );
@@ -291,7 +291,7 @@ export default function QuotationDetailPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/quotations")} className="text-muted-foreground hover:text-foreground">
+            <button onClick={() => router.push("/dashboard/quotations")} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div>

@@ -46,7 +46,7 @@ function LowStockPanel() {
         <h3 className="font-semibold flex items-center gap-2">
           <PackageOpen className="h-4 w-4 text-red-400" /> Low-stock items
         </h3>
-        <Link href="/inventory">
+        <Link href="/dashboard/inventory">
           <span className="text-xs text-muted-foreground hover:text-foreground">View all</span>
         </Link>
       </div>
@@ -59,7 +59,7 @@ function LowStockPanel() {
                 {r.currentStock} on hand · threshold {r.lowStockThreshold}
               </p>
             </div>
-            <Link href={`/purchase-orders?createForItem=${r.itemId}`}>
+            <Link href={`/dashboard/purchase-orders?createForItem=${r.itemId}`}>
               <span className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
                 Create PO →
               </span>
@@ -242,23 +242,23 @@ export default function DashboardPage() {
       {/* Live KPI widgets */}
       {widgets && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          <KpiCard icon={TrendingUp} label="New leads today" value={String(widgets.newLeadsToday)} tint="cyan" href="/leads" />
-          <KpiCard icon={Flame} label="Hot leads" value={String(widgets.hotLeads)} tint="red" href="/leads" />
+          <KpiCard icon={TrendingUp} label="New leads today" value={String(widgets.newLeadsToday)} tint="cyan" href="/dashboard/leads" />
+          <KpiCard icon={Flame} label="Hot leads" value={String(widgets.hotLeads)} tint="red" href="/dashboard/leads" />
           <KpiCard icon={Phone} label="Calls this week" value={String(widgets.callsThisWeek)} tint="blue" />
           <KpiCard icon={Mail} label="Emails sent (wk)" value={String(widgets.emailsSentThisWeek)} tint="emerald" />
-          <KpiCard icon={Receipt} label="Unpaid invoices" value={String(widgets.invoicesUnpaid)} tint="yellow" href="/invoices" />
+          <KpiCard icon={Receipt} label="Unpaid invoices" value={String(widgets.invoicesUnpaid)} tint="yellow" href="/dashboard/invoices" />
           <KpiCard icon={Sparkles} label="Revenue this month" value={formatCurrency(widgets.revenueThisMonth)} tint="primary" />
-          <KpiCard icon={FileText} label="Quotes sent (wk)" value={String(widgets.quotationsSentThisWeek)} tint="blue" href="/quotations" />
-          <KpiCard icon={AlertTriangle} label="Overdue ₹" value={formatCurrency(widgets.overdueAmount)} tint="red" href="/invoices" />
-          <KpiCard icon={CheckSquare} label="Open tasks" value={String(widgets.openTasks)} tint="cyan" href="/tasks" />
+          <KpiCard icon={FileText} label="Quotes sent (wk)" value={String(widgets.quotationsSentThisWeek)} tint="blue" href="/dashboard/quotations" />
+          <KpiCard icon={AlertTriangle} label="Overdue ₹" value={formatCurrency(widgets.overdueAmount)} tint="red" href="/dashboard/invoices" />
+          <KpiCard icon={CheckSquare} label="Open tasks" value={String(widgets.openTasks)} tint="cyan" href="/dashboard/tasks" />
           {modules.inventory && (
-            <KpiCard icon={PackageOpen} label="Low stock" value={String(widgets.lowStockItems ?? 0)} tint="red" href="/inventory" />
+            <KpiCard icon={PackageOpen} label="Low stock" value={String(widgets.lowStockItems ?? 0)} tint="red" href="/dashboard/inventory" />
           )}
           {modules.purchase && (
-            <KpiCard icon={ShoppingCart} label="Open POs" value={String(widgets.openPurchaseOrders ?? 0)} tint="blue" href="/purchase-orders" />
+            <KpiCard icon={ShoppingCart} label="Open POs" value={String(widgets.openPurchaseOrders ?? 0)} tint="blue" href="/dashboard/purchase-orders" />
           )}
           {modules.inventory && (
-            <KpiCard icon={Warehouse} label="Stock value" value={formatCurrency(widgets.stockValue ?? 0)} tint="emerald" href="/inventory" />
+            <KpiCard icon={Warehouse} label="Stock value" value={formatCurrency(widgets.stockValue ?? 0)} tint="emerald" href="/dashboard/inventory" />
           )}
         </div>
       )}

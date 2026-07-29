@@ -57,7 +57,7 @@ authRouter.post("/auth/signup", async (req, res) => {
       const userDoc = existing.docs[0];
       await userDoc.ref.update({ lastLogin: new Date().toISOString() });
       const memberSnap = await db().collection("organization_members").where("userId", "==", userDoc.id).get();
-      const orgIds = memberSnap.docs.map((m) => m.data().organizationId as string);
+  const orgIds = memberSnap.docs.map((m) => m.data().organizationId).filter(Boolean) as string[];
       const orgSnaps = await Promise.all(orgIds.map((id) => db().collection("organizations").doc(id).get()));
       let activeOrgId: string | null = null;
       const orgs: Array<{ id: string; name: string; slug: string; role: string }> = [];
@@ -286,9 +286,9 @@ authRouter.get("/auth/me", requireUser, async (req, res) => {
   for (let i = 0; i < memberSnap.docs.length; i++) {
     const m = memberSnap.docs[i].data();
     const orgSnap = orgSnaps[i];
-    if (orgSnap.exists) {
+    if (orgSnap?.exists) {
       const org = orgSnap.data()!;
-      memberships.push({ orgId: orgIds[i], role: m.role, orgName: org.name, orgSlug: org.slug });
+      memberships.push({ orgId: orgIds[i], role: m.role ?? "viewer", orgName: org.name ?? "", orgSlug: org.slug ?? "" });
     }
   }
 

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, setToken, setUser, setOrg } from "@/lib/auth";
+import { api, setToken, setUser, setOrg, setCurrentRole } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 
 const signupSchema = z.object({
@@ -49,6 +49,7 @@ export default function SignupPage() {
       setToken(res.token);
       setUser(res.user);
       setOrg(res.organizations[0]);
+      setCurrentRole(res.organizations[0].role);
       router.push("/dashboard");
     } catch (e: any) {
       setError(e.message ?? "Signup failed");

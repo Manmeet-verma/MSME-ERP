@@ -48,8 +48,8 @@ export default function LeadDetailPage() {
     mutation: {
       onSuccess(d) {
         toast({ title: "Converted to client" });
-        if (d.quotationId) router.push(`/quotations/${d.quotationId}`);
-        else router.push(`/clients`);
+        if (d.quotationId) router.push(`/dashboard/quotations/${d.quotationId}`);
+        else router.push(`/dashboard/clients`);
       },
     },
   });
@@ -98,7 +98,7 @@ export default function LeadDetailPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <Link href="/leads">
+      <Link href="/dashboard/leads">
         <span className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to leads
         </span>

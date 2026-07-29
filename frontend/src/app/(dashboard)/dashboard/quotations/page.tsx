@@ -59,7 +59,7 @@ export default function QuotationsPage() {
             <h1 className="text-xl font-bold">Quotations</h1>
             <p className="text-sm text-muted-foreground">{quotations.length} total quotations</p>
           </div>
-          <Link href="/quotations/new">
+          <Link href="/dashboard/quotations/new">
             <Button size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
               New Quotation
@@ -125,7 +125,7 @@ export default function QuotationsPage() {
                   <td colSpan={6} className="text-center py-12">
                     <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
                     <p className="text-muted-foreground text-sm">No quotations found</p>
-                    <Link href="/quotations/new">
+                    <Link href="/dashboard/quotations/new">
                       <span className="text-xs text-primary hover:underline mt-1 inline-block">Create one</span>
                     </Link>
                   </td>
@@ -134,7 +134,7 @@ export default function QuotationsPage() {
                 quotations.map((q) => (
                   <tr key={q.id} className="border-b border-border/50 hover:bg-card/40 transition-colors">
                     <td className="px-5 py-3">
-                      <Link href={`/quotations/${q.id}`}>
+                      <Link href={`/dashboard/quotations/${q.id}`}>
                         <span className="font-mono text-xs text-primary hover:underline">{q.quotationNumber}</span>
                       </Link>
                     </td>

@@ -56,7 +56,7 @@ export default function PayrollPage() {
       ) : (
         <div className="space-y-2">
           {runs.map((r) => (
-            <Link key={r.id} href={`/payroll/${r.id}`}>
+            <Link key={r.id} href={`/dashboard/payroll/${r.id}`}>
               <span className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors">
                 <div>
                   <p className="font-semibold text-sm">{MONTHS[r.periodMonth - 1]} {r.periodYear}</p>

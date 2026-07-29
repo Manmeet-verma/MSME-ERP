@@ -1,10 +1,10 @@
 "use client";
 
-export default function Page() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <p className="text-muted-foreground mt-2">This page is under construction.</p>
-    </div>
-  );
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+export default function SettingsPage() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/dashboard/settings/organization"); }, []);
+  return null;
 }
