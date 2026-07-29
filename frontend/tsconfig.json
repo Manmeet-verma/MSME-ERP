@@ -16,6 +16,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
+      "@workspace/api-client-react": ["./src/lib/api-client-react"],
+      "@workspace/api-client-react/*": ["./src/lib/api-client-react/*"],
       "@msme-erp/shared/*": ["../shared/*/src"]
     }
   },
