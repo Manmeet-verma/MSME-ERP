@@ -57,6 +57,9 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api", router);
+app.get("/",(req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString(), cache: cacheStats() });
+});
 
 // Catch-all for unmatched /api routes — return proper 405 instead of defaulting to HTML
 // NOTE: Must NOT match OPTIONS (preflights are already handled above).
