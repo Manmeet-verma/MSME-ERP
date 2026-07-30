@@ -2,28 +2,28 @@
 
 import React from "react";
 
-interface DraggableThProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+interface DraggableThProps {
   idx: number;
   dragIdx: number | null;
   dragOverIdx: number | null;
-  onDragStart: (idx: number) => void;
-  onDragOver: (e: React.DragEvent, idx: number) => void;
-  onDrop: (idx: number) => void;
-  onDragEnd: () => void;
+  onDragStartColumn: (idx: number) => void;
+  onDragOverColumn: (e: React.DragEvent, idx: number) => void;
+  onDropColumn: (idx: number) => void;
+  onDragEndColumn: () => void;
   children: React.ReactNode;
+  className?: string;
 }
 
 export function DraggableTh({
   idx,
   dragIdx,
   dragOverIdx,
-  onDragStart: onStart,
-  onDragOver: onOver,
-  onDrop: onDrop,
-  onDragEnd: onEnd,
+  onDragStartColumn: onStart,
+  onDragOverColumn: onOver,
+  onDropColumn: onDrop,
+  onDragEndColumn: onEnd,
   children,
   className,
-  ...props
 }: DraggableThProps) {
   const isDragging = dragIdx === idx;
   const isOver = dragOverIdx === idx;
@@ -47,7 +47,6 @@ export function DraggableTh({
       onDragEnd={onEnd}
       className={cls}
       title={`Drag to reorder "${typeof children === "string" ? children : ""}" column`}
-      {...props}
     >
       <span className="flex items-center gap-1">
         {children}

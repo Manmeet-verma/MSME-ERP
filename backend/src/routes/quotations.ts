@@ -644,7 +644,7 @@ quotationsRouter.delete("/quotations/:id/addons/:addonId", requireAuth, async (r
 });
 
 quotationsRouter.get("/quotations/:id/history", requireAuth, async (req, res) => {
-  const orgId = req.user!.organizationId as string;
+  const orgId = req.user!.organizationId;
   const quotationId = req.params.id;
 
   const parent = await loadOrgQuotation(orgId, quotationId);
@@ -656,10 +656,13 @@ quotationsRouter.get("/quotations/:id/history", requireAuth, async (req, res) =>
   const snap = await db().collection("auditLogs")
     .where("organizationId", "==", orgId)
     .where("entity", "==", "quotation")
-    .where("entityId", "==", quotationId)
     .get();
 
   const logs = snap.docs
+    .filter((d) => {
+      const data = d.data();
+      return String(data.entityId) === String(quotationId);
+    })
     .map((d) => {
       const data = d.data();
       return {
