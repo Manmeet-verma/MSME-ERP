@@ -135,7 +135,7 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: path.resolve(artifactDir, "api/index.js"),
+    outfile: path.resolve(artifactDir, "api/index.cjs"),
     external,
     sourcemap: "linked",
   });
