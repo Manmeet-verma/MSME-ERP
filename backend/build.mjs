@@ -132,7 +132,7 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "esm",
-    outfile: path.resolve(artifactDir, "api/index.mjs"),
+    outfile: path.resolve(artifactDir, "api/index.js"),
     external,
     sourcemap: "linked",
     banner: { js: bannerJs },
