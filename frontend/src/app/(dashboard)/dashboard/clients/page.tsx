@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 import { useListClients, useCreateClient, useUpdateClient, useDeleteClient } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -64,11 +64,103 @@ const emptyForm: ClientForm = {
   state: "", city: "", pincode: "", gstNumber: "", isActive: true,
 };
 
+type ColKey = "name" | "company" | "gstNumber" | "email" | "phone" | "address" | "state" | "city" | "pincode" | "isActive" | "createdAt" | "actions";
+
+interface ColDef {
+  key: ColKey;
+  label: string;
+  width: string;
+}
+
+const DEFAULT_COLUMNS: ColDef[] = [
+  { key: "name", label: "Company Person", width: "min-w-[160px]" },
+  { key: "company", label: "Company Name", width: "min-w-[180px]" },
+  { key: "gstNumber", label: "GST No.", width: "min-w-[150px]" },
+  { key: "email", label: "Contact Email", width: "min-w-[180px]" },
+  { key: "phone", label: "Contact Phone", width: "min-w-[130px]" },
+  { key: "address", label: "Address", width: "min-w-[130px]" },
+  { key: "state", label: "State", width: "min-w-[120px]" },
+  { key: "city", label: "City", width: "min-w-[120px]" },
+  { key: "pincode", label: "Pincode", width: "min-w-[80px]" },
+  { key: "isActive", label: "Active", width: "min-w-[80px]" },
+  { key: "createdAt", label: "Created", width: "min-w-[140px]" },
+  { key: "actions", label: "Actions", width: "min-w-[90px]" },
+];
+
+function getCellValue(c: Client, key: ColKey, idx: number, formatDate: (d: string) => string, toggleActive: (c: Client) => void, togglePending: boolean, openEdit: (c: Client) => void, deleteMutation: any) {
+  switch (key) {
+    case "name": return <td key={key} className="px-3 py-2 font-medium border-r border-border">{c.name}</td>;
+    case "company": return <td key={key} className="px-3 py-2 text-muted-foreground border-r border-border">{c.company || "-"}</td>;
+    case "gstNumber": return <td key={key} className="px-3 py-2 font-mono text-xs uppercase border-r border-border">{c.gstNumber || "-"}</td>;
+    case "email": return <td key={key} className="px-3 py-2 text-muted-foreground border-r border-border">{c.email || "-"}</td>;
+    case "phone": return <td key={key} className="px-3 py-2 text-muted-foreground border-r border-border">{c.phone || "-"}</td>;
+    case "address": return <td key={key} className="px-3 py-2 text-muted-foreground text-xs border-r border-border max-w-[160px] truncate">{c.address || "-"}</td>;
+    case "state": return <td key={key} className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).state || "-"}</td>;
+    case "city": return <td key={key} className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).city || "-"}</td>;
+    case "pincode": return <td key={key} className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).pincode || "-"}</td>;
+    case "isActive": {
+      const active = (c as any).isActive !== false;
+      return (
+        <td key={key} className="px-3 py-2 text-center border-r border-border">
+          <button
+            onClick={() => toggleActive(c)}
+            disabled={togglePending}
+            title={active ? "Click to deactivate" : "Click to activate"}
+            className="relative inline-flex h-[22px] w-[40px] items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
+            style={{ backgroundColor: active ? "rgb(34 197 94)" : "rgb(209, 213, 219)" }}
+          >
+            <span
+              className="inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200"
+              style={{ transform: active ? "translateX(20px)" : "translateX(3px)" }}
+            />
+          </button>
+        </td>
+      );
+    }
+    case "createdAt": return <td key={key} className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap border-r border-border">{formatDate(c.createdAt)}</td>;
+    case "actions": return (
+      <td key={key} className="px-3 py-2">
+        <div className="flex items-center justify-center gap-1">
+          <button onClick={() => openEdit(c)} className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10 transition-colors" title="Edit client">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-destructive/10 transition-colors" title="Delete client">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete client?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete <strong>{c.name}</strong>. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteMutation.mutate({ id: c.id })}
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                >Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </td>
+    );
+    default: return <td key={key} className="px-3 py-2 border-r border-border" />;
+  }
+}
+
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [form, setForm] = useState<ClientForm>(emptyForm);
+  const [columns, setColumns] = useState<ColDef[]>(DEFAULT_COLUMNS);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -169,6 +261,36 @@ export default function ClientsPage() {
     try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return d; }
   }
 
+  const handleDragStart = useCallback((idx: number) => {
+    setDragIdx(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  }, []);
+
+  const handleDrop = useCallback((targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) {
+      setDragIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    setColumns((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(targetIdx, 0, moved);
+      return next;
+    });
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, [dragIdx]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, []);
+
   return (
     <>
       <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-4">
@@ -193,25 +315,40 @@ export default function ClientsPage() {
           </div>
         </div>
 
+        <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
+
         {/* Excel-like table */}
         <div className="border border-border rounded-lg overflow-hidden bg-card">
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-border">
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[40px]">#</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[160px]">Company Person</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[180px]">Company Name</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[150px]">GST No.</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[180px]">Contact Email</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[130px]">Contact Phone</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[130px]">Address</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[120px]">State</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[120px]">City</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[80px]">Pincode</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[80px]">Active</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[140px]">Created</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground min-w-[90px]">Actions</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[40px] bg-slate-200 dark:bg-slate-700">#</th>
+                  {columns.map((col, idx) => (
+                    <th
+                      key={col.key}
+                      draggable
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDrop={() => handleDrop(idx)}
+                      onDragEnd={handleDragEnd}
+                      className={`text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border ${col.width} cursor-grab active:cursor-grabbing select-none transition-colors ${
+                        dragIdx === idx ? "bg-primary/20 text-primary" :
+                        dragOverIdx === idx ? "bg-primary/10 border-l-2 border-l-primary" :
+                        "hover:bg-slate-200 dark:hover:bg-slate-700"
+                      } ${col.key === "isActive" ? "text-center" : ""}`}
+                      title={`Drag to reorder "${col.label}" column`}
+                    >
+                      <span className="flex items-center gap-1">
+                        {col.label}
+                        <svg className="h-3 w-3 opacity-40 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="9" cy="5" r="1.5" /><circle cx="15" cy="5" r="1.5" />
+                          <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                          <circle cx="9" cy="19" r="1.5" /><circle cx="15" cy="19" r="1.5" />
+                        </svg>
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -219,90 +356,28 @@ export default function ClientsPage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-border">
                       <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-6" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-28" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-32" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-36" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-12" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-6 w-11 rounded-full" /></td>
-                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-3 py-3"><Skeleton className="h-4 w-16" /></td>
+                      {columns.map((col) => (
+                        <td key={col.key} className="px-3 py-3 border-r border-border">
+                          <Skeleton className="h-4 w-20" />
+                        </td>
+                      ))}
                     </tr>
                   ))
                 ) : clients.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="text-center py-16">
+                    <td colSpan={columns.length + 1} className="text-center py-16">
                       <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                       <p className="text-muted-foreground">No clients yet</p>
                       <button onClick={openCreate} className="text-xs text-primary hover:underline mt-1">Add your first client</button>
                     </td>
                   </tr>
                 ) : (
-                  clients.map((c, idx) => {
-                    const isActive = (c as any).isActive !== false;
-                    return (
-                      <tr key={c.id} className={`border-b border-border/60 transition-colors ${idx % 2 === 0 ? "bg-white dark:bg-transparent" : "bg-slate-50 dark:bg-slate-900/30"} hover:bg-primary/5`}>
-                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{idx + 1}</td>
-                        <td className="px-3 py-2 font-medium border-r border-border">{c.name}</td>
-                        <td className="px-3 py-2 text-muted-foreground border-r border-border">{c.company || "-"}</td>
-                        <td className="px-3 py-2 font-mono text-xs uppercase border-r border-border">{c.gstNumber || "-"}</td>
-                        <td className="px-3 py-2 text-muted-foreground border-r border-border">{c.email || "-"}</td>
-                        <td className="px-3 py-2 text-muted-foreground border-r border-border">{c.phone || "-"}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border max-w-[160px] truncate">{c.address || "-"}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).state || "-"}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).city || "-"}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).pincode || "-"}</td>
-                        <td className="px-3 py-2 text-center border-r border-border">
-                          <button
-                            onClick={() => toggleActive(c)}
-                            disabled={toggleActiveMutation.isPending}
-                            title={isActive ? "Click to deactivate" : "Click to activate"}
-                            className="relative inline-flex h-[22px] w-[40px] items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
-                            style={{ backgroundColor: isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
-                          >
-                            <span
-                              className="inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200"
-                              style={{ transform: isActive ? "translateX(20px)" : "translateX(3px)" }}
-                            />
-                          </button>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap border-r border-border">{formatDate(c.createdAt)}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => openEdit(c)} className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10 transition-colors" title="Edit client">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <button className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-destructive/10 transition-colors" title="Delete client">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete client?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete <strong>{c.name}</strong>. This cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteMutation.mutate({ id: c.id })}
-                                    className="bg-destructive text-white hover:bg-destructive/90"
-                                  >Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  clients.map((c, idx) => (
+                    <tr key={c.id} className={`border-b border-border/60 transition-colors ${idx % 2 === 0 ? "bg-white dark:bg-transparent" : "bg-slate-50 dark:bg-slate-900/30"} hover:bg-primary/5`}>
+                      <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border bg-slate-50 dark:bg-slate-900/20">{idx + 1}</td>
+                      {columns.map((col) => getCellValue(c, col.key, idx, formatDate, toggleActive, toggleActiveMutation.isPending, openEdit, deleteMutation))}
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -395,7 +470,7 @@ export default function ClientsPage() {
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
                   className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                  style={{ backgroundColor: form.isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
+                  style={{ backgroundColor: form.isActive ? "rgb(34 197 94)" : "rgb(209, 213, 219)" }}
                 >
                   <span
                     className="inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform"
