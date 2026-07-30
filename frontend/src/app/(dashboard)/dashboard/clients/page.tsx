@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Users, Pencil, Trash2, Building2, Phone, Mail, MapPin, Calendar, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Search, Users, Pencil, Trash2, Building2, Phone, Mail, MapPin, Calendar } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -226,14 +226,14 @@ export default function ClientsPage() {
                     <td className="px-3 py-2 text-center">
                       <button
                         onClick={() => toggleActive(c)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors"
-                        style={((c as any).isActive !== false)
-                          ? { backgroundColor: "rgb(34 197 94 / 0.15)", color: "rgb(34 197 94)" }
-                          : { backgroundColor: "rgb(156 163 175 / 0.15)", color: "rgb(156 163 175)" }
-                        }
+                        disabled={toggleActiveMutation.isPending}
+                        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                        style={{ backgroundColor: ((c as any).isActive !== false) ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
                       >
-                        {((c as any).isActive !== false) ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
-                        {((c as any).isActive !== false) ? "Active" : "Inactive"}
+                        <span
+                          className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                          style={{ transform: ((c as any).isActive !== false) ? "translateX(22px)" : "translateX(2px)" }}
+                        />
                       </button>
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(c.createdAt)}</td>
@@ -299,9 +299,14 @@ export default function ClientsPage() {
                   </div>
                   <button
                     onClick={() => toggleActive(c)}
-                    className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${((c as any).isActive !== false) ? "bg-green-500/15 text-green-400" : "bg-gray-500/15 text-gray-400"}`}
+                    disabled={toggleActiveMutation.isPending}
+                    className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    style={{ backgroundColor: ((c as any).isActive !== false) ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
                   >
-                    {((c as any).isActive !== false) ? "Active" : "Inactive"}
+                    <span
+                      className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                      style={{ transform: ((c as any).isActive !== false) ? "translateX(22px)" : "translateX(2px)" }}
+                    />
                   </button>
                 </div>
                 <div className="space-y-1">
@@ -434,11 +439,17 @@ export default function ClientsPage() {
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${form.isActive ? "border-green-500/40 bg-green-500/10 text-green-500" : "border-gray-400/40 bg-gray-400/10 text-gray-400"}`}
+                  className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 w-full justify-center"
+                  style={{ backgroundColor: form.isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
                 >
-                  {form.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                  {form.isActive ? "Active" : "Inactive"}
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform text-[10px] font-bold flex items-center justify-center"
+                    style={{ transform: form.isActive ? "translateX(10px)" : "translateX(-10px)", color: form.isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
+                  >
+                    {form.isActive ? "ON" : "OFF"}
+                  </span>
                 </button>
+                <p className="text-xs text-muted-foreground">{form.isActive ? "Client is Active" : "Client is Inactive"}</p>
               </div>
             </div>
             <DialogFooter>
