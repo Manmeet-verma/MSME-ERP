@@ -96,15 +96,6 @@ const external = [
   "on-exit-leak-free",
 ];
 
-const bannerJs = `import { createRequire as __bannerCrReq } from 'node:module';
-import __bannerPath from 'node:path';
-import __bannerUrl from 'node:url';
-
-globalThis.require = __bannerCrReq(import.meta.url);
-globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
-globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
-`;
-
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
@@ -124,10 +115,19 @@ async function buildAll() {
     plugins: [
       esbuildPluginPino({ transports: ["pino-pretty"] })
     ],
-    banner: { js: bannerJs },
+    banner: {
+      js: `import { createRequire as __bannerCrReq } from 'node:module';
+import __bannerPath from 'node:path';
+import __bannerUrl from 'node:url';
+
+globalThis.require = __bannerCrReq(import.meta.url);
+globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
+globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
+      `,
+    },
   });
 
-  // Build standalone CJS bundle for Vercel
+  // Self-contained Vercel bundle — NO file-relative imports
   await esbuild({
     entryPoints: [
       path.resolve(artifactDir, "src/app.ts"),
@@ -135,10 +135,9 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: path.resolve(artifactDir, "api/bundle.cjs"),
+    outfile: path.resolve(artifactDir, "api/index.js"),
     external,
     sourcemap: "linked",
-    banner: { js: `var require = typeof require !== 'undefined' ? require : globalThis.require;` },
   });
 }
 
