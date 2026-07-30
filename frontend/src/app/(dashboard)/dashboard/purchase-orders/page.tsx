@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus, FileBox, Trash2 } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 type Line = { itemId?: number; description: string; quantity: number; unitPrice: number };
 
@@ -41,6 +43,7 @@ export default function PurchaseOrdersPage() {
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([{ description: "", quantity: 1, unitPrice: 0 }]);
+  const colReorder = useColumnReorder();
 
   const createMut = useCreatePurchaseOrder({
     mutation: {
@@ -121,15 +124,16 @@ export default function PurchaseOrdersPage() {
         </div>
       ) : (
         <>
+          <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
           <div className="rounded-xl border border-border overflow-x-auto hidden sm:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary text-muted-foreground">
                 <tr>
-                  <th className="text-left p-3">PO #</th>
-                  <th className="text-left p-3">Vendor</th>
-                  <th className="text-left p-3">Status</th>
-                  <th className="text-right p-3">Total</th>
-                  <th className="text-left p-3">Expected</th>
+                  <DraggableTh idx={0} {...colReorder} className="text-left p-3">PO #</DraggableTh>
+                  <DraggableTh idx={1} {...colReorder} className="text-left p-3">Vendor</DraggableTh>
+                  <DraggableTh idx={2} {...colReorder} className="text-left p-3">Status</DraggableTh>
+                  <DraggableTh idx={3} {...colReorder} className="text-right p-3">Total</DraggableTh>
+                  <DraggableTh idx={4} {...colReorder} className="text-left p-3">Expected</DraggableTh>
                 </tr>
               </thead>
               <tbody>

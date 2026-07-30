@@ -10,6 +10,8 @@ type InvoiceStatus = "draft" | "sent" | "partial" | "paid" | "overdue" | "cancel
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Printer, Trash2 } from "lucide-react";
@@ -26,6 +28,7 @@ export default function InvoiceDetailPage() {
   const { data: inv } = useGetInvoice(id);
   const [payOpen, setPayOpen] = useState(false);
   const [payForm, setPayForm] = useState({ amount: "", method: "bank_transfer", reference: "" });
+  const colReorder = useColumnReorder();
 
   const statusMut = useSetInvoiceStatus({
     mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/invoices/${id}`] }); } },
@@ -86,7 +89,7 @@ export default function InvoiceDetailPage() {
 
         <table className="w-full text-sm">
           <thead className="bg-secondary text-muted-foreground">
-            <tr><th className="text-left p-3">Item</th><th className="text-right p-3">Qty</th><th className="text-right p-3">Unit ₹</th><th className="text-right p-3">Total ₹</th></tr>
+            <tr><DraggableTh idx={0} {...colReorder} className="text-left p-3">Item</DraggableTh><DraggableTh idx={1} {...colReorder} className="text-right p-3">Qty</DraggableTh><DraggableTh idx={2} {...colReorder} className="text-right p-3">Unit ₹</DraggableTh><DraggableTh idx={3} {...colReorder} className="text-right p-3">Total ₹</DraggableTh></tr>
           </thead>
           <tbody>
             {(Array.isArray(inv.items) ? inv.items : []).map((it) => (

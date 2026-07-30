@@ -5,6 +5,8 @@ import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShieldCheck } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 const ACTION_COLORS: Record<string, string> = {
   create: "#22c55e",
@@ -17,6 +19,7 @@ const ACTION_COLORS: Record<string, string> = {
 export default function AuditLogsPage() {
   const { data, isLoading } = useListAuditLogs({ limit: 50 });
   const logs = Array.isArray(data) ? data : [];
+  const colReorder = useColumnReorder();
 
   return (
     
@@ -26,15 +29,16 @@ export default function AuditLogsPage() {
           <p className="text-sm text-muted-foreground">Complete history of all system actions</p>
         </div>
 
+        <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
         <div className="rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-card">
               <tr className="border-b border-border">
-                <th className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Time</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">User</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Action</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Entity</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Details</th>
+                <DraggableTh idx={0} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Time</DraggableTh>
+                <DraggableTh idx={1} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">User</DraggableTh>
+                <DraggableTh idx={2} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Action</DraggableTh>
+                <DraggableTh idx={3} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Entity</DraggableTh>
+                <DraggableTh idx={4} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Details</DraggableTh>
               </tr>
             </thead>
             <tbody>

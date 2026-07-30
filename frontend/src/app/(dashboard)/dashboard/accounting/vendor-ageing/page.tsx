@@ -3,10 +3,13 @@
 import { useGetVendorAgeing } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { Truck } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 export default function VendorAgeingPage() {
   const { data, isLoading } = useGetVendorAgeing();
   const rows = Array.isArray(data) ? data : [];
+  const colReorder = useColumnReorder();
   const totals = rows.reduce(
     (s, r) => ({
       current: s.current + r.current,
@@ -34,10 +37,19 @@ export default function VendorAgeingPage() {
         <Stat label="90+" value={formatCurrency(totals.daysOver90)} />
       </div>
 
+      <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
       <div className="rounded-xl border border-border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted-foreground border-b border-border">
-            <tr><th className="p-3">Vendor</th><th className="p-3 text-right">Current</th><th className="p-3 text-right">1-30</th><th className="p-3 text-right">31-60</th><th className="p-3 text-right">61-90</th><th className="p-3 text-right">90+</th><th className="p-3 text-right">Total</th></tr>
+            <tr>
+              <DraggableTh idx={0} {...colReorder} className="p-3">Vendor</DraggableTh>
+              <DraggableTh idx={1} {...colReorder} className="p-3 text-right">Current</DraggableTh>
+              <DraggableTh idx={2} {...colReorder} className="p-3 text-right">1-30</DraggableTh>
+              <DraggableTh idx={3} {...colReorder} className="p-3 text-right">31-60</DraggableTh>
+              <DraggableTh idx={4} {...colReorder} className="p-3 text-right">61-90</DraggableTh>
+              <DraggableTh idx={5} {...colReorder} className="p-3 text-right">90+</DraggableTh>
+              <DraggableTh idx={6} {...colReorder} className="p-3 text-right">Total</DraggableTh>
+            </tr>
           </thead>
           <tbody>
             {isLoading ? <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Loading…</td></tr> :

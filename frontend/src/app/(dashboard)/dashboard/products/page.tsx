@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Package, Pencil, Trash2 } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -41,6 +43,7 @@ export default function ProductsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<ProdForm>(emptyForm);
+  const colReorder = useColumnReorder();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -150,16 +153,17 @@ export default function ProductsPage() {
           />
         </div>
 
+        <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
         <div className="rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-card">
               <tr className="border-b border-border">
-                <th className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Product</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Category</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Pitch / Brightness</th>
-                <th className="text-right font-medium text-muted-foreground text-xs px-3 py-3">Unit Price</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Unit</th>
-                <th className="text-right font-medium text-muted-foreground text-xs px-5 py-3">Actions</th>
+                <DraggableTh idx={0} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Product</DraggableTh>
+                <DraggableTh idx={1} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Category</DraggableTh>
+                <DraggableTh idx={2} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Pitch / Brightness</DraggableTh>
+                <DraggableTh idx={3} {...colReorder} className="text-right font-medium text-muted-foreground text-xs px-3 py-3">Unit Price</DraggableTh>
+                <DraggableTh idx={4} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Unit</DraggableTh>
+                <DraggableTh idx={5} {...colReorder} className="text-right font-medium text-muted-foreground text-xs px-5 py-3">Actions</DraggableTh>
               </tr>
             </thead>
             <tbody>

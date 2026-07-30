@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Plus, Search, FileText, Trash2 } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -28,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function QuotationsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
+  const colReorder = useColumnReorder();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -175,17 +178,18 @@ export default function QuotationsPage() {
           )}
         </div>
 
+        <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
         {/* Table */}
         <div className="hidden sm:block rounded-xl border border-border overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-card">
               <tr className="border-b border-border">
-                <th className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Quote #</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Client</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Status</th>
-                <th className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Valid Until</th>
-                <th className="text-right font-medium text-muted-foreground text-xs px-3 py-3">Total</th>
-                <th className="text-right font-medium text-muted-foreground text-xs px-5 py-3">Actions</th>
+                <DraggableTh idx={0} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Quote #</DraggableTh>
+                <DraggableTh idx={1} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Client</DraggableTh>
+                <DraggableTh idx={2} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Status</DraggableTh>
+                <DraggableTh idx={3} {...colReorder} className="text-left font-medium text-muted-foreground text-xs px-3 py-3">Valid Until</DraggableTh>
+                <DraggableTh idx={4} {...colReorder} className="text-right font-medium text-muted-foreground text-xs px-3 py-3">Total</DraggableTh>
+                <DraggableTh idx={5} {...colReorder} className="text-right font-medium text-muted-foreground text-xs px-5 py-3">Actions</DraggableTh>
               </tr>
             </thead>
             <tbody>

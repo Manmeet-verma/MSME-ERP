@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { FileText, Download } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { getAuthToken } from "@/lib/auth";
 
 async function downloadReport(path: string, format: "csv" | "xlsx", filename: string) {
@@ -104,12 +106,24 @@ function Row({ label, value, bold }: { label: string; value: number; bold?: bool
 }
 function SectionTable({ title, rows }: { title: string; rows: Array<{ invoiceNumber: string; invoiceDate: string; clientName: string; gstin?: string; taxableValue: number; cgst: number; sgst: number; igst: number; invoiceTotal: number }> }) {
   const safeRows = Array.isArray(rows) ? rows : [];
+  const colReorder = useColumnReorder();
   return (
     <div className="rounded-xl border border-border bg-card overflow-x-auto">
       <p className="p-3 font-semibold border-b border-border text-sm">{title}</p>
+      <p className="text-[11px] text-muted-foreground px-3 pt-2">Drag column headers to reorder</p>
       <table className="w-full text-sm">
         <thead className="text-left text-xs text-muted-foreground border-b border-border">
-          <tr><th className="p-3">Invoice</th><th className="p-3">Date</th><th className="p-3">Client</th><th className="p-3">GSTIN</th><th className="p-3 text-right">Taxable</th><th className="p-3 text-right">CGST</th><th className="p-3 text-right">SGST</th><th className="p-3 text-right">IGST</th><th className="p-3 text-right">Total</th></tr>
+          <tr>
+            <DraggableTh idx={0} {...colReorder} className="p-3">Invoice</DraggableTh>
+            <DraggableTh idx={1} {...colReorder} className="p-3">Date</DraggableTh>
+            <DraggableTh idx={2} {...colReorder} className="p-3">Client</DraggableTh>
+            <DraggableTh idx={3} {...colReorder} className="p-3">GSTIN</DraggableTh>
+            <DraggableTh idx={4} {...colReorder} className="p-3 text-right">Taxable</DraggableTh>
+            <DraggableTh idx={5} {...colReorder} className="p-3 text-right">CGST</DraggableTh>
+            <DraggableTh idx={6} {...colReorder} className="p-3 text-right">SGST</DraggableTh>
+            <DraggableTh idx={7} {...colReorder} className="p-3 text-right">IGST</DraggableTh>
+            <DraggableTh idx={8} {...colReorder} className="p-3 text-right">Total</DraggableTh>
+          </tr>
         </thead>
         <tbody>
           {safeRows.length === 0 ? <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">No data</td></tr> :

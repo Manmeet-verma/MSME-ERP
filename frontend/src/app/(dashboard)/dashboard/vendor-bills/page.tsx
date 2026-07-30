@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus, Receipt } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-secondary text-muted-foreground",
@@ -37,6 +39,7 @@ export default function VendorBillsPage() {
   const [poId, setPoId] = useState<number | "">("");
   const [billNumber, setBillNumber] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const colReorder = useColumnReorder();
 
   const createMut = useCreateVendorBill({
     mutation: {
@@ -76,16 +79,17 @@ export default function VendorBillsPage() {
           <p className="text-muted-foreground">No vendor bills yet</p>
         </div>
       ) : (
+        <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
         <div className="rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-secondary text-muted-foreground">
               <tr>
-                <th className="text-left p-3">Bill #</th>
-                <th className="text-left p-3">Vendor</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-right p-3">Total</th>
-                <th className="text-right p-3">Paid</th>
-                <th className="text-left p-3">Due</th>
+                <DraggableTh idx={0} {...colReorder} className="text-left p-3">Bill #</DraggableTh>
+                <DraggableTh idx={1} {...colReorder} className="text-left p-3">Vendor</DraggableTh>
+                <DraggableTh idx={2} {...colReorder} className="text-left p-3">Status</DraggableTh>
+                <DraggableTh idx={3} {...colReorder} className="text-right p-3">Total</DraggableTh>
+                <DraggableTh idx={4} {...colReorder} className="text-right p-3">Paid</DraggableTh>
+                <DraggableTh idx={5} {...colReorder} className="text-left p-3">Due</DraggableTh>
               </tr>
             </thead>
             <tbody>

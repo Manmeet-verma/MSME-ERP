@@ -12,6 +12,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Plus, Boxes, Pencil, Trash2, AlertTriangle, Upload } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { useRef } from "react";
 import { formatCurrency } from "@/lib/format";
 
@@ -43,6 +45,7 @@ export default function ItemsPage() {
   const [form, setForm] = useState<Form>(empty);
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const colReorder = useColumnReorder();
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["/api/items"] });
@@ -144,16 +147,17 @@ export default function ItemsPage() {
       ) : (
         <>
           <div className="rounded-xl border border-border overflow-x-auto hidden sm:block">
+            <p className="text-[11px] text-muted-foreground px-3 pt-3">Drag column headers to reorder</p>
             <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-secondary text-muted-foreground">
                 <tr>
-                  <th className="text-left p-3">SKU</th>
-                  <th className="text-left p-3">Name</th>
-                  <th className="text-left p-3">Category</th>
-                  <th className="text-right p-3">Stock</th>
-                  <th className="text-right p-3">Sale ₹</th>
-                  <th className="text-right p-3">Avg Cost ₹</th>
-                  <th className="text-right p-3 w-24">Actions</th>
+                  <DraggableTh idx={0} {...colReorder} className="text-left p-3">SKU</DraggableTh>
+                  <DraggableTh idx={1} {...colReorder} className="text-left p-3">Name</DraggableTh>
+                  <DraggableTh idx={2} {...colReorder} className="text-left p-3">Category</DraggableTh>
+                  <DraggableTh idx={3} {...colReorder} className="text-right p-3">Stock</DraggableTh>
+                  <DraggableTh idx={4} {...colReorder} className="text-right p-3">Sale ₹</DraggableTh>
+                  <DraggableTh idx={5} {...colReorder} className="text-right p-3">Avg Cost ₹</DraggableTh>
+                  <DraggableTh idx={6} {...colReorder} className="text-right p-3 w-24">Actions</DraggableTh>
                 </tr>
               </thead>
               <tbody>

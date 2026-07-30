@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Download, Trash2, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -113,6 +115,7 @@ export default function LeadsPage() {
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
   const [page, setPage] = useState(1);
+  const colReorder = useColumnReorder();
   const { toast } = useToast();
   const qc = useQueryClient();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -315,22 +318,23 @@ export default function LeadsPage() {
         </div>
       ) : (
         <>
+          <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
           {/* Desktop table */}
           <div className="hidden md:block border border-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Name</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">WhatsApp No.</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">GST No.</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Company</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">City</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Source</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Priority</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Budget</th>
-                    <th className="text-center px-3 py-2.5 font-medium text-muted-foreground w-10"></th>
+                    <DraggableTh idx={0} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">Name</DraggableTh>
+                    <DraggableTh idx={1} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">WhatsApp No.</DraggableTh>
+                    <DraggableTh idx={2} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">GST No.</DraggableTh>
+                    <DraggableTh idx={3} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">Company</DraggableTh>
+                    <DraggableTh idx={4} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">City</DraggableTh>
+                    <DraggableTh idx={5} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">Source</DraggableTh>
+                    <DraggableTh idx={6} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</DraggableTh>
+                    <DraggableTh idx={7} {...colReorder} className="text-left px-3 py-2.5 font-medium text-muted-foreground">Priority</DraggableTh>
+                    <DraggableTh idx={8} {...colReorder} className="text-right px-3 py-2.5 font-medium text-muted-foreground">Budget</DraggableTh>
+                    <DraggableTh idx={9} {...colReorder} className="text-center px-3 py-2.5 font-medium text-muted-foreground w-10"></DraggableTh>
                   </tr>
                 </thead>
                 <tbody>

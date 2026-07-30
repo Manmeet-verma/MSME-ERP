@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, FileSpreadsheet, BarChart3 } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 type ReportRow = Record<string, unknown>;
 
@@ -30,6 +32,7 @@ export default function ReportsPage() {
   const [active, setActive] = useState<string | null>(null);
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loadingRows, setLoadingRows] = useState(false);
+  const colReorder = useColumnReorder();
 
   async function loadReport(path: string, key: string) {
     setActive(key);
@@ -118,11 +121,12 @@ export default function ReportsPage() {
             <p className="text-sm text-muted-foreground text-center py-8">No data.</p>
           ) : (
             <div className="overflow-x-auto">
+              <p className="text-[11px] text-muted-foreground px-2 pt-2">Drag column headers to reorder</p>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border">
-                    {headers.map((h) => (
-                      <th key={h} className="text-left py-2 px-2 font-medium text-muted-foreground">{h}</th>
+                    {headers.map((h, idx) => (
+                      <DraggableTh key={h} idx={idx} {...colReorder} className="text-left py-2 px-2 font-medium text-muted-foreground">{h}</DraggableTh>
                     ))}
                   </tr>
                 </thead>

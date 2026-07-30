@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileText, AlertTriangle, CheckCircle2, CheckCircle, XCircle, Undo2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 export default function SalesOrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -20,6 +22,7 @@ export default function SalesOrderDetailPage() {
   const items = Array.isArray(itemsRaw) ? itemsRaw : [];
   const { data: warehousesRaw } = useListWarehouses();
   const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
+  const colReorder = useColumnReorder();
   const promoteMut = usePromoteSalesOrderToInvoice({
     mutation: {
       onSuccess(inv) {
@@ -165,11 +168,11 @@ export default function SalesOrderDetailPage() {
         <table className="w-full text-sm">
           <thead className="bg-secondary text-muted-foreground">
             <tr>
-              <th className="text-left p-3">Item</th>
-              <th className="text-right p-3">Qty</th>
-              <th className="text-left p-3">Stock by warehouse</th>
-              <th className="text-right p-3">Price</th>
-              <th className="text-right p-3">Total</th>
+              <DraggableTh idx={0} {...colReorder} className="text-left p-3">Item</DraggableTh>
+              <DraggableTh idx={1} {...colReorder} className="text-right p-3">Qty</DraggableTh>
+              <DraggableTh idx={2} {...colReorder} className="text-left p-3">Stock by warehouse</DraggableTh>
+              <DraggableTh idx={3} {...colReorder} className="text-right p-3">Price</DraggableTh>
+              <DraggableTh idx={4} {...colReorder} className="text-right p-3">Total</DraggableTh>
             </tr>
           </thead>
           <tbody>

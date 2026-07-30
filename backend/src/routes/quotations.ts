@@ -643,4 +643,41 @@ quotationsRouter.delete("/quotations/:id/addons/:addonId", requireAuth, async (r
   res.json({ message: "Addon removed" });
 });
 
+quotationsRouter.get("/quotations/:id/history", requireAuth, async (req, res) => {
+  const orgId = req.user!.organizationId as string;
+  const quotationId = req.params.id;
+
+  const parent = await loadOrgQuotation(orgId, quotationId);
+  if (!parent) {
+    res.status(404).json({ error: "Quotation not found" });
+    return;
+  }
+
+  const snap = await db().collection("auditLogs")
+    .where("organizationId", "==", orgId)
+    .where("entity", "==", "quotation")
+    .where("entityId", "==", quotationId)
+    .get();
+
+  const logs = snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        action: data.action,
+        details: data.details ?? null,
+        userId: data.userId ?? null,
+        ipAddress: data.ipAddress ?? null,
+        createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt ?? null,
+      };
+    })
+    .sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+  res.json(logs);
+});
+
 export default quotationsRouter;

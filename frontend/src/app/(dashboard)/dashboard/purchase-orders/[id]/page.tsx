@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { ArrowLeft, Truck, Printer } from "lucide-react";
 
 export default function PurchaseOrderDetailPage() {
@@ -26,6 +28,7 @@ export default function PurchaseOrderDetailPage() {
   const grns = Array.isArray(grnsRaw) ? grnsRaw : [];
   const { data: warehousesRaw } = useListWarehouses();
   const warehouses = Array.isArray(warehousesRaw) ? warehousesRaw : [];
+  const colReorder = useColumnReorder();
 
   const [grnOpen, setGrnOpen] = useState(false);
   const [whId, setWhId] = useState<number | "">("");
@@ -128,11 +131,11 @@ export default function PurchaseOrderDetailPage() {
         <table className="w-full text-sm">
           <thead className="bg-secondary text-muted-foreground">
             <tr>
-              <th className="text-left p-3">Item</th>
-              <th className="text-right p-3">Qty</th>
-              <th className="text-right p-3">Received</th>
-              <th className="text-right p-3">Unit ₹</th>
-              <th className="text-right p-3">Total</th>
+              <DraggableTh idx={0} {...colReorder} className="text-left p-3">Item</DraggableTh>
+              <DraggableTh idx={1} {...colReorder} className="text-right p-3">Qty</DraggableTh>
+              <DraggableTh idx={2} {...colReorder} className="text-right p-3">Received</DraggableTh>
+              <DraggableTh idx={3} {...colReorder} className="text-right p-3">Unit ₹</DraggableTh>
+              <DraggableTh idx={4} {...colReorder} className="text-right p-3">Total</DraggableTh>
             </tr>
           </thead>
           <tbody>

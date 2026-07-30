@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus, Receipt, Trash2, Tag, Upload } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { getAuthToken } from "@/lib/auth";
 
 type Form = {
@@ -45,6 +47,7 @@ export default function ExpensesPage() {
   const [catCode, setCatCode] = useState("5900");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const colReorder = useColumnReorder();
 
   const inv = () => qc.invalidateQueries({ queryKey: ["/api/expenses"] });
   const createMut = useCreateExpense({ mutation: { onSuccess() { toast({ title: "Expense added" }); inv(); setOpen(false); setForm(empty()); } } });
@@ -98,10 +101,20 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <>
+          <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
           <div className="rounded-xl border border-border bg-card overflow-x-auto hidden sm:block">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground border-b border-border">
-                <tr><th className="p-3">Date</th><th className="p-3">Category</th><th className="p-3">Description</th><th className="p-3">Vendor</th><th className="p-3 text-right">Amount</th><th className="p-3 text-right">GST</th><th className="p-3 text-right">Total</th><th className="p-3"></th></tr>
+                <tr>
+                  <DraggableTh idx={0} {...colReorder} className="p-3">Date</DraggableTh>
+                  <DraggableTh idx={1} {...colReorder} className="p-3">Category</DraggableTh>
+                  <DraggableTh idx={2} {...colReorder} className="p-3">Description</DraggableTh>
+                  <DraggableTh idx={3} {...colReorder} className="p-3">Vendor</DraggableTh>
+                  <DraggableTh idx={4} {...colReorder} className="p-3 text-right">Amount</DraggableTh>
+                  <DraggableTh idx={5} {...colReorder} className="p-3 text-right">GST</DraggableTh>
+                  <DraggableTh idx={6} {...colReorder} className="p-3 text-right">Total</DraggableTh>
+                  <DraggableTh idx={7} {...colReorder} className="p-3"></DraggableTh>
+                </tr>
               </thead>
               <tbody>
                 {expenses.map((e: Expense) => (

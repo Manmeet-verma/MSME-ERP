@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { ArrowLeft, Download } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { getAuthToken } from "@/lib/auth";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -39,6 +41,8 @@ export default function PayrollDetailPage() {
 
   if (isLoading || !run) return <div className="p-6 text-muted-foreground">Loading…</div>;
 
+  const colReorder = useColumnReorder();
+
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div>
@@ -63,17 +67,18 @@ export default function PayrollDetailPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card overflow-x-auto">
+        <p className="text-[11px] text-muted-foreground px-3 pt-3">Drag column headers to reorder</p>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted-foreground border-b border-border">
             <tr>
-              <th className="p-3">Employee</th>
-              <th className="p-3 text-right">Days</th>
-              <th className="p-3 text-right">Gross</th>
-              <th className="p-3 text-right">PF</th>
-              <th className="p-3 text-right">ESI</th>
-              <th className="p-3 text-right">Other</th>
-              <th className="p-3 text-right">Net</th>
-              <th className="p-3 text-right"></th>
+              <DraggableTh idx={0} {...colReorder} className="p-3">Employee</DraggableTh>
+              <DraggableTh idx={1} {...colReorder} className="p-3 text-right">Days</DraggableTh>
+              <DraggableTh idx={2} {...colReorder} className="p-3 text-right">Gross</DraggableTh>
+              <DraggableTh idx={3} {...colReorder} className="p-3 text-right">PF</DraggableTh>
+              <DraggableTh idx={4} {...colReorder} className="p-3 text-right">ESI</DraggableTh>
+              <DraggableTh idx={5} {...colReorder} className="p-3 text-right">Other</DraggableTh>
+              <DraggableTh idx={6} {...colReorder} className="p-3 text-right">Net</DraggableTh>
+              <DraggableTh idx={7} {...colReorder} className="p-3 text-right"></DraggableTh>
             </tr>
           </thead>
           <tbody>

@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useListSalesOrders } from "@workspace/api-client-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ShoppingCart } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 export default function SalesOrdersPage() {
   const { data: ordersRaw } = useListSalesOrders();
   const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
+  const colReorder = useColumnReorder();
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <div>
@@ -21,15 +24,16 @@ export default function SalesOrdersPage() {
         </div>
       ) : (
         <>
+          <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
           <div className="rounded-xl border border-border overflow-x-auto hidden sm:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary text-muted-foreground">
                 <tr>
-                  <th className="text-left p-3">Order #</th>
-                  <th className="text-left p-3">Client</th>
-                  <th className="text-left p-3">Status</th>
-                  <th className="text-right p-3">Total</th>
-                  <th className="text-left p-3">Date</th>
+                  <DraggableTh idx={0} {...colReorder} className="text-left p-3">Order #</DraggableTh>
+                  <DraggableTh idx={1} {...colReorder} className="text-left p-3">Client</DraggableTh>
+                  <DraggableTh idx={2} {...colReorder} className="text-left p-3">Status</DraggableTh>
+                  <DraggableTh idx={3} {...colReorder} className="text-right p-3">Total</DraggableTh>
+                  <DraggableTh idx={4} {...colReorder} className="text-left p-3">Date</DraggableTh>
                 </tr>
               </thead>
               <tbody>

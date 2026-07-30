@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { BookOpen } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 export default function LedgerPage() {
   const { data: accountsRaw } = useListAccounts();
@@ -14,6 +16,7 @@ export default function LedgerPage() {
   const today = new Date();
   const [from, setFrom] = useState(new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10));
   const [to, setTo] = useState(today.toISOString().slice(0, 10));
+  const colReorder = useColumnReorder();
 
   useEffect(() => {
     if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
@@ -56,9 +59,17 @@ export default function LedgerPage() {
               <p className="text-lg font-bold text-primary">{formatCurrency(ledger.closingBalance)}</p>
             </div>
           </div>
+          <p className="text-[11px] text-muted-foreground px-4 pt-3">Drag column headers to reorder</p>
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-muted-foreground border-b border-border">
-              <tr><th className="p-3">Date</th><th className="p-3">Description</th><th className="p-3">Source</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Credit</th><th className="p-3 text-right">Balance</th></tr>
+              <tr>
+                <DraggableTh idx={0} {...colReorder} className="p-3">Date</DraggableTh>
+                <DraggableTh idx={1} {...colReorder} className="p-3">Description</DraggableTh>
+                <DraggableTh idx={2} {...colReorder} className="p-3">Source</DraggableTh>
+                <DraggableTh idx={3} {...colReorder} className="p-3 text-right">Debit</DraggableTh>
+                <DraggableTh idx={4} {...colReorder} className="p-3 text-right">Credit</DraggableTh>
+                <DraggableTh idx={5} {...colReorder} className="p-3 text-right">Balance</DraggableTh>
+              </tr>
             </thead>
             <tbody>
               {(Array.isArray(ledger.lines) ? ledger.lines : []).map((l) => (

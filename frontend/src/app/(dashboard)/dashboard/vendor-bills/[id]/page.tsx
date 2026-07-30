@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ArrowLeft } from "lucide-react";
+import { DraggableTh } from "@/components/draggable-th";
+import { useColumnReorder } from "@/hooks/use-column-reorder";
 
 export default function VendorBillDetailPage() {
   const params = useParams();
@@ -18,6 +20,7 @@ export default function VendorBillDetailPage() {
   const qc = useQueryClient();
   const { data: bill } = useGetVendorBill(id);
   const [paidAmt, setPaidAmt] = useState("");
+  const colReorder = useColumnReorder();
 
   const updateMut = useUpdateVendorBill({
     mutation: {
@@ -63,10 +66,10 @@ export default function VendorBillDetailPage() {
         <table className="w-full text-sm">
           <thead className="bg-secondary text-muted-foreground">
             <tr>
-              <th className="text-left p-3">Description</th>
-              <th className="text-right p-3">Qty</th>
-              <th className="text-right p-3">Unit ₹</th>
-              <th className="text-right p-3">Total</th>
+              <DraggableTh idx={0} {...colReorder} className="text-left p-3">Description</DraggableTh>
+              <DraggableTh idx={1} {...colReorder} className="text-right p-3">Qty</DraggableTh>
+              <DraggableTh idx={2} {...colReorder} className="text-right p-3">Unit ₹</DraggableTh>
+              <DraggableTh idx={3} {...colReorder} className="text-right p-3">Total</DraggableTh>
             </tr>
           </thead>
           <tbody>
