@@ -79,6 +79,7 @@ export default function VendorBillsPage() {
           <p className="text-muted-foreground">No vendor bills yet</p>
         </div>
       ) : (
+        <>
         <p className="text-[11px] text-muted-foreground">Drag column headers to reorder</p>
         <div className="rounded-xl border border-border overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
@@ -106,6 +107,7 @@ export default function VendorBillsPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
