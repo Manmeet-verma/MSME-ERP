@@ -51,9 +51,7 @@ Thumbs.db
 # Next.js
 .next/
 
-# Build artifacts
-backend/api/index.js
-backend/api/index.js.map
+
 
 # Environment
 .env
