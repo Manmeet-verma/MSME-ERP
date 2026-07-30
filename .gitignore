@@ -63,3 +63,5 @@ backend/api/*.map
 # Logs and scripts
 *.log
 *.ps1
+
+MSME-ERP/

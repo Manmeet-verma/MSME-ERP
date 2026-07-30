@@ -272,6 +272,9 @@ export interface Client {
   /** @nullable */
   gstNumber?: string | null;
   /** @nullable */
+  pincode?: string | null;
+  isActive?: boolean;
+  /** @nullable */
   notes?: string | null;
   quotationCount?: number;
   totalValue?: number;
@@ -287,6 +290,8 @@ export interface ClientInput {
   city?: string;
   state?: string;
   gstNumber?: string;
+  pincode?: string;
+  isActive?: boolean;
   notes?: string;
 }
 
@@ -299,6 +304,8 @@ export interface ClientUpdate {
   city?: string;
   state?: string;
   gstNumber?: string;
+  pincode?: string;
+  isActive?: boolean;
   notes?: string;
 }
 

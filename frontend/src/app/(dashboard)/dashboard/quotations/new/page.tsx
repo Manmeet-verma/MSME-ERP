@@ -369,7 +369,7 @@ export default function NewQuotationPage() {
                     <select
                       defaultValue=""
                       onChange={(e) => { if (e.target.value) { addItem(parseInt(e.target.value)); e.target.value = ""; } }}
-                      className="h-8 rounded-md border border-input bg-input px-2 text-xs"
+                      className="h-10 sm:h-8 rounded-md border border-input bg-input px-2 text-xs"
                     >
                       <option value="">+ Add product...</option>
                       {(Array.isArray(products) ? products : []).map((p) => (
@@ -386,12 +386,12 @@ export default function NewQuotationPage() {
                       <div key={item.id} className="rounded-lg border border-border bg-background p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-medium">{item.productName}</p>
-                          <button type="button" onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5" />
+                          <button type="button" onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                         <div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Linked inventory item (optional, used for stock at SO confirm)</p>
+                          <p className="text-xs text-muted-foreground mb-1">Linked inventory item (optional, used for stock at SO confirm)</p>
                           <select
                             value={item.itemId ?? ""}
                             onChange={(e) => {
@@ -406,7 +406,7 @@ export default function NewQuotationPage() {
                                   }
                                 : x));
                             }}
-                            className="w-full h-7 rounded-md border border-input bg-input px-2 text-xs"
+                            className="w-full h-10 sm:h-7 rounded-md border border-input bg-input px-2 text-xs"
                           >
                             <option value="">— Not linked —</option>
                             {(Array.isArray(inventoryItems) ? inventoryItems : []).map((inv) => (
@@ -418,42 +418,42 @@ export default function NewQuotationPage() {
                           placeholder="Description"
                           value={item.description}
                           onChange={(e) => setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, description: e.target.value } : x))}
-                          className="h-7 text-xs"
+                          className="h-10 sm:h-7 text-xs"
                         />
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">Width (ft)</p>
+                            <p className="text-xs text-muted-foreground mb-1">Width (ft)</p>
                             <Input
                               type="number" min="0" step="0.1" placeholder="—"
                               value={item.widthFt}
                               onChange={(e) => setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, widthFt: e.target.value } : x))}
-                              className="h-7 text-xs"
+                              className="h-10 sm:h-7 text-xs"
                             />
                           </div>
                           <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">Height (ft)</p>
+                            <p className="text-xs text-muted-foreground mb-1">Height (ft)</p>
                             <Input
                               type="number" min="0" step="0.1" placeholder="—"
                               value={item.heightFt}
                               onChange={(e) => setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, heightFt: e.target.value } : x))}
-                              className="h-7 text-xs"
+                              className="h-10 sm:h-7 text-xs"
                             />
                           </div>
                           <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">Qty</p>
+                            <p className="text-xs text-muted-foreground mb-1">Qty</p>
                             <Input
                               type="number" min="0.01" step="0.01"
                               value={item.quantity}
                               onChange={(e) => setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, quantity: e.target.value } : x))}
-                              className="h-7 text-xs"
+                              className="h-10 sm:h-7 text-xs"
                             />
                           </div>
                           <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">Total</p>
-                            <p className="h-7 flex items-center text-xs font-semibold text-primary">{formatCurrency(calcItemTotal(item))}</p>
+                            <p className="text-xs text-muted-foreground mb-1">Total</p>
+                            <p className="h-10 sm:h-7 flex items-center text-xs font-semibold text-primary">{formatCurrency(calcItemTotal(item))}</p>
                           </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           ₹{item.unitPrice.toLocaleString("en-IN")} / {item.unit}
                           {parseFloat(item.widthFt) > 0 && parseFloat(item.heightFt) > 0 && (
                             <> · {parseFloat(item.widthFt) * parseFloat(item.heightFt)} sqft</>
@@ -475,7 +475,7 @@ export default function NewQuotationPage() {
                     <select
                       defaultValue=""
                       onChange={(e) => { if (e.target.value) { addAddon(parseInt(e.target.value)); e.target.value = ""; } }}
-                      className="h-8 rounded-md border border-input bg-input px-2 text-xs"
+                      className="h-10 sm:h-8 rounded-md border border-input bg-input px-2 text-xs"
                     >
                       <option value="">+ Add service...</option>
                       {(Array.isArray(addons) ? addons : []).map((a) => (
@@ -492,30 +492,30 @@ export default function NewQuotationPage() {
                       <div key={a.id} className="rounded-lg border border-border bg-background p-3">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-xs font-medium">{a.addonName}</p>
-                          <button type="button" onClick={() => removeAddon(a.id)} className="text-muted-foreground hover:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5" />
+                          <button type="button" onClick={() => removeAddon(a.id)} className="text-muted-foreground hover:text-destructive p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div className="col-span-2">
-                            <p className="text-[10px] text-muted-foreground mb-1">Description</p>
+                            <p className="text-xs text-muted-foreground mb-1">Description</p>
                             <Input
                               value={a.description}
                               onChange={(e) => setAddonLines((prev) => prev.map((x) => x.id === a.id ? { ...x, description: e.target.value } : x))}
-                              className="h-7 text-xs"
+                              className="h-10 sm:h-7 text-xs"
                             />
                           </div>
                           <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">Quantity</p>
+                            <p className="text-xs text-muted-foreground mb-1">Quantity</p>
                             <Input
                               type="number" min="0.01" step="0.01"
                               value={a.quantity}
                               onChange={(e) => setAddonLines((prev) => prev.map((x) => x.id === a.id ? { ...x, quantity: e.target.value } : x))}
-                              className="h-7 text-xs"
+                              className="h-10 sm:h-7 text-xs"
                             />
                           </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                        <p className="text-xs text-muted-foreground mt-1.5">
                           {formatCurrency(a.price)} × {a.quantity} = <span className="text-primary font-semibold">{formatCurrency(calcAddonTotal(a))}</span>
                         </p>
                       </div>

@@ -16,6 +16,8 @@ interface ClientDoc {
   city?: string | null;
   state?: string | null;
   gstNumber?: string | null;
+  pincode?: string | null;
+  isActive?: boolean;
   notes?: string | null;
   createdById: string;
   createdAt: string;
@@ -32,6 +34,8 @@ function formatClient(id: string, c: ClientDoc, quotationCount = 0, totalValue =
     city: c.city ?? null,
     state: c.state ?? null,
     gstNumber: c.gstNumber ?? null,
+    pincode: c.pincode ?? null,
+    isActive: c.isActive !== false,
     notes: c.notes ?? null,
     quotationCount,
     totalValue,
@@ -87,7 +91,7 @@ clientsRouter.get("/clients/:id", requireAuth, async (req, res) => {
 });
 
 clientsRouter.post("/clients", requireAuth, async (req, res) => {
-  const { name, email, phone, company, address, city, state, gstNumber, notes } = req.body ?? {};
+  const { name, email, phone, company, address, city, state, gstNumber, pincode, isActive, notes } = req.body ?? {};
   if (!name) {
     res.status(400).json({ error: "name required" });
     return;
@@ -102,6 +106,8 @@ clientsRouter.post("/clients", requireAuth, async (req, res) => {
     city: city ?? null,
     state: state ?? null,
     gstNumber: gstNumber ?? null,
+    pincode: pincode ?? null,
+    isActive: isActive !== false,
     notes: notes ?? null,
     createdById: req.user!.userId,
     createdAt: new Date().toISOString(),
@@ -114,7 +120,7 @@ clientsRouter.post("/clients", requireAuth, async (req, res) => {
 clientsRouter.patch("/clients/:id", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId;
   const updates: Record<string, unknown> = {};
-  const fields = ["name", "email", "phone", "company", "address", "city", "state", "gstNumber", "notes"] as const;
+  const fields = ["name", "email", "phone", "company", "address", "city", "state", "gstNumber", "pincode", "isActive", "notes"] as const;
   for (const f of fields) if (req.body?.[f] !== undefined) updates[f] = req.body[f];
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No fields to update" });

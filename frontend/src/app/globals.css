@@ -135,9 +135,16 @@
     border-radius: 0 !important;
   }
 
-  /* Better touch targets */
-  button, a, [role="button"], input, select, textarea {
-    min-height: 44px;
+  /* Ensure dialog close button has 44px touch target */
+  [role="dialog"] button[data-state],
+  [role="alertdialog"] button[data-state] {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* Sheets should use full width */
+  [data-state="open"][role="dialog"][data-sheet] {
+    border-radius: 0 !important;
   }
 
   /* Prevent zoom on input focus */
@@ -153,6 +160,13 @@
     font-size: 16px !important;
   }
 
+  /* Ensure all form controls are touch-friendly */
+  input:not([type]),
+  select,
+  textarea {
+    min-height: 44px !important;
+  }
+
   /* Stack flex-row to column */
   .flex-row-to-col {
     flex-direction: column !important;
@@ -163,5 +177,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Table scroll indicator */
+  .table-scroll-container {
+    position: relative;
+  }
+  .table-scroll-container::after {
+    content: "← scroll →";
+    position: absolute;
+    bottom: 4px;
+    right: 8px;
+    font-size: 10px;
+    color: hsl(var(--muted-foreground));
+    opacity: 0.6;
+    pointer-events: none;
   }
 }

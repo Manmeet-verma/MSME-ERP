@@ -16,6 +16,7 @@ import {
   Briefcase, BookOpen, Share2, ArrowRight, Sparkles, Flame, Phone, Mail,
   Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse, Search, Lightbulb,
 } from "lucide-react";
+import TutorialButton from "@/components/tutorial";
 
 const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }>> = {
   sales: FileText,
@@ -87,7 +88,7 @@ function ModuleCard({ moduleKey, enabled, primary, secondary }: ModuleCardProps)
         <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
           <Icon className="h-5 w-5" />
         </div>
-        {!enabled && <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">Off</span>}
+          {!enabled && <span className="text-xs uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">Off</span>}
       </div>
       <h3 className="font-semibold text-foreground">{MODULE_LABELS[moduleKey]}</h3>
       <p className="text-xs text-muted-foreground mt-0.5">{MODULE_DESCRIPTIONS[moduleKey]}</p>
@@ -137,7 +138,7 @@ function KpiCard({ icon: Icon, label, value, tint, href }: {
         <div className={`h-7 w-7 rounded-md flex items-center justify-center ${TINT_CLASSES[tint] ?? TINT_CLASSES.primary}`}>
           <Icon className="h-4 w-4" />
         </div>
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
       </div>
       <p className="text-base sm:text-lg font-bold mt-1.5">{value}</p>
     </div>
@@ -162,11 +163,16 @@ export default function DashboardPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold">Welcome, {org?.name}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold">Welcome, {org?.name}</h1>
+              <p className="text-sm text-muted-foreground">Your workspace overview</p>
+            </div>
+          </div>
+          <TutorialButton />
         </div>
-        <p className="text-sm text-muted-foreground">Your workspace overview</p>
       </div>
 
       {/* AI insights + NL search */}
@@ -175,7 +181,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-2">
             <Lightbulb className="h-4 w-4 text-yellow-400" />
             <h2 className="font-semibold text-sm">Today's AI insights</h2>
-            {insights?.cached && <span className="text-[10px] text-muted-foreground">cached</span>}
+            {insights?.cached && <span className="text-xs text-muted-foreground">cached</span>}
           </div>
           {insights?.insights ? (
             <>
@@ -222,19 +228,19 @@ export default function DashboardPage() {
       {/* Usage badges */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div className="bg-card border border-card-border rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Team</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Team</p>
           <p className="text-lg font-bold mt-1">{members?.length ?? 0}<span className="text-sm text-muted-foreground"> / {limits.members}</span></p>
         </div>
         <div className="bg-card border border-card-border rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Leads / mo</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Leads / mo</p>
           <p className="text-lg font-bold mt-1">0<span className="text-sm text-muted-foreground"> / {limits.leadsPerMonth}</span></p>
         </div>
         <div className="bg-card border border-card-border rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Emails / mo</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Emails / mo</p>
           <p className="text-lg font-bold mt-1">0<span className="text-sm text-muted-foreground"> / {limits.emailsPerMonth}</span></p>
         </div>
         <div className="bg-card border border-card-border rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Storage</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Storage</p>
           <p className="text-lg font-bold mt-1">0<span className="text-sm text-muted-foreground"> / {limits.storageMB} MB</span></p>
         </div>
       </div>

@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useCreateLead, useDeleteLead, useSyncIndiamartLeads, customFetch } from "@workspace/api-client-react";
-import type { Lead, LeadInput } from "@workspace/api-client-react";
+import { useCreateLead, useUpdateLead, useDeleteLead, useSyncIndiamartLeads, useCreateClient, customFetch } from "@workspace/api-client-react";
+import type { Lead, LeadInput, ClientInput } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Download, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Download, Trash2, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -108,7 +108,10 @@ export default function LeadsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [editForm, setEditForm] = useState(emptyForm);
   const [page, setPage] = useState(1);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -129,11 +132,21 @@ export default function LeadsPage() {
 
   const createMut = useCreateLead({
     mutation: {
-      onSuccess() {
+      onSuccess(leadData) {
         toast({ title: "Lead created" });
         qc.invalidateQueries({ queryKey: ["/api/leads"] });
         setOpen(false);
         setForm(emptyForm);
+        const payload = {
+          name: leadData.name,
+          email: leadData.email ?? undefined,
+          phone: leadData.phone ?? undefined,
+          company: leadData.company ?? undefined,
+          city: leadData.city ?? undefined,
+          state: leadData.state ?? undefined,
+          gstNumber: (leadData as any).gstin ?? undefined,
+        };
+        createClientMut.mutate({ data: payload as ClientInput });
       },
       onError(err: any) {
         const msg = err?.data?.error ?? err?.message ?? "Failed to create lead";
@@ -162,6 +175,31 @@ export default function LeadsPage() {
     },
   });
 
+  const updateMut = useUpdateLead({
+    mutation: {
+      onSuccess() {
+        toast({ title: "Lead updated" });
+        qc.invalidateQueries({ queryKey: ["/api/leads"] });
+        setEditOpen(false);
+        setEditingLead(null);
+      },
+      onError(err: any) {
+        const msg = err?.data?.error ?? err?.message ?? "Failed to update lead";
+        toast({ title: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const createClientMut = useCreateClient({
+    mutation: {
+      onSuccess(data) {
+        toast({ title: `Client created (ID: ${data.id})` });
+        qc.invalidateQueries({ queryKey: ["/api/clients"] });
+      },
+      onError() {},
+    },
+  });
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.phone && !form.name) {
@@ -183,6 +221,45 @@ export default function LeadsPage() {
       notes: form.notes || undefined,
     };
     createMut.mutate({ data: payload as any });
+  }
+
+  function openEdit(l: Lead) {
+    setEditingLead(l);
+    setEditForm({
+      phone: l.phone ?? "",
+      gstin: (l as any).gstin ?? "",
+      name: l.name ?? "",
+      email: l.email ?? "",
+      company: l.company ?? "",
+      city: l.city ?? "",
+      state: l.state ?? "",
+      source: (l.source as any) ?? "manual",
+      sourceBy: "",
+      approxBudget: (l as any).approxBudget ? String((l as any).approxBudget) : l.budget ? String(l.budget) : "",
+      product: l.product ?? "",
+      notes: l.notes ?? "",
+    });
+    setEditOpen(true);
+  }
+
+  function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingLead) return;
+    const payload = {
+      name: editForm.name || editForm.phone || "",
+      email: editForm.email || undefined,
+      phone: editForm.phone || undefined,
+      gstin: editForm.gstin || undefined,
+      company: editForm.company || undefined,
+      city: editForm.city || undefined,
+      state: editForm.state || undefined,
+      source: editForm.source,
+      sourceBy: editForm.sourceBy || undefined,
+      approxBudget: editForm.approxBudget ? Number(editForm.approxBudget) : undefined,
+      product: editForm.product || undefined,
+      notes: editForm.notes || undefined,
+    };
+    updateMut.mutate({ id: editingLead.id, data: payload as any });
   }
 
   return (
@@ -270,28 +347,31 @@ export default function LeadsPage() {
                       <td className="px-3 py-2 text-muted-foreground">{l.city || "-"}</td>
                       <td className="px-3 py-2 text-muted-foreground text-xs">{l.source || "-"}</td>
                       <td className="px-3 py-2">
-                        <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${STATUS_COLORS[l.status] ?? STATUS_COLORS.new}`}>{l.status}</span>
+                        <span className={`text-xs uppercase px-1.5 py-0.5 rounded ${STATUS_COLORS[l.status] ?? STATUS_COLORS.new}`}>{l.status}</span>
                       </td>
                       <td className="px-3 py-2">
-                        <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${PRIORITY_COLORS[l.priority]}`}>{l.priority}</span>
+                        <span className={`text-xs uppercase px-1.5 py-0.5 rounded ${PRIORITY_COLORS[l.priority]}`}>{l.priority}</span>
                       </td>
                       <td className="px-3 py-2 text-right text-xs">{(l as any).approxBudget ? formatCurrency((l as any).approxBudget) : l.budget ? formatCurrency(l.budget) : "-"}</td>
                       <td className="px-3 py-2 text-center">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button className="text-muted-foreground hover:text-destructive p-1"><Trash2 className="h-3.5 w-3.5" /></button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete lead?</AlertDialogTitle>
-                              <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteMut.mutate({ id: l.id })}>Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => openEdit(l)} className="text-muted-foreground hover:text-primary p-1"><Pencil className="h-3.5 w-3.5" /></button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button className="text-muted-foreground hover:text-destructive p-1"><Trash2 className="h-3.5 w-3.5" /></button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete lead?</AlertDialogTitle>
+                                <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteMut.mutate({ id: l.id })}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -303,28 +383,50 @@ export default function LeadsPage() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {paged.map((l: Lead) => (
-              <Link key={l.id} href={`/dashboard/leads/${l.id}`}>
-                <div className="bg-card border border-border rounded-xl p-4 hover:border-primary/30 active:bg-muted/50">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{l.name}</p>
-                      {l.company && <p className="text-xs text-muted-foreground truncate">{l.company}</p>}
-                    </div>
-                    <div className="flex gap-1.5 shrink-0 ml-2">
-                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${PRIORITY_COLORS[l.priority]}`}>{l.priority}</span>
-                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${STATUS_COLORS[l.status] ?? STATUS_COLORS.new}`}>{l.status}</span>
-                    </div>
+              <div key={l.id} className="bg-card border border-border rounded-xl p-4 hover:border-primary/30">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/dashboard/leads/${l.id}`}>
+                      <p className="font-semibold text-sm truncate hover:text-primary">{l.name}</p>
+                    </Link>
+                    {l.company && <p className="text-xs text-muted-foreground truncate">{l.company}</p>}
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    {l.phone && <p className="text-muted-foreground truncate">{l.phone}</p>}
-                    {l.city && <p className="text-muted-foreground truncate">{l.city}{l.state ? `, ${l.state}` : ""}</p>}
-                    {l.source && <p className="text-muted-foreground capitalize">{l.source}</p>}
-                    <p className="text-muted-foreground text-right font-medium">
-                      {(l as any).approxBudget ? formatCurrency((l as any).approxBudget) : l.budget ? formatCurrency(l.budget) : ""}
-                    </p>
+                  <div className="flex gap-1.5 shrink-0 ml-2">
+                    <span className={`text-xs uppercase px-1.5 py-0.5 rounded ${PRIORITY_COLORS[l.priority]}`}>{l.priority}</span>
+                    <span className={`text-xs uppercase px-1.5 py-0.5 rounded ${STATUS_COLORS[l.status] ?? STATUS_COLORS.new}`}>{l.status}</span>
                   </div>
                 </div>
-              </Link>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-3">
+                  {l.phone && <p className="text-muted-foreground truncate">{l.phone}</p>}
+                  {l.city && <p className="text-muted-foreground truncate">{l.city}{l.state ? `, ${l.state}` : ""}</p>}
+                  {l.source && <p className="text-muted-foreground capitalize">{l.source}</p>}
+                  <p className="text-muted-foreground text-right font-medium">
+                    {(l as any).approxBudget ? formatCurrency((l as any).approxBudget) : l.budget ? formatCurrency(l.budget) : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <button onClick={() => openEdit(l)} className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete lead?</AlertDialogTitle>
+                        <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMut.mutate({ id: l.id })}>Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
             ))}
           </div>
 
@@ -413,6 +515,80 @@ export default function LeadsPage() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={createMut.isPending}>Create</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:rounded-lg">
+          <DialogHeader><DialogTitle>Edit Lead</DialogTitle></DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div><Label>WhatsApp No. *</Label><Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="Phone / WhatsApp number" /></div>
+              <div>
+                <Label>GST No.</Label>
+                <Input
+                  value={editForm.gstin}
+                  onChange={(e) => setEditForm({ ...editForm, gstin: e.target.value.toUpperCase() })}
+                  placeholder="GSTIN (auto caps)"
+                  maxLength={15}
+                  style={{ textTransform: "uppercase" }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div><Label>Name</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="Full name" /></div>
+              <div><Label>Company</Label><Input value={editForm.company} onChange={(e) => setEditForm({ ...editForm, company: e.target.value })} /></div>
+            </div>
+            <div><Label>Email</Label><Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <Label>State</Label>
+                <Select value={editForm.state} onValueChange={(v) => setEditForm({ ...editForm, state: v, city: "" })}>
+                  <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {Object.keys(STATES).sort().map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>City</Label>
+                <Select value={editForm.city} onValueChange={(v) => setEditForm({ ...editForm, city: v })} disabled={!editForm.state}>
+                  <SelectTrigger><SelectValue placeholder={editForm.state ? "Select city" : "Select state first"} /></SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {(STATES[editForm.state] || []).sort().map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <Label>Source</Label>
+                <Select value={editForm.source} onValueChange={(v) => setEditForm({ ...editForm, source: v as any })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SOURCE_OPTIONS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Source By</Label><Input value={editForm.sourceBy} onChange={(e) => setEditForm({ ...editForm, sourceBy: e.target.value })} placeholder="e.g. Raman, IndiaMart" /></div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div><Label>Approx Budget (₹)</Label><Input type="number" value={editForm.approxBudget} onChange={(e) => setEditForm({ ...editForm, approxBudget: e.target.value })} /></div>
+              <div><Label>Product interest</Label><Input value={editForm.product} onChange={(e) => setEditForm({ ...editForm, product: e.target.value })} /></div>
+            </div>
+            <div><Label>Notes</Label><Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={updateMut.isPending}>{updateMut.isPending ? "Updating..." : "Update Lead"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
