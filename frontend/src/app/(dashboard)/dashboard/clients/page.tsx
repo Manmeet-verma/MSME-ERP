@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Users, Pencil, Trash2, Building2, Phone, Mail, MapPin, Calendar } from "lucide-react";
+import { Plus, Search, Users, Pencil, Trash2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Client } from "@workspace/api-client-react";
-import { MobileCard, MobileCardField, MobileCardActions } from "@/components/mobile-card";
 
 const STATES: Record<string, string[]> = {
   "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari", "Guntur", "Krishna", "Kurnool", "Nellore", "Prakasam", "Srikakulam", "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"],
@@ -172,190 +171,146 @@ export default function ClientsPage() {
 
   return (
     <>
-      <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-5">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold">Clients</h1>
             <p className="text-sm text-muted-foreground">{clients.length} clients</p>
           </div>
-          <Button size="sm" className="gap-2" onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Add Client
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search clients..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Button size="sm" className="gap-2 shrink-0" onClick={openCreate}>
+              <Plus className="h-4 w-4" /> Add Client
+            </Button>
+          </div>
         </div>
 
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search clients..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        {/* Desktop table */}
-        <div className="hidden md:block border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto table-scroll-container">
-            <table className="w-full text-sm">
+        {/* Excel-like table */}
+        <div className="border border-border rounded-lg overflow-hidden bg-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Company Person</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Company Name</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">GST No.</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Contact Email</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Contact Phone</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">State</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">City</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Pincode</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground">Active</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Created</th>
-                  <th className="text-center px-3 py-2.5 font-medium text-muted-foreground w-20">Actions</th>
+                <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-border">
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[40px]">#</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[160px]">Company Person</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[180px]">Company Name</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[150px]">GST No.</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[180px]">Contact Email</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[130px]">Contact Phone</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[130px]">Address</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[120px]">State</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[120px]">City</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[80px]">Pincode</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[80px]">Active</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border min-w-[140px]">Created</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground min-w-[90px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {clients.map((c) => (
-                  <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="px-3 py-2 font-medium uppercase">{c.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground uppercase">{c.company || "-"}</td>
-                    <td className="px-3 py-2 font-mono text-xs uppercase">{c.gstNumber || "-"}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{c.email || "-"}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{c.phone || "-"}</td>
-                    <td className="px-3 py-2 text-muted-foreground text-xs">{(c as any).state || "-"}</td>
-                    <td className="px-3 py-2 text-muted-foreground text-xs">{(c as any).city || "-"}</td>
-                    <td className="px-3 py-2 text-muted-foreground text-xs">{(c as any).pincode || "-"}</td>
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        onClick={() => toggleActive(c)}
-                        disabled={toggleActiveMutation.isPending}
-                        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        style={{ backgroundColor: ((c as any).isActive !== false) ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
-                      >
-                        <span
-                          className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                          style={{ transform: ((c as any).isActive !== false) ? "translateX(22px)" : "translateX(2px)" }}
-                        />
-                      </button>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(c.createdAt)}</td>
-                    <td className="px-3 py-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openEdit(c)} className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-destructive/10">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete client?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete {c.name}. This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteMutation.mutate({ id: c.id })}
-                                className="bg-destructive text-white hover:bg-destructive/90"
-                              >Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b border-border">
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-6" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-36" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-12" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-6 w-11 rounded-full" /></td>
+                      <td className="px-3 py-3 border-r border-border"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-3 py-3"><Skeleton className="h-4 w-16" /></td>
+                    </tr>
+                  ))
+                ) : clients.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="text-center py-16">
+                      <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-muted-foreground">No clients yet</p>
+                      <button onClick={openCreate} className="text-xs text-primary hover:underline mt-1">Add your first client</button>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  clients.map((c, idx) => {
+                    const isActive = (c as any).isActive !== false;
+                    return (
+                      <tr key={c.id} className={`border-b border-border/60 transition-colors ${idx % 2 === 0 ? "bg-white dark:bg-transparent" : "bg-slate-50 dark:bg-slate-900/30"} hover:bg-primary/5`}>
+                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{idx + 1}</td>
+                        <td className="px-3 py-2 font-medium border-r border-border">{c.name}</td>
+                        <td className="px-3 py-2 text-muted-foreground border-r border-border">{c.company || "-"}</td>
+                        <td className="px-3 py-2 font-mono text-xs uppercase border-r border-border">{c.gstNumber || "-"}</td>
+                        <td className="px-3 py-2 text-muted-foreground border-r border-border">{c.email || "-"}</td>
+                        <td className="px-3 py-2 text-muted-foreground border-r border-border">{c.phone || "-"}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border max-w-[160px] truncate">{c.address || "-"}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).state || "-"}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).city || "-"}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs border-r border-border">{(c as any).pincode || "-"}</td>
+                        <td className="px-3 py-2 text-center border-r border-border">
+                          <button
+                            onClick={() => toggleActive(c)}
+                            disabled={toggleActiveMutation.isPending}
+                            title={isActive ? "Click to deactivate" : "Click to activate"}
+                            className="relative inline-flex h-[22px] w-[40px] items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
+                            style={{ backgroundColor: isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
+                          >
+                            <span
+                              className="inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200"
+                              style={{ transform: isActive ? "translateX(20px)" : "translateX(3px)" }}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap border-r border-border">{formatDate(c.createdAt)}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => openEdit(c)} className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10 transition-colors" title="Edit client">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-destructive/10 transition-colors" title="Delete client">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete client?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete <strong>{c.name}</strong>. This cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteMutation.mutate({ id: c.id })}
+                                    className="bg-destructive text-white hover:bg-destructive/90"
+                                  >Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Mobile cards */}
-        <div className="md:hidden space-y-3">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-5">
-                <Skeleton className="h-5 w-32 mb-3" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))
-          ) : clients.length === 0 ? (
-            <div className="text-center py-16 border border-dashed border-border rounded-xl">
-              <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">No clients yet</p>
-              <button onClick={openCreate} className="text-xs text-primary hover:underline mt-1">Add your first client</button>
-            </div>
-          ) : (
-            clients.map((c) => (
-              <MobileCard key={c.id}>
-                <div className="flex items-start justify-between mb-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm uppercase">{c.name}</p>
-                    {c.company && <p className="text-xs text-muted-foreground uppercase">{c.company}</p>}
-                  </div>
-                  <button
-                    onClick={() => toggleActive(c)}
-                    disabled={toggleActiveMutation.isPending}
-                    className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                    style={{ backgroundColor: ((c as any).isActive !== false) ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
-                  >
-                    <span
-                      className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                      style={{ transform: ((c as any).isActive !== false) ? "translateX(22px)" : "translateX(2px)" }}
-                    />
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  {c.email && <MobileCardField label="Email" value={c.email} />}
-                  {c.phone && <MobileCardField label="Phone" value={c.phone} />}
-                  {c.gstNumber && <MobileCardField label="GST" value={c.gstNumber} mono />}
-                  {(c as any).state && <MobileCardField label="State" value={(c as any).state} />}
-                  {(c as any).city && <MobileCardField label="City" value={(c as any).city} />}
-                  {(c as any).pincode && <MobileCardField label="Pincode" value={(c as any).pincode} />}
-                  {c.address && <MobileCardField label="Address" value={c.address} />}
-                  <MobileCardField label="Created" value={formatDate(c.createdAt)} />
-                </div>
-                <MobileCardActions>
-                  <Button variant="outline" size="sm" onClick={() => openEdit(c)} className="gap-1 flex-1">
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive flex-1">
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete client?</AlertDialogTitle>
-                        <AlertDialogDescription>This will permanently delete {c.name}. This cannot be undone.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteMutation.mutate({ id: c.id })} className="bg-destructive text-white hover:bg-destructive/90">Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </MobileCardActions>
-              </MobileCard>
-            ))
-          )}
-        </div>
-
-        {isLoading && (
-          <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-5">
-                <Skeleton className="h-5 w-32 mb-3" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))}
-          </div>
+        {!isLoading && clients.length > 0 && (
+          <p className="text-xs text-muted-foreground text-right">Showing {clients.length} of {allClients.length} clients</p>
         )}
       </div>
 
@@ -439,17 +394,15 @@ export default function ClientsPage() {
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
-                  className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 w-full justify-center"
+                  className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                   style={{ backgroundColor: form.isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
                 >
                   <span
-                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform text-[10px] font-bold flex items-center justify-center"
-                    style={{ transform: form.isActive ? "translateX(10px)" : "translateX(-10px)", color: form.isActive ? "rgb(34 197 94)" : "rgb(209 213 219)" }}
-                  >
-                    {form.isActive ? "ON" : "OFF"}
-                  </span>
+                    className="inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform"
+                    style={{ transform: form.isActive ? "translateX(22px)" : "translateX(3px)" }}
+                  />
                 </button>
-                <p className="text-xs text-muted-foreground">{form.isActive ? "Client is Active" : "Client is Inactive"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{form.isActive ? "Client is Active" : "Client is Inactive"}</p>
               </div>
             </div>
             <DialogFooter>
