@@ -3,11 +3,11 @@
   "buildCommand": "",
   "builds": [
     {
-      "src": "api/index.js",
+      "src": "api/index.cjs",
       "use": "@vercel/node"
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "api/index.js" }
+    { "src": "/(.*)", "dest": "api/index.cjs" }
   ]
 }
