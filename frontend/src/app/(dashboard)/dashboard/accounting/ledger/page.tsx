@@ -25,7 +25,7 @@ export default function LedgerPage() {
   );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2"><BookOpen className="h-5 w-5" /> Ledger</h1>
         <p className="text-sm text-muted-foreground">View transactions per account</p>

@@ -30,7 +30,7 @@ export default function UnsubscribePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-background">
       <div className="bg-card border border-card-border rounded-xl p-8 max-w-md w-full text-center">
         <div className="h-12 w-12 mx-auto rounded-full bg-primary/15 text-primary flex items-center justify-center mb-3">
           {status === "done" ? <CheckCircle2 className="h-6 w-6" /> : <Mail className="h-6 w-6" />}

@@ -240,7 +240,7 @@ export default function NewQuotationPage() {
 
   return (
     
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.push("/dashboard/quotations")} className="text-muted-foreground hover:text-foreground">
             <ChevronLeft className="h-5 w-5" />
@@ -261,7 +261,7 @@ export default function NewQuotationPage() {
                   <CardTitle className="text-sm">Quotation Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="col-span-2 space-y-1.5">
                       <Label>Client *</Label>
                       <Popover open={clientOpen} onOpenChange={setClientOpen}>
@@ -420,7 +420,7 @@ export default function NewQuotationPage() {
                           onChange={(e) => setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, description: e.target.value } : x))}
                           className="h-7 text-xs"
                         />
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <div>
                             <p className="text-[10px] text-muted-foreground mb-1">Width (ft)</p>
                             <Input
@@ -496,7 +496,7 @@ export default function NewQuotationPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div className="col-span-2">
                             <p className="text-[10px] text-muted-foreground mb-1">Description</p>
                             <Input
@@ -527,7 +527,7 @@ export default function NewQuotationPage() {
 
             {/* Right: Summary */}
             <div>
-              <Card className="sticky top-4">
+              <Card className="lg:sticky lg:top-4">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">Quotation Summary</CardTitle>
                 </CardHeader>

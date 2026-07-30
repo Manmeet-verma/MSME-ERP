@@ -186,7 +186,7 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-4">
+    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold">Leads</h1>
@@ -194,10 +194,10 @@ export default function LeadsPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
-            <Download className="h-4 w-4" /> Sync IndiaMart
+            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Sync IndiaMart</span><span className="sm:hidden">Sync</span>
           </Button>
           <Button size="sm" className="gap-2" onClick={() => { setForm(emptyForm); setOpen(true); }}>
-            <Plus className="h-4 w-4" /> New Lead
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Lead</span><span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>
@@ -205,13 +205,13 @@ export default function LeadsPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name, phone, GSTIN, company, source..." value={search} onChange={(e) => handleSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Search leads..." value={search} onChange={(e) => handleSearch(e.target.value)} className="pl-9" />
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap overflow-x-auto scrollbar-hide pb-1">
           {["all", "hot", "warm", "cold"].map((p) => (
             <button key={p}
               onClick={() => { setPriorityFilter(p); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize ${priorityFilter === p ? "bg-primary text-white" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize whitespace-nowrap ${priorityFilter === p ? "bg-primary text-white" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
               {p}
             </button>
           ))}
@@ -238,7 +238,8 @@ export default function LeadsPage() {
         </div>
       ) : (
         <>
-          <div className="border border-border rounded-xl overflow-hidden">
+          {/* Desktop table */}
+          <div className="hidden md:block border border-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -248,13 +249,10 @@ export default function LeadsPage() {
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">GST No.</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Company</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">City</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">State</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Source</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Source By</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
                     <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Priority</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Score</th>
-                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Approx Budget</th>
+                    <th className="text-right px-3 py-2.5 font-medium text-muted-foreground">Budget</th>
                     <th className="text-center px-3 py-2.5 font-medium text-muted-foreground w-10"></th>
                   </tr>
                 </thead>
@@ -270,16 +268,13 @@ export default function LeadsPage() {
                       <td className="px-3 py-2 text-muted-foreground text-xs uppercase">{(l as any).gstin || "-"}</td>
                       <td className="px-3 py-2 text-muted-foreground truncate max-w-[160px]">{l.company || "-"}</td>
                       <td className="px-3 py-2 text-muted-foreground">{l.city || "-"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{l.state || "-"}</td>
                       <td className="px-3 py-2 text-muted-foreground text-xs">{l.source || "-"}</td>
-                      <td className="px-3 py-2 text-muted-foreground text-xs">{(l as any).sourceBy || "-"}</td>
                       <td className="px-3 py-2">
                         <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${STATUS_COLORS[l.status] ?? STATUS_COLORS.new}`}>{l.status}</span>
                       </td>
                       <td className="px-3 py-2">
                         <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${PRIORITY_COLORS[l.priority]}`}>{l.priority}</span>
                       </td>
-                      <td className="px-3 py-2 text-right text-xs">{l.score}</td>
                       <td className="px-3 py-2 text-right text-xs">{(l as any).approxBudget ? formatCurrency((l as any).approxBudget) : l.budget ? formatCurrency(l.budget) : "-"}</td>
                       <td className="px-3 py-2 text-center">
                         <AlertDialog>
@@ -305,6 +300,34 @@ export default function LeadsPage() {
             </div>
           </div>
 
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {paged.map((l: Lead) => (
+              <Link key={l.id} href={`/dashboard/leads/${l.id}`}>
+                <div className="bg-card border border-border rounded-xl p-4 hover:border-primary/30 active:bg-muted/50">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm truncate">{l.name}</p>
+                      {l.company && <p className="text-xs text-muted-foreground truncate">{l.company}</p>}
+                    </div>
+                    <div className="flex gap-1.5 shrink-0 ml-2">
+                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${PRIORITY_COLORS[l.priority]}`}>{l.priority}</span>
+                      <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${STATUS_COLORS[l.status] ?? STATUS_COLORS.new}`}>{l.status}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    {l.phone && <p className="text-muted-foreground truncate">{l.phone}</p>}
+                    {l.city && <p className="text-muted-foreground truncate">{l.city}{l.state ? `, ${l.state}` : ""}</p>}
+                    {l.source && <p className="text-muted-foreground capitalize">{l.source}</p>}
+                    <p className="text-muted-foreground text-right font-medium">
+                      {(l as any).approxBudget ? formatCurrency((l as any).approxBudget) : l.budget ? formatCurrency(l.budget) : ""}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
               Showing {total > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}-{Math.min(page * PAGE_SIZE, total)} of {total}
@@ -323,10 +346,10 @@ export default function LeadsPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:rounded-lg">
           <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div><Label>WhatsApp No. *</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone / WhatsApp number" /></div>
               <div>
                 <Label>GST No.</Label>
@@ -339,12 +362,12 @@ export default function LeadsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name (optional)" /></div>
               <div><Label>Company</Label><Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} /></div>
             </div>
             <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <Label>State</Label>
                 <Select value={form.state} onValueChange={(v) => setForm({ ...form, state: v, city: "" })}>
@@ -368,7 +391,7 @@ export default function LeadsPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <Label>Source</Label>
                 <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v as any })}>
@@ -382,7 +405,7 @@ export default function LeadsPage() {
               </div>
               <div><Label>Source By</Label><Input value={form.sourceBy} onChange={(e) => setForm({ ...form, sourceBy: e.target.value })} placeholder="e.g. Raman, IndiaMart" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div><Label>Approx Budget (₹)</Label><Input type="number" value={form.approxBudget} onChange={(e) => setForm({ ...form, approxBudget: e.target.value })} /></div>
               <div><Label>Product interest</Label><Input value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })} /></div>
             </div>

@@ -29,7 +29,7 @@ export default function SuppressionsPage() {
   });
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold">Suppression list</h1>
         <p className="text-sm text-muted-foreground">Emails on this list will never receive campaigns or drips.</p>

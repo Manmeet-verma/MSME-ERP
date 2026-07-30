@@ -44,7 +44,7 @@ export default function InvoiceDetailPage() {
     mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/invoices/${id}`] }); } },
   });
 
-  if (!inv) return <div className="p-6">Loading...</div>;
+  if (!inv) return <div className="p-4 sm:p-6">Loading...</div>;
   const total = inv.total ?? 0;
   const paid = inv.amountPaid ?? 0;
   const subtotal = inv.subtotal ?? 0;
@@ -57,8 +57,8 @@ export default function InvoiceDetailPage() {
   const balance = total - paid;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5">
-      <div className="flex justify-between items-center print:hidden">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
+      <div className="flex flex-col sm:flex-row sm:justify-between gap-3 print:hidden">
         <Link href="/dashboard/invoices"><span className="text-sm text-muted-foreground flex items-center gap-1"><ArrowLeft className="h-4 w-4" />Back</span></Link>
         <div className="flex gap-2 flex-wrap">
           <select value={inv.status} onChange={(e) => statusMut.mutate({ id, data: { status: e.target.value as InvoiceStatus } })}
@@ -71,7 +71,7 @@ export default function InvoiceDetailPage() {
       </div>
 
       <div className="bg-card border border-card-border rounded-xl p-6">
-        <div className="flex justify-between items-start flex-wrap gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Tax Invoice</h1>
             <p className="text-sm text-muted-foreground">{inv.invoiceNumber}</p>
@@ -100,7 +100,7 @@ export default function InvoiceDetailPage() {
           </tbody>
         </table>
 
-        <div className="mt-4 ml-auto max-w-sm text-sm space-y-1">
+        <div className="mt-4 ml-auto w-full sm:max-w-sm text-sm space-y-1">
           <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
           {discountAmount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
           <div className="flex justify-between"><span className="text-muted-foreground">Taxable</span><span>{formatCurrency(taxableAmount)}</span></div>

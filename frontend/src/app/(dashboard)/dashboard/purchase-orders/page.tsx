@@ -106,7 +106,7 @@ export default function PurchaseOrdersPage() {
   }, [items.length]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Purchase Orders</h1>
@@ -120,37 +120,54 @@ export default function PurchaseOrdersPage() {
           <p className="text-muted-foreground">No purchase orders yet</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary text-muted-foreground">
-              <tr>
-                <th className="text-left p-3">PO #</th>
-                <th className="text-left p-3">Vendor</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-right p-3">Total</th>
-                <th className="text-left p-3">Expected</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pos.map((p) => (
-                <tr key={p.id} className="border-t border-border hover:bg-secondary/50">
-                  <td className="p-3 font-medium"><Link href={`/dashboard/purchase-orders/${p.id}`}><span className="text-primary">{p.poNumber}</span></Link></td>
-                  <td className="p-3">{p.vendorName ?? "—"}</td>
-                  <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span></td>
-                  <td className="p-3 text-right">{formatCurrency(p.total)}</td>
-                  <td className="p-3 text-muted-foreground">{p.expectedDate ? formatDate(p.expectedDate) : "—"}</td>
+        <>
+          <div className="rounded-xl border border-border overflow-x-auto hidden sm:block">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary text-muted-foreground">
+                <tr>
+                  <th className="text-left p-3">PO #</th>
+                  <th className="text-left p-3">Vendor</th>
+                  <th className="text-left p-3">Status</th>
+                  <th className="text-right p-3">Total</th>
+                  <th className="text-left p-3">Expected</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {pos.map((p) => (
+                  <tr key={p.id} className="border-t border-border hover:bg-secondary/50">
+                    <td className="p-3 font-medium"><Link href={`/dashboard/purchase-orders/${p.id}`}><span className="text-primary">{p.poNumber}</span></Link></td>
+                    <td className="p-3">{p.vendorName ?? "—"}</td>
+                    <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span></td>
+                    <td className="p-3 text-right">{formatCurrency(p.total)}</td>
+                    <td className="p-3 text-muted-foreground">{p.expectedDate ? formatDate(p.expectedDate) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sm:hidden space-y-3">
+            {pos.map((p) => (
+              <Link key={p.id} href={`/dashboard/purchase-orders/${p.id}`} className="block rounded-xl border border-border bg-card p-4 space-y-2 hover:border-primary/30">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-primary">{p.poNumber}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{p.vendorName ?? "—"}</span>
+                  <span className="font-semibold">{formatCurrency(p.total)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{p.expectedDate ? formatDate(p.expectedDate) : "—"}</p>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Vendor</Label>
                 <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={vendorId} onChange={(e) => setVendorId(e.target.value ? Number(e.target.value) : "")}>

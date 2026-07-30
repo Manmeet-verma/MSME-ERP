@@ -39,9 +39,9 @@ export default function VendorBillDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       <Link href="/dashboard/vendor-bills"><span className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Back</span></Link>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">{bill.billNumber}</h1>
           <p className="text-sm text-muted-foreground">{bill.vendorName ?? "—"} · <span className="capitalize">{bill.status}</span></p>

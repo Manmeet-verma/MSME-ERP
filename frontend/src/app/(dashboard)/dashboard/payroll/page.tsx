@@ -39,7 +39,7 @@ export default function PayrollPage() {
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2"><Wallet className="h-5 w-5" /> Payroll</h1>
@@ -78,7 +78,7 @@ export default function PayrollPage() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>New payroll run</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Month</Label>
                 <select className="w-full h-10 px-3 rounded-md border border-input bg-background" value={periodMonth}

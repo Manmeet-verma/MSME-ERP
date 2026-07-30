@@ -20,13 +20,13 @@ export default function VendorAgeingPage() {
   );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2"><Truck className="h-5 w-5" /> Vendor ageing</h1>
         <p className="text-sm text-muted-foreground">Outstanding vendor bills bucketed by age</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Stat label="Current" value={formatCurrency(totals.current)} />
         <Stat label="1-30" value={formatCurrency(totals.days30)} />
         <Stat label="31-60" value={formatCurrency(totals.days60)} />

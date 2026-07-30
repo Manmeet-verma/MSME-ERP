@@ -68,3 +68,100 @@
     display: none;
   }
 }
+
+/* Mobile responsive helpers */
+@layer utilities {
+  .mobile-full-sheet {
+    @apply max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:m-0 max-sm:max-w-none max-sm:rounded-none max-sm:border-0;
+  }
+
+  .mobile-stack {
+    @apply max-sm:flex max-sm:flex-col;
+  }
+
+  .mobile-p-sm {
+    @apply max-sm:p-3;
+  }
+
+  .mobile-grid-1 {
+    @apply max-sm:grid-cols-1;
+  }
+
+  .mobile-text-xs {
+    @apply max-sm:text-xs;
+  }
+
+  .mobile-hide {
+    @apply max-sm:hidden;
+  }
+
+  .mobile-show {
+    @apply hidden max-sm:block;
+  }
+
+  .mobile-gap-2 {
+    @apply max-sm:gap-2;
+  }
+
+  .mobile-p-0 {
+    @apply max-sm:p-0;
+  }
+
+  .mobile-w-full {
+    @apply max-sm:w-full;
+  }
+}
+
+/* Make dialogs full-screen on mobile */
+@media (max-width: 640px) {
+  [data-state="open"][role="dialog"],
+  [data-state="open"][role="alertdialog"] {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 50 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  [data-state="open"][role="dialog"] > div,
+  [data-state="open"][role="alertdialog"] > div {
+    max-height: 100vh !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  /* Better touch targets */
+  button, a, [role="button"], input, select, textarea {
+    min-height: 44px;
+  }
+
+  /* Prevent zoom on input focus */
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Stack flex-row to column */
+  .flex-row-to-col {
+    flex-direction: column !important;
+  }
+
+  /* Hide overflow text */
+  .truncate-mobile {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

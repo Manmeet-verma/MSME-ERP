@@ -40,7 +40,7 @@ export default function PayrollDetailPage() {
   if (isLoading || !run) return <div className="p-6 text-muted-foreground">Loading…</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div>
         <Link href="/dashboard/payroll"><span className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> Back</span></Link>
         <div className="flex items-center justify-between mt-2 gap-3 flex-wrap">

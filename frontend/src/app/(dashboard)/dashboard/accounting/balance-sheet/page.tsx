@@ -28,7 +28,7 @@ export default function BalanceSheetPage() {
   const { data, isLoading } = useGetBalanceSheet({ asOf });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2"><Scale className="h-5 w-5" /> Balance Sheet</h1>
         <p className="text-sm text-muted-foreground">Assets, liabilities and equity — your financial position</p>
@@ -46,7 +46,7 @@ export default function BalanceSheetPage() {
         <div className="text-muted-foreground">Loading…</div>
       ) : (
         <div className="space-y-5">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Stat label="Total Assets" value={formatCurrency(data.totals.assets)} tone="emerald" />
             <Stat label="Total Liabilities" value={formatCurrency(data.totals.liabilities)} tone="red" />
             <Stat label="Total Equity" value={formatCurrency(data.totals.equity)} tone="primary" />

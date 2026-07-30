@@ -121,7 +121,7 @@ export default function ItemsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">Inventory Items</h1>
@@ -142,52 +142,83 @@ export default function ItemsPage() {
           <p className="text-muted-foreground">No items yet</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-x-auto">
-          <table className="w-full text-sm min-w-[800px]">
-            <thead className="bg-secondary text-muted-foreground">
-              <tr>
-                <th className="text-left p-3">SKU</th>
-                <th className="text-left p-3">Name</th>
-                <th className="text-left p-3">Category</th>
-                <th className="text-right p-3">Stock</th>
-                <th className="text-right p-3">Sale ₹</th>
-                <th className="text-right p-3">Avg Cost ₹</th>
-                <th className="text-right p-3 w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((i) => {
-                const threshold = i.lowStockThreshold ?? 0;
-                const stock = i.currentStock ?? 0;
-                const low = threshold > 0 && stock <= threshold;
-                return (
-                  <tr key={i.id} className="border-t border-border hover:bg-secondary/50">
-                    <td className="p-3 font-mono text-xs">{i.sku}</td>
-                    <td className="p-3 font-medium">{i.name}</td>
-                    <td className="p-3 text-muted-foreground">{i.category ?? "—"}</td>
-                    <td className="p-3 text-right">
-                      <span className={low ? "text-amber-500 font-semibold inline-flex items-center gap-1" : ""}>
-                        {low && <AlertTriangle className="h-3 w-3" />}{stock} {i.unit}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">{formatCurrency(i.salePrice ?? 0)}</td>
-                    <td className="p-3 text-right text-muted-foreground">{formatCurrency(i.avgCost ?? 0)}</td>
-                    <td className="p-3 text-right">
-                      <button onClick={() => openEdit(i)} className="p-1.5 text-muted-foreground hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => { if (confirm(`Delete ${i.name}?`)) deleteMut.mutate({ id: i.id }); }} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="rounded-xl border border-border overflow-x-auto hidden sm:block">
+            <table className="w-full text-sm min-w-[800px]">
+              <thead className="bg-secondary text-muted-foreground">
+                <tr>
+                  <th className="text-left p-3">SKU</th>
+                  <th className="text-left p-3">Name</th>
+                  <th className="text-left p-3">Category</th>
+                  <th className="text-right p-3">Stock</th>
+                  <th className="text-right p-3">Sale ₹</th>
+                  <th className="text-right p-3">Avg Cost ₹</th>
+                  <th className="text-right p-3 w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((i) => {
+                  const threshold = i.lowStockThreshold ?? 0;
+                  const stock = i.currentStock ?? 0;
+                  const low = threshold > 0 && stock <= threshold;
+                  return (
+                    <tr key={i.id} className="border-t border-border hover:bg-secondary/50">
+                      <td className="p-3 font-mono text-xs">{i.sku}</td>
+                      <td className="p-3 font-medium">{i.name}</td>
+                      <td className="p-3 text-muted-foreground">{i.category ?? "—"}</td>
+                      <td className="p-3 text-right">
+                        <span className={low ? "text-amber-500 font-semibold inline-flex items-center gap-1" : ""}>
+                          {low && <AlertTriangle className="h-3 w-3" />}{stock} {i.unit}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">{formatCurrency(i.salePrice ?? 0)}</td>
+                      <td className="p-3 text-right text-muted-foreground">{formatCurrency(i.avgCost ?? 0)}</td>
+                      <td className="p-3 text-right">
+                        <button onClick={() => openEdit(i)} className="p-1.5 text-muted-foreground hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => { if (confirm(`Delete ${i.name}?`)) deleteMut.mutate({ id: i.id }); }} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="sm:hidden space-y-3">
+            {items.map((i) => {
+              const threshold = i.lowStockThreshold ?? 0;
+              const stock = i.currentStock ?? 0;
+              const low = threshold > 0 && stock <= threshold;
+              return (
+                <div key={i.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs text-muted-foreground">{i.sku}</span>
+                    <span className="text-xs text-muted-foreground">{i.category ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{i.name}</span>
+                    <span className={low ? "text-amber-500 text-xs font-semibold flex items-center gap-1" : "text-xs text-muted-foreground"}>
+                      {low && <AlertTriangle className="h-3 w-3" />}{stock} {i.unit}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{formatCurrency(i.salePrice ?? 0)}/{i.unit}</span>
+                    <span className="text-muted-foreground">Cost: {formatCurrency(i.avgCost ?? 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button onClick={() => openEdit(i)} className="p-1.5 text-muted-foreground hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => { if (confirm(`Delete ${i.name}?`)) deleteMut.mutate({ id: i.id }); }} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editing ? "Edit Item" : "Add Item"}</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="grid grid-cols-2 gap-3">
+          <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>SKU *</Label><Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required /></div>
             <div className="space-y-1.5"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
             <div className="space-y-1.5"><Label>Category</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>

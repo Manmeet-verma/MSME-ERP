@@ -27,7 +27,7 @@ export default function PnlPage() {
   const prev = data?.previous;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Profit &amp; Loss</h1>
         <p className="text-sm text-muted-foreground">Income vs expenses for any period</p>
@@ -46,7 +46,7 @@ export default function PnlPage() {
         <div className="text-muted-foreground">Loading…</div>
       ) : (
         <div className="space-y-5">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Income</p><p className="text-lg font-bold mt-1 text-emerald-400">{formatCurrency(cur.totalIncome)}</p>
               {prev && <p className="text-[10px] text-muted-foreground mt-1">Prev: {formatCurrency(prev.totalIncome)} ({delta(cur.totalIncome, prev.totalIncome)?.pct ?? 0}%)</p>}
             </div>

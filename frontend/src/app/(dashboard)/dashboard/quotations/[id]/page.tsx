@@ -259,7 +259,7 @@ export default function QuotationDetailPage() {
   if (isLoading) {
     return (
       
-        <div className="p-6 max-w-4xl mx-auto space-y-4">
+        <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -270,7 +270,7 @@ export default function QuotationDetailPage() {
   if (!quotation) {
     return (
       
-        <div className="p-6 max-w-4xl mx-auto text-center py-16">
+        <div className="p-4 sm:p-6 max-w-4xl mx-auto text-center py-16">
           <p className="text-muted-foreground">Quotation not found</p>
           <button onClick={() => router.push("/dashboard/quotations")} className="text-primary text-sm hover:underline mt-2">← Back to quotations</button>
         </div>
@@ -287,9 +287,9 @@ export default function QuotationDetailPage() {
 
   return (
     
-      <div className="p-6 max-w-4xl mx-auto space-y-5">
+        <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push("/dashboard/quotations")} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-5 w-5" />
@@ -308,7 +308,7 @@ export default function QuotationDetailPage() {
               <p className="text-sm text-muted-foreground">Valid until {formatDate(q.validUntil)}</p>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap justify-end">
+          <div className="flex gap-2 flex-wrap sm:justify-end">
             <Button variant="outline" size="sm" className="gap-2 no-print" onClick={() => window.print()}>
               <Printer className="h-3.5 w-3.5" /> Print
             </Button>
@@ -448,7 +448,7 @@ export default function QuotationDetailPage() {
         {/* Totals */}
         <Card>
           <CardContent className="p-5">
-            <div className="max-w-xs ml-auto space-y-2 text-sm">
+            <div className="max-w-xs ml-auto w-full sm:w-auto space-y-2 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
                 <span>{formatCurrency(q.subtotal)}</span>

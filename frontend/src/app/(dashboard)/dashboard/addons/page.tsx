@@ -96,7 +96,7 @@ export default function AddonsPage() {
 
   return (
     <>
-      <div className="p-6 max-w-7xl mx-auto space-y-5">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">Add-ons</h1>
@@ -184,7 +184,7 @@ export default function AddonsPage() {
               <Label>Description</Label>
               <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Category *</Label>
                 <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="w-full h-9 rounded-md border border-input bg-input px-3 text-sm">

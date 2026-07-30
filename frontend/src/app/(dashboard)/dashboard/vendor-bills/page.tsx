@@ -62,7 +62,7 @@ export default function VendorBillsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Vendor Bills</h1>
@@ -76,8 +76,8 @@ export default function VendorBillsPage() {
           <p className="text-muted-foreground">No vendor bills yet</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-secondary text-muted-foreground">
               <tr>
                 <th className="text-left p-3">Bill #</th>

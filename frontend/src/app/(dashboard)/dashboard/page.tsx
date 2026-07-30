@@ -139,7 +139,7 @@ function KpiCard({ icon: Icon, label, value, tint, href }: {
         </div>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       </div>
-      <p className="text-lg font-bold mt-1.5">{value}</p>
+      <p className="text-base sm:text-lg font-bold mt-1.5">{value}</p>
     </div>
   );
   return href ? <Link href={href}>{card}</Link> : card;
@@ -164,7 +164,7 @@ export default function DashboardPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">Welcome, {org?.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Welcome, {org?.name}</h1>
         </div>
         <p className="text-sm text-muted-foreground">Your workspace overview</p>
       </div>
@@ -201,7 +201,7 @@ export default function DashboardPage() {
             <h2 className="font-semibold text-sm">Ask anything</h2>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); if (query) nlSearch.mutate({ data: { query } }); }} className="flex gap-2">
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="show me unpaid invoices over ₹50,000" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="show me unpaid invoices over ₹50,000" className="flex-1 min-w-0 w-full" />
             <Button type="submit" size="sm" disabled={!query || nlSearch.isPending}>Go</Button>
           </form>
           {nlSearch.data && (
@@ -241,7 +241,7 @@ export default function DashboardPage() {
 
       {/* Live KPI widgets */}
       {widgets && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <KpiCard icon={TrendingUp} label="New leads today" value={String(widgets.newLeadsToday)} tint="cyan" href="/dashboard/leads" />
           <KpiCard icon={Flame} label="Hot leads" value={String(widgets.hotLeads)} tint="red" href="/dashboard/leads" />
           <KpiCard icon={Phone} label="Calls this week" value={String(widgets.callsThisWeek)} tint="blue" />

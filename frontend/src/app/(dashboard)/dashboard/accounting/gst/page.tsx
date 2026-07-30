@@ -32,7 +32,7 @@ export default function GstPage() {
   const { data: g3 } = useGetGstr3b({ from, to });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2"><FileText className="h-5 w-5" /> GST reports</h1>
         <p className="text-sm text-muted-foreground">Summary data for GSTR-1 and GSTR-3B — not for direct filing</p>
@@ -49,7 +49,7 @@ export default function GstPage() {
 
       {tab === "gstr1" && g1 && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             <Stat label="Invoices" value={String(g1.summary.invoices)} />
             <Stat label="Taxable" value={formatCurrency(g1.summary.taxableValue)} />
             <Stat label="CGST" value={formatCurrency(g1.summary.cgst)} />

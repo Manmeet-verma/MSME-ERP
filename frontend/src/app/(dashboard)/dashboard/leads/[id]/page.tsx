@@ -91,13 +91,13 @@ export default function LeadDetailPage() {
     mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] }); } },
   });
 
-  if (!id) return <div className="p-6 text-center"><p className="text-muted-foreground">Invalid lead ID</p></div>;
-  if (!lead) return <div className="p-6">Loading...</div>;
+  if (!id) return <div className="p-4 sm:p-6 text-center"><p className="text-muted-foreground">Invalid lead ID</p></div>;
+  if (!lead) return <div className="p-4 sm:p-6">Loading...</div>;
 
   const activities: LeadActivity[] = Array.isArray(lead.activities) ? lead.activities : [];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <Link href="/dashboard/leads">
         <span className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to leads
@@ -105,7 +105,7 @@ export default function LeadDetailPage() {
       </Link>
 
       <div className="bg-card border border-card-border rounded-xl p-5">
-        <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold">{lead.name}</h1>
             {lead.company && <p className="text-sm text-muted-foreground">{lead.company}</p>}

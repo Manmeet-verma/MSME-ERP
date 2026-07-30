@@ -64,7 +64,7 @@ export default function CampaignsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-bold">Email campaigns</h1>
@@ -138,7 +138,7 @@ export default function CampaignsPage() {
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <Label>Send to</Label>
                 <select value={form.entity} onChange={(e) => setForm({ ...form, entity: e.target.value as "leads" | "clients" })}

@@ -129,7 +129,7 @@ export default function ProductsPage() {
 
   return (
     <>
-      <div className="p-6 max-w-7xl mx-auto space-y-5">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">Products</h1>
@@ -150,8 +150,8 @@ export default function ProductsPage() {
           />
         </div>
 
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-card">
               <tr className="border-b border-border">
                 <th className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Product</th>
@@ -249,7 +249,7 @@ export default function ProductsPage() {
               <Label>Description</Label>
               <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Category *</Label>
                 <select

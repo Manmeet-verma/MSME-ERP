@@ -20,14 +20,14 @@ export default function AuditLogsPage() {
 
   return (
     
-      <div className="p-6 max-w-5xl mx-auto space-y-5">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
         <div>
           <h1 className="text-xl font-bold">Audit Logs</h1>
           <p className="text-sm text-muted-foreground">Complete history of all system actions</p>
         </div>
 
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-border overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-card">
               <tr className="border-b border-border">
                 <th className="text-left font-medium text-muted-foreground text-xs px-5 py-3">Time</th>

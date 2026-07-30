@@ -66,7 +66,7 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">Employees</h1>
@@ -114,7 +114,7 @@ export default function EmployeesPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit Employee" : "Add Employee"}</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label>Code *</Label><Input value={form.employeeCode} onChange={(e) => setForm((f) => ({ ...f, employeeCode: e.target.value }))} required /></div>
               <div><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></div>
@@ -131,7 +131,7 @@ export default function EmployeesPage() {
             </div>
             <div className="border-t border-border pt-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Salary structure (monthly)</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>Basic (₹)</Label><Input type="number" value={form.basic} onChange={(e) => setForm((f) => ({ ...f, basic: Number(e.target.value) }))} /></div>
                 <div><Label>HRA (₹)</Label><Input type="number" value={form.hra} onChange={(e) => setForm((f) => ({ ...f, hra: Number(e.target.value) }))} /></div>
                 <div><Label>Allowances (₹)</Label><Input type="number" value={form.allowances} onChange={(e) => setForm((f) => ({ ...f, allowances: Number(e.target.value) }))} /></div>
@@ -142,7 +142,7 @@ export default function EmployeesPage() {
             </div>
             <div className="border-t border-border pt-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Bank & PAN</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>Bank</Label><Input value={form.bankName} onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))} /></div>
                 <div><Label>Account</Label><Input value={form.bankAccount} onChange={(e) => setForm((f) => ({ ...f, bankAccount: e.target.value }))} /></div>
                 <div><Label>IFSC</Label><Input value={form.ifsc} onChange={(e) => setForm((f) => ({ ...f, ifsc: e.target.value }))} /></div>

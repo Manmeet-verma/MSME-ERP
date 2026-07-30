@@ -106,8 +106,8 @@ export default function ClientsPage() {
 
   return (
     <>
-      <div className="p-6 max-w-7xl mx-auto space-y-5">
-        <div className="flex items-center justify-between gap-4">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">Clients</h1>
             <p className="text-sm text-muted-foreground">{clients.length} clients</p>
@@ -117,7 +117,7 @@ export default function ClientsPage() {
           </Button>
         </div>
 
-        <div className="relative max-w-sm">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search clients..."
@@ -154,7 +154,7 @@ export default function ClientsPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button onClick={() => openEdit(c)} className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -200,7 +200,7 @@ export default function ClientsPage() {
             <DialogTitle>{editing ? "Edit Client" : "Add Client"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label>Name *</Label>
                 <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />

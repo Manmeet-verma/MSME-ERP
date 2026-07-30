@@ -100,10 +100,10 @@ export default function SalesOrderDetailPage() {
   });
   const hasOversell = oversellLines.length > 0;
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       <Link href="/dashboard/sales-orders"><span className="text-sm text-muted-foreground flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-4 w-4" />Back</span></Link>
       <div className="bg-card border border-card-border rounded-xl p-5">
-        <div className="flex justify-between items-start flex-wrap gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-bold">{order.orderNumber}</h1>
             <p className="text-sm text-muted-foreground">{order.clientName ?? "No client"} · {formatDate(order.createdAt)}</p>

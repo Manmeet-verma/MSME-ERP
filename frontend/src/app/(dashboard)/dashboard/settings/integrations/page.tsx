@@ -43,7 +43,7 @@ export default function IntegrationsSettingsPage() {
   useEffect(() => { setImKey(indiamart?.config?.apiKey ?? ""); }, [indiamart?.config?.apiKey]);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold">Integrations</h1>
         <p className="text-sm text-muted-foreground">Connect external sources for leads and communication.</p>

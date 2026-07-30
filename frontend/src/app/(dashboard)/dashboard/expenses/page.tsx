@@ -79,7 +79,7 @@ export default function ExpensesPage() {
   const total = expenses.reduce((s, e) => s + e.total, 0);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2"><Receipt className="h-5 w-5" /> Expenses</h1>
@@ -97,37 +97,58 @@ export default function ExpensesPage() {
           <p className="text-muted-foreground">No expenses yet</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-muted-foreground border-b border-border">
-              <tr><th className="p-3">Date</th><th className="p-3">Category</th><th className="p-3">Description</th><th className="p-3">Vendor</th><th className="p-3 text-right">Amount</th><th className="p-3 text-right">GST</th><th className="p-3 text-right">Total</th><th className="p-3"></th></tr>
-            </thead>
-            <tbody>
-              {expenses.map((e: Expense) => (
-                <tr key={e.id} className="border-b border-border/50 hover:bg-secondary/30">
-                  <td className="p-3">{formatDate(e.expenseDate)}</td>
-                  <td className="p-3 text-xs">{e.categoryId ? catMap.get(e.categoryId)?.name ?? "—" : "—"}</td>
-                  <td className="p-3 text-xs">{e.description ?? "—"}</td>
-                  <td className="p-3 text-xs">{e.vendorName ?? "—"}</td>
-                  <td className="p-3 text-right">{formatCurrency(e.amount)}</td>
-                  <td className="p-3 text-right text-xs">{formatCurrency(e.gstAmount)}</td>
-                  <td className="p-3 text-right font-semibold">{formatCurrency(e.total)}</td>
-                  <td className="p-3 text-right">
-                    {e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mr-2">Receipt</a>}
-                    <button onClick={() => { if (confirm("Delete this expense?")) deleteMut.mutate({ id: e.id }); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="rounded-xl border border-border bg-card overflow-x-auto hidden sm:block">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-muted-foreground border-b border-border">
+                <tr><th className="p-3">Date</th><th className="p-3">Category</th><th className="p-3">Description</th><th className="p-3">Vendor</th><th className="p-3 text-right">Amount</th><th className="p-3 text-right">GST</th><th className="p-3 text-right">Total</th><th className="p-3"></th></tr>
+              </thead>
+              <tbody>
+                {expenses.map((e: Expense) => (
+                  <tr key={e.id} className="border-b border-border/50 hover:bg-secondary/30">
+                    <td className="p-3">{formatDate(e.expenseDate)}</td>
+                    <td className="p-3 text-xs">{e.categoryId ? catMap.get(e.categoryId)?.name ?? "—" : "—"}</td>
+                    <td className="p-3 text-xs">{e.description ?? "—"}</td>
+                    <td className="p-3 text-xs">{e.vendorName ?? "—"}</td>
+                    <td className="p-3 text-right">{formatCurrency(e.amount)}</td>
+                    <td className="p-3 text-right text-xs">{formatCurrency(e.gstAmount)}</td>
+                    <td className="p-3 text-right font-semibold">{formatCurrency(e.total)}</td>
+                    <td className="p-3 text-right">
+                      {e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mr-2">Receipt</a>}
+                      <button onClick={() => { if (confirm("Delete this expense?")) deleteMut.mutate({ id: e.id }); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sm:hidden space-y-3">
+            {expenses.map((e: Expense) => (
+              <div key={e.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{formatDate(e.expenseDate)}</span>
+                  <span className="text-xs text-muted-foreground">{e.categoryId ? catMap.get(e.categoryId)?.name ?? "—" : "—"}</span>
+                </div>
+                <p className="text-sm font-medium">{e.description ?? "—"}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{e.vendorName ?? "—"}</span>
+                  <span className="font-semibold">{formatCurrency(e.total)}</span>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Receipt</a>}
+                  <button onClick={() => { if (confirm("Delete this expense?")) deleteMut.mutate({ id: e.id }); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Add expense</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); createMut.mutate({ data: form }); }} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label>Date</Label><Input type="date" value={form.expenseDate} onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))} /></div>
               <div><Label>Category</Label>
                 <select className="w-full h-10 px-3 rounded-md border border-input bg-background" value={form.categoryId ?? ""}

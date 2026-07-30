@@ -101,14 +101,14 @@ export default function PurchaseOrderDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <Link href="/dashboard/purchase-orders"><span className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Back to purchase orders</span></Link>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">{po.poNumber}</h1>
           <p className="text-sm text-muted-foreground">{po.vendorName ?? "—"} · <span className="capitalize">{po.status}</span></p>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap gap-2 print:hidden">
           {po.status === "draft" && <Button size="sm" onClick={() => setStatus("sent")}>Send</Button>}
           {(po.status === "sent" || po.status === "partial" || po.status === "draft") && (
             <Button size="sm" className="gap-2" onClick={openGrn}><Truck className="h-4 w-4" />Receive Goods</Button>

@@ -78,7 +78,7 @@ export default function AttendancePage() {
   const balMap = new Map(balances.map((b) => [b.employeeId, b]));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2"><CalendarCheck className="h-5 w-5" /> Attendance</h1>
