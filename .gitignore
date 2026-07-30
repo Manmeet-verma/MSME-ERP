@@ -53,6 +53,9 @@ Thumbs.db
 
 
 
+# Backend build artifacts
+backend/api/*.map
+
 # Environment
 .env
 .env.*
