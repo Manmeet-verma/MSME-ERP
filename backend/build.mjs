@@ -124,18 +124,18 @@ async function buildAll() {
     banner: { js: bannerJs },
   });
 
-  // Self-contained Vercel bundle — skip pino plugin to avoid extra entry points
+  // Self-contained Vercel bundle (CommonJS so @vercel/node can wrap it)
   await esbuild({
     entryPoints: [
       path.resolve(artifactDir, "src/app.ts"),
     ],
     platform: "node",
     bundle: true,
-    format: "esm",
+    format: "cjs",
     outfile: path.resolve(artifactDir, "api/index.js"),
     external,
     sourcemap: "linked",
-    banner: { js: bannerJs },
+    banner: { js: `var require = require || globalThis.require;` },
   });
 }
 
