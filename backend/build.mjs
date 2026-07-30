@@ -91,6 +91,9 @@ const external = [
   "pino",
   "pino-pretty",
   "thread-stream",
+  "sonic-boom",
+  "fast-redact",
+  "on-exit-leak-free",
 ];
 
 const bannerJs = `import { createRequire as __bannerCrReq } from 'node:module';
@@ -124,7 +127,7 @@ async function buildAll() {
     banner: { js: bannerJs },
   });
 
-  // Self-contained Vercel bundle (CommonJS so @vercel/node can wrap it)
+  // Build standalone CJS bundle for Vercel
   await esbuild({
     entryPoints: [
       path.resolve(artifactDir, "src/app.ts"),
@@ -132,10 +135,10 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: path.resolve(artifactDir, "api/index.js"),
+    outfile: path.resolve(artifactDir, "api/bundle.cjs"),
     external,
     sourcemap: "linked",
-    banner: { js: `var require = require || globalThis.require;` },
+    banner: { js: `var require = typeof require !== 'undefined' ? require : globalThis.require;` },
   });
 }
 
