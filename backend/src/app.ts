@@ -50,7 +50,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded social media files publicly so providers (Meta/LinkedIn)
 // can fetch them when publishing.
-app.use("/api/uploads", express.static("uploads", { maxAge: "30d" }));
+app.use("/api/uploads", express.static(process.env.VERCEL ? "/tmp/uploads" : "uploads", { maxAge: "30d" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString(), cache: cacheStats() });
