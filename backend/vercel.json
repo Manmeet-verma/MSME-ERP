@@ -1,7 +1,12 @@
 {
   "installCommand": "npm install && npm run build",
+  "builds": [
+    {
+      "src": "api/index.cjs",
+      "use": "@vercel/node"
+    }
+  ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index" },
-    { "src": "/(.*)", "dest": "/api/index" }
+    { "src": "/(.*)", "dest": "/api/index.cjs" }
   ]
 }
