@@ -10,7 +10,7 @@ interface DraggableThProps {
   onDragOverColumn: (e: React.DragEvent, idx: number) => void;
   onDropColumn: (idx: number) => void;
   onDragEndColumn: () => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
 }
 
