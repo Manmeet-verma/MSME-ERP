@@ -1,32 +1,11 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import pinoHttp from "pino-http";
 import router from "./routes";
-import { logger } from "./lib/logger";
 import { cacheStats } from "./lib/ttl-cache";
 import { getFirebaseInitError } from "./lib/firebase";
 
 const app: Express = express();
 
-app.use(
-  (pinoHttp as unknown as Function)({
-    logger,
-    serializers: {
-      req(req: Record<string, unknown>) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: (req.url as string)?.split("?")[0],
-        };
-      },
-      res(res: Record<string, unknown>) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
-
+// CORS — must be FIRST so it runs even if later middleware crashes
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -39,6 +18,31 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// pino-http — fail-safe in serverless
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pinoHttp = require("pino-http");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { logger } = require("./lib/logger");
+  if (typeof pinoHttp === "function") {
+    app.use(
+      pinoHttp({
+        logger,
+        serializers: {
+          req(req: Record<string, unknown>) {
+            return { id: req.id, method: req.method, url: (req.url as string)?.split("?")[0] };
+          },
+          res(res: Record<string, unknown>) {
+            return { statusCode: res.statusCode };
+          },
+        },
+      }),
+    );
+  }
+} catch {
+  // pino-http not available — skip
+}
 
 app.use(
   express.json({
@@ -70,7 +74,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api", router);
-app.get("/",(req, res) => {
+app.get("/", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString(), cache: cacheStats() });
 });
 
@@ -86,7 +90,7 @@ app.all("/api/*path", (req: Request, res: Response) => {
 
 // Global error handler — last resort, prevents crashes
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  logger.error({ err }, "Unhandled error");
+  console.error("[unhandled]", err);
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Credentials", "true");
   res.status(500).json({ error: "Internal server error" });
