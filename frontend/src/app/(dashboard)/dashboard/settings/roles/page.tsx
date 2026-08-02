@@ -12,9 +12,7 @@ import {
   Loader2, Shield, Plus, Pencil, Trash2, X, Lock, Star,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.DEV
-  ? ""
-  : "https://msme-erp-api-3s11.onrender.com";
+const API_BASE = "";
 
 function authHeaders() {
   return { Authorization: `Bearer ${getToken() ?? ""}`, "Content-Type": "application/json" };
