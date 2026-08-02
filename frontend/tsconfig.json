@@ -17,8 +17,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@workspace/api-client-react": ["./src/lib/api-client-react"],
-      "@workspace/api-client-react/*": ["./src/lib/api-client-react/*"],
-      "@msme-erp/shared/*": ["../shared/*/src"]
+      "@workspace/api-client-react/*": ["./src/lib/api-client-react/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
