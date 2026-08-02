@@ -2,6 +2,7 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": ".",
+  "framework": null,
   "builds": [
     {
       "src": "api/index.cjs",
