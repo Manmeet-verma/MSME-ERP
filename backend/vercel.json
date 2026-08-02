@@ -1,13 +1,15 @@
 {
   "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".",
   "builds": [
     {
-      "src": "api/index.ts",
+      "src": "api/index.cjs",
       "use": "@vercel/node"
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.ts" }
+    { "src": "/api/(.*)", "dest": "/api/index.cjs" }
   ],
   "headers": [
     {

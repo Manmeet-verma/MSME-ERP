@@ -117,6 +117,7 @@ async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  // ESM build for Render deployment
   await esbuild({
     entryPoints: [
       path.resolve(artifactDir, "src/index.ts"),
@@ -142,6 +143,28 @@ globalThis.require = __bannerCrReq(import.meta.url);
 globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
 globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
       `,
+    },
+  });
+
+  // CJS build for Vercel — bundles all our source code into one file
+  // npm packages are left as require() calls (resolved from node_modules at runtime)
+  await esbuild({
+    entryPoints: [
+      path.resolve(artifactDir, "src/app.ts"),
+    ],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: path.resolve(artifactDir, "api/index.cjs"),
+    sourcemap: "linked",
+    plugins: [externalizeMissingPlugin],
+    footer: {
+      js: `
+// Vercel @vercel/node compatibility
+if (module.exports && module.exports.default && typeof module.exports.default === "function" && module.exports.default.use) {
+  module.exports = module.exports.default;
+}
+`,
     },
   });
 }
