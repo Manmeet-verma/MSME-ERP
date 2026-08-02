@@ -3,6 +3,7 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 let app: App;
 let firestore: Firestore;
+let initError: string | null = null;
 
 function cleanPrivateKey(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
@@ -17,6 +18,10 @@ function cleanPrivateKey(raw: string | undefined): string | undefined {
   return key;
 }
 
+export function getFirebaseInitError(): string | null {
+  return initError;
+}
+
 export function initFirebase(): App {
   if (app) return app;
 
@@ -24,20 +29,28 @@ export function initFirebase(): App {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = cleanPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
-  if (projectId && clientEmail && privateKey) {
-    app = initializeApp({
-      credential: cert({ projectId, clientEmail, privateKey }),
-    });
-  } else {
-    app = initializeApp({
-      projectId: projectId || "msme-erp",
-    });
+  try {
+    if (projectId && clientEmail && privateKey) {
+      app = initializeApp({
+        credential: cert({ projectId, clientEmail, privateKey }),
+      });
+    } else {
+      initError = `Missing Firebase credentials: PROJECT_ID=${!!projectId}, CLIENT_EMAIL=${!!clientEmail}, PRIVATE_KEY=${!!privateKey}`;
+      console.warn("[firebase]", initError);
+      app = initializeApp({
+        projectId: projectId || "msme-erp",
+      });
+    }
+
+    firestore = getFirestore(app);
+    firestore.settings({ ignoreUndefinedProperties: true });
+
+    return app;
+  } catch (err: any) {
+    initError = `Firebase init failed: ${err?.message ?? err}`;
+    console.error("[firebase]", initError);
+    throw err;
   }
-
-  firestore = getFirestore(app);
-  firestore.settings({ ignoreUndefinedProperties: true });
-
-  return app;
 }
 
 export function getDb(): Firestore {

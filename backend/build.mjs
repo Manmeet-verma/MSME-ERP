@@ -130,6 +130,7 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   });
 
   // Self-contained Vercel bundle — NO file-relative imports
+  // Exports the Express app directly as module.exports for @vercel/node compatibility
   await esbuild({
     entryPoints: [
       path.resolve(artifactDir, "src/app.ts"),
@@ -140,6 +141,14 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     outfile: path.resolve(artifactDir, "api/index.cjs"),
     external,
     sourcemap: "linked",
+    footer: {
+      js: `
+// Vercel @vercel/node compatibility: export the Express app as the default handler
+if (module.exports && module.exports.default && typeof module.exports.default === "function" && module.exports.default.use) {
+  module.exports = module.exports.default;
+}
+`,
+    },
   });
 }
 

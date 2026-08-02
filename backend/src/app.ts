@@ -3,6 +3,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { cacheStats } from "./lib/ttl-cache";
+import { getFirebaseInitError } from "./lib/firebase";
 
 const app: Express = express();
 
@@ -53,7 +54,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/uploads", express.static(process.env.VERCEL ? "/tmp/uploads" : "uploads", { maxAge: "30d" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), cache: cacheStats() });
+  const fbError = getFirebaseInitError();
+  res.json({
+    status: fbError ? "degraded" : "ok",
+    timestamp: new Date().toISOString(),
+    cache: cacheStats(),
+    firebase: fbError ? { error: fbError } : { configured: true },
+    env: {
+      hasProjectId: !!process.env.FIREBASE_PROJECT_ID || !!process.env.GCLOUD_PROJECT,
+      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+    },
+  });
 });
 
 app.use("/api", router);
