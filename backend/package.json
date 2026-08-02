@@ -6,7 +6,7 @@
   "main": "dist/index.mjs",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && node build.mjs",
+    "build": "node build.mjs",
     "start": "node --enable-source-maps dist/index.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts"

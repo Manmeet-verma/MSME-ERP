@@ -87,16 +87,31 @@ const external = [
   "playwright",
   "puppeteer",
   "puppeteer-core",
-      "electron",
-      "twilio",
-      "@anthropic-ai/sdk",
-      "pino",
+  "electron",
+  "twilio",
+  "@anthropic-ai/sdk",
+  "pino",
   "pino-pretty",
   "thread-stream",
   "sonic-boom",
   "fast-redact",
   "on-exit-leak-free",
 ];
+
+// Externalize any bare specifier that esbuild cannot resolve,
+// but only when imported from within a bundled file (not entry points).
+const externalizeMissingPlugin = {
+  name: "externalize-missing",
+  setup(build) {
+    build.onResolve({ filter: /^[^./]/ }, (args) => {
+      // Don't externalize entry points or anything without an importer
+      if (!args.importer) return null;
+      // Don't externalize relative workspace imports
+      if (args.path.startsWith("@workspace/")) return null;
+      return { path: args.path, external: true };
+    });
+  },
+};
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -115,7 +130,8 @@ async function buildAll() {
     external,
     sourcemap: "linked",
     plugins: [
-      esbuildPluginPino({ transports: ["pino-pretty"] })
+      externalizeMissingPlugin,
+      esbuildPluginPino({ transports: ["pino-pretty"] }),
     ],
     banner: {
       js: `import { createRequire as __bannerCrReq } from 'node:module';
@@ -126,28 +142,6 @@ globalThis.require = __bannerCrReq(import.meta.url);
 globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
 globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
       `,
-    },
-  });
-
-  // Self-contained Vercel bundle — NO file-relative imports
-  // Exports the Express app directly as module.exports for @vercel/node compatibility
-  await esbuild({
-    entryPoints: [
-      path.resolve(artifactDir, "src/app.ts"),
-    ],
-    platform: "node",
-    bundle: true,
-    format: "cjs",
-    outfile: path.resolve(artifactDir, "api/index.cjs"),
-    external,
-    sourcemap: "linked",
-    footer: {
-      js: `
-// Vercel @vercel/node compatibility: export the Express app as the default handler
-if (module.exports && module.exports.default && typeof module.exports.default === "function" && module.exports.default.use) {
-  module.exports = module.exports.default;
-}
-`,
     },
   });
 }
