@@ -82,7 +82,7 @@ export default function RolesPage() {
     if (!editingRole) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/roles/${editingRole.id}`, {
+      const res = await fetch(`${getApiBase()}/api/roles/${editingRole.id}`, {
         method: "PATCH",
         headers: authHeaders(),
         body: JSON.stringify({ name: formName, description: formDesc }),
@@ -107,7 +107,7 @@ export default function RolesPage() {
   async function handleDelete(r: Role) {
     if (!confirm(`Delete the "${r.name}" role? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`${API_BASE}/api/roles/${r.id}`, {
+      const res = await fetch(`${getApiBase()}/api/roles/${r.id}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
