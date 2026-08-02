@@ -106,6 +106,8 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "twilio",
+      "@anthropic-ai/sdk",
     ],
     sourcemap: "linked",
     plugins: [
@@ -123,6 +125,29 @@ globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
 globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
+  });
+
+  // Self-contained Vercel bundle — NO file-relative imports
+  await esbuild({
+    entryPoints: [
+      path.resolve(artifactDir, "src/app.ts"),
+    ],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: path.resolve(artifactDir, "../../backend/api/index.cjs"),
+    external: [
+      "firebase-admin",
+      "firebase-admin/app",
+      "firebase-admin/firestore",
+      "firebase-admin/auth",
+      "firebase",
+      "firebase/app",
+      "firebase/firestore",
+      "twilio",
+      "@anthropic-ai/sdk",
+    ],
+    sourcemap: "linked",
   });
 }
 
