@@ -1,13 +1,13 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-const RENDER_API_URL = "https://msme-erp-api-3s11.onrender.com";
-
+/**
+ * Returns the API base URL. In all environments this returns "" so that
+ * requests stay same-origin and are proxied by the Next.js rewrite in
+ * next.config.js to the backend specified by API_BACKEND_URL.
+ */
 export function getApiBase(): string {
-  if (typeof window === "undefined") return "";
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") return "";
-  return process.env.NEXT_PUBLIC_API_URL || RENDER_API_URL;
+  return "";
 }
 
 export function cn(...inputs: ClassValue[]) {

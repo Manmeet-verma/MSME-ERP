@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const API_BACKEND_URL = process.env.API_BACKEND_URL || "http://localhost:8080";
+const API_BACKEND_URL = process.env.API_BACKEND_URL || "https://msme-erp-backend.vercel.app";
 
 const nextConfig = {
   reactStrictMode: true,

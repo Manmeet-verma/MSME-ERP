@@ -18,14 +18,14 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
-const RENDER_API_URL = "https://msme-erp-api-3s11.onrender.com";
-
+/**
+ * Returns the effective base URL for API calls. Returns null in all
+ * environments so that requests stay same-origin and are proxied by
+ * the Next.js rewrite in next.config.js to the backend specified by
+ * API_BACKEND_URL.
+ */
 function getEffectiveBaseUrl(): string | null {
-  if (_baseUrl) return _baseUrl;
-  if (typeof window === "undefined") return null;
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") return null;
-  return RENDER_API_URL;
+  return null;
 }
 
 /**
