@@ -159,7 +159,7 @@ export default function MembersPage() {
           {atLimit && (
             <p className="text-xs text-amber-500 mb-3">You've reached your free-tier limit of {limits.members} seats.</p>
           )}
-          <form onSubmit={(e) => { e.preventDefault(); createInvite.mutate({ data: form }); }} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3">
+          <form onSubmit={(e) => { e.preventDefault(); createInvite.mutate({ data: { email: form.email, role: form.role as any } }); }} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="invEmail">Email</Label>
               <Input id="invEmail" type="email" required value={form.email}
