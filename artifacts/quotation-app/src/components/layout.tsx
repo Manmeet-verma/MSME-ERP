@@ -10,6 +10,7 @@ import {
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
   Share2, Mail, Ban,
   UserCircle2, CalendarCheck, Wallet, BookOpen, Scale, Plane,
+  ClipboardCheck,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/sales-dashboard", label: "Sales Dashboard", icon: ClipboardCheck },
   { href: "/leads", label: "Leads", icon: TrendingUp, module: "leads" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/quotations", label: "Quotations", icon: FileText, module: "sales" },

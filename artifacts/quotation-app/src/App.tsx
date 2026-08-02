@@ -51,6 +51,7 @@ import PnlPage from "@/pages/accounting/pnl";
 import GstPage from "@/pages/accounting/gst";
 import VendorAgeingPage from "@/pages/accounting/vendor-ageing";
 import BalanceSheetPage from "@/pages/accounting/balance-sheet";
+import SalesDashboardPage from "@/pages/sales-dashboard";
 import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
@@ -123,6 +124,7 @@ function Router() {
       <Route path="/accounting/gst" component={() => <Guard component={GstPage} />} />
       <Route path="/accounting/vendor-ageing" component={() => <Guard component={VendorAgeingPage} />} />
       <Route path="/accounting/balance-sheet" component={() => <Guard component={BalanceSheetPage} />} />
+      <Route path="/sales-dashboard" component={() => <Guard component={SalesDashboardPage} />} />
       <Route component={NotFound} />
     </Switch>
   );

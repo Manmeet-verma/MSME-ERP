@@ -1,19 +1,28 @@
 import { Link } from "wouter";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetDashboardSummary, useGetDashboardWidgets, useListMembers, useGetLowStock,
   useGetAiInsights, useAiNlSearch,
 } from "@workspace/api-client-react";
-import { getCurrentOrg } from "@/lib/auth";
+import { getCurrentOrg, getCurrentRole, getAuthToken } from "@/lib/auth";
 import { getModules, getLimits, MODULE_LABELS, MODULE_DESCRIPTIONS, type ModuleKey } from "@/lib/modules";
 import { formatCurrency } from "@/lib/format";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   FileText, Users, TrendingUp, Megaphone, Boxes, ShoppingCart,
   Briefcase, BookOpen, Share2, ArrowRight, Sparkles, Flame, Phone, Mail,
   Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse, Search, Lightbulb,
+  ClipboardCheck, CheckCircle2, Clock,
 } from "lucide-react";
+
+const API_BASE = import.meta.env.DEV
+  ? ""
+  : "https://msme-erp-api-3s11.onrender.com";
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }>> = {
   sales: FileText,
@@ -145,6 +154,8 @@ function KpiCard({ icon: Icon, label, value, tint, href }: {
 
 export default function DashboardPage() {
   const org = getCurrentOrg();
+  const role = getCurrentRole();
+  const isOwnerOrAdmin = role === "owner" || role === "admin";
   const modules = getModules(org);
   const limits = getLimits(org);
   const { data: summary } = useGetDashboardSummary();
@@ -154,6 +165,25 @@ export default function DashboardPage() {
   const { data: insights } = useGetAiInsights();
   const [query, setQuery] = useState("");
   const nlSearch = useAiNlSearch();
+  const [reportDate, setReportDate] = useState(today());
+
+  const { data: teamReportsRaw } = useQuery({
+    queryKey: ["daily-reports-summary", reportDate],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/daily-reports-summary?date=${reportDate}`, {
+        headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isOwnerOrAdmin,
+  });
+  const teamReports: Array<{
+    id: string; userId: string; userName: string; date: string;
+    callsMade: number; quotationsSent: number; meetingsScheduled: number;
+    ordersReceived: number; paymentReminders: number; afterSalesFollowup: number;
+    status: string; crmChecklist: Record<string, boolean>;
+  }> = Array.isArray(teamReportsRaw) ? teamReportsRaw : [];
 
   const moduleOrder: ModuleKey[] = ["sales", "leads", "inventory", "purchase", "marketing", "social", "hr", "accounting"];
 
@@ -263,6 +293,95 @@ export default function DashboardPage() {
 
       {/* Low-stock list with quick "Create PO" links */}
       {modules.inventory && <LowStockPanel />}
+
+      {/* Sales Team Daily Reports (Owner/Admin only) */}
+      {isOwnerOrAdmin && (
+        <div className="bg-card border border-card-border rounded-xl mb-6">
+          <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-primary" />
+              <h2 className="font-semibold text-sm">Sales Team - Daily Reports</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs whitespace-nowrap">Select Date:</Label>
+              <Input
+                type="date"
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value)}
+                className="w-40 text-sm h-8"
+              />
+              <Link href="/sales-dashboard">
+                <Button variant="outline" size="sm" className="text-xs h-8">
+                  Open Dashboard <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+          {teamReports.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              No reports submitted for {new Date(reportDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left p-3 font-medium text-muted-foreground">Sales Executive</th>
+                    <th className="text-center p-3 font-medium text-muted-foreground">Calls</th>
+                    <th className="text-center p-3 font-medium text-muted-foreground">Quotes</th>
+                    <th className="text-center p-3 font-medium text-muted-foreground">Orders</th>
+                    <th className="text-center p-3 font-medium text-muted-foreground">Meetings</th>
+                    <th className="text-center p-3 font-medium text-muted-foreground">CRM</th>
+                    <th className="text-center p-3 font-medium text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamReports.map((r) => {
+                    const crmDone = Object.values(r.crmChecklist ?? {}).filter(Boolean).length;
+                    return (
+                      <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                        <td className="p-3 font-medium">{r.userName}</td>
+                        <td className="p-3 text-center">
+                          <span className={r.callsMade >= 80 ? "text-emerald-600" : r.callsMade >= 60 ? "text-amber-600" : "text-red-600"}>
+                            {r.callsMade}/80
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={r.quotationsSent >= 10 ? "text-emerald-600" : r.quotationsSent >= 7 ? "text-amber-600" : "text-red-600"}>
+                            {r.quotationsSent}/10
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={r.ordersReceived >= 2 ? "text-emerald-600" : r.ordersReceived >= 1 ? "text-amber-600" : "text-red-600"}>
+                            {r.ordersReceived}/2
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">{r.meetingsScheduled}</td>
+                        <td className="p-3 text-center">
+                          <span className={crmDone >= 4 ? "text-emerald-600" : crmDone >= 2 ? "text-amber-600" : "text-red-600"}>
+                            {crmDone}/5
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          {r.status === "submitted" ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                              <CheckCircle2 className="h-3 w-3" /> Submitted
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-500 font-medium">
+                              <Clock className="h-3 w-3" /> Draft
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Module cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

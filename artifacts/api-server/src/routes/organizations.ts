@@ -1,5 +1,6 @@
 import { Router } from "express";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import { getDb } from "../lib/firebase";
 import { requireAuth, requireUser, requireOwner, requireAdmin, signToken } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
@@ -182,6 +183,72 @@ orgRouter.put("/organizations/current/modules", requireAuth, requireOwner, async
 
 // ── Members ────────────────────────────────────────────────────────────────
 
+/** Directly create a member account (owner/admin only). */
+orgRouter.post("/organizations/current/members", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body ?? {};
+    if (!name || !email || !password) {
+      res.status(400).json({ error: "name, email, and password are required" });
+      return;
+    }
+    if (!role || !["admin", "sales", "sales_executive", "viewer"].includes(role)) {
+      res.status(400).json({ error: "Invalid role" });
+      return;
+    }
+    if (typeof password !== "string" || password.length < 8) {
+      res.status(400).json({ error: "Password must be at least 8 characters" });
+      return;
+    }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existing = await db().collection("users").where("email", "==", normalizedEmail).limit(1).get();
+    if (!existing.empty) {
+      const existingUser = existing.docs[0];
+      const existingMember = await db()
+        .collection("organization_members")
+        .where("organizationId", "==", req.user!.organizationId)
+        .where("userId", "==", existingUser.id)
+        .limit(1)
+        .get();
+      if (!existingMember.empty) {
+        res.status(409).json({ error: "User is already a member of this organization" });
+        return;
+      }
+      await db().collection("organization_members").add({
+        organizationId: req.user!.organizationId,
+        userId: existingUser.id,
+        role,
+        invitedById: req.user!.userId,
+        joinedAt: new Date().toISOString(),
+      });
+      await logAction(req, "CREATE", "member", existingUser.id, `Added existing user ${normalizedEmail} as ${role}`);
+      res.status(201).json({ userId: existingUser.id, email: normalizedEmail, role, message: "Existing user added to organization" });
+      return;
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    const userRef = await db().collection("users").add({
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      phone: null,
+      isActive: true,
+      lastLogin: null,
+      createdAt: new Date().toISOString(),
+    });
+    await db().collection("organization_members").add({
+      organizationId: req.user!.organizationId,
+      userId: userRef.id,
+      role,
+      invitedById: req.user!.userId,
+      joinedAt: new Date().toISOString(),
+    });
+    await logAction(req, "CREATE", "member", userRef.id, `Created member ${normalizedEmail} as ${role}`);
+    res.status(201).json({ userId: userRef.id, email: normalizedEmail, role, message: "Member created successfully" });
+  } catch (err) {
+    console.error("Failed to create member:", err);
+    res.status(500).json({ error: "Failed to create member" });
+  }
+});
+
 orgRouter.get("/organizations/current/members", requireAuth, async (req, res) => {
   const memberSnap = await db()
     .collection("organization_members")
@@ -225,7 +292,7 @@ orgRouter.patch(
   async (req, res) => {
     const { role } = req.body ?? {};
     const targetUserId = req.params.userId;
-    if (!role || !["owner", "admin", "sales", "viewer"].includes(role)) {
+    if (!role || !["owner", "admin", "sales", "sales_executive", "viewer"].includes(role)) {
       res.status(400).json({ error: "Invalid role" });
       return;
     }
@@ -315,7 +382,7 @@ orgRouter.post("/organizations/current/invitations", requireAuth, requireAdmin, 
     res.status(400).json({ error: "email and role required" });
     return;
   }
-  if (!["admin", "sales", "viewer"].includes(role)) {
+  if (!["admin", "sales", "sales_executive", "viewer"].includes(role)) {
     res.status(400).json({ error: "Invalid role" });
     return;
   }

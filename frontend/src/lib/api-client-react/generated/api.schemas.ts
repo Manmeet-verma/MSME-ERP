@@ -35,6 +35,7 @@ export const MemberRole = {
   owner: 'owner',
   admin: 'admin',
   sales: 'sales',
+  sales_executive: 'sales_executive',
   viewer: 'viewer',
 } as const;
 
@@ -206,6 +207,7 @@ export type InvitationInputRole = typeof InvitationInputRole[keyof typeof Invita
 export const InvitationInputRole = {
   admin: 'admin',
   sales: 'sales',
+  sales_executive: 'sales_executive',
   viewer: 'viewer',
 } as const;
 

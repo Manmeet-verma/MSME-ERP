@@ -39,6 +39,7 @@ import accountingRouter from "./accounting";
 import pushRouter from "./push";
 import whatsappRouter from "./whatsapp";
 import leadSourcesRouter from "./lead-sources";
+import dailyReportsRouter from "./daily-reports";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use(accountingRouter);
 router.use(pushRouter);
 router.use(whatsappRouter);
 router.use(leadSourcesRouter);
+router.use(dailyReportsRouter);
 
 export default router;

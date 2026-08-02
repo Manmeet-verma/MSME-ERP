@@ -8,7 +8,7 @@ const JWT_EXPIRES_IN = "30d";
 
 const AUTH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export type MemberRole = "owner" | "admin" | "sales" | "viewer";
+export type MemberRole = "owner" | "admin" | "sales" | "sales_executive" | "viewer";
 
 export interface AuthContext {
   userId: string;
@@ -191,4 +191,4 @@ export function requireRole(...roles: MemberRole[]) {
 
 export const requireOwner = requireRole("owner");
 export const requireAdmin = requireRole("owner", "admin");
-export const requireSales = requireRole("owner", "admin", "sales");
+export const requireSales = requireRole("owner", "admin", "sales", "sales_executive");

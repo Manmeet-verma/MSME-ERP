@@ -8,7 +8,7 @@ import {
   type MemberRole, type InvitationInputRole,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getCurrentRole, getCurrentUser } from "@/lib/auth";
+import { getCurrentRole, getCurrentUser, getToken } from "@/lib/auth";
 import { getLimits } from "@/lib/modules";
 import { getCurrentOrg } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,16 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus, Copy, Trash2, Mail } from "lucide-react";
+import { Loader2, UserPlus, Copy, Trash2, Mail, UserCog } from "lucide-react";
 import { formatDate } from "@/lib/format";
 
-const ROLES: MemberRole[] = ["owner", "admin", "sales", "viewer"];
-const INVITE_ROLES: InvitationInputRole[] = ["admin", "sales", "viewer"];
+const ROLES: MemberRole[] = ["owner", "admin", "sales", "sales_executive", "viewer"];
+const INVITE_ROLES: InvitationInputRole[] = ["admin", "sales", "sales_executive", "viewer"];
+
+const ROLE_DISPLAY: Record<string, string> = {
+  owner: "Owner", admin: "Admin", sales: "Sales",
+  sales_executive: "Sales Executive", viewer: "Viewer",
+};
 
 export default function MembersPage() {
   const { toast } = useToast();
@@ -40,6 +45,9 @@ export default function MembersPage() {
 
   const [form, setForm] = useState<{ email: string; role: InvitationInputRole }>({ email: "", role: "sales" });
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+
+  const [createForm, setCreateForm] = useState({ name: "", email: "", password: "", role: "sales_executive" as string });
+  const [creating, setCreating] = useState(false);
 
   const createInvite = useCreateInvitation({
     mutation: {
@@ -66,6 +74,31 @@ export default function MembersPage() {
       },
     },
   });
+
+  async function handleCreateMember(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const API_BASE = "";
+      const res = await fetch(`${API_BASE}/api/organizations/current/members`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken() ?? ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify(createForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Could not create member", description: data.error ?? "Try again", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Member created", description: `${createForm.name} has been added as ${ROLE_DISPLAY[createForm.role] ?? createForm.role}` });
+      setCreateForm({ name: "", email: "", password: "", role: "sales_executive" });
+      queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
+    } catch {
+      toast({ title: "Could not create member", variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  }
 
   const updateRole = useUpdateMemberRole({
     mutation: {
@@ -139,6 +172,50 @@ export default function MembersPage() {
         </div>
       )}
 
+      {canManage && (
+        <div className="bg-card border border-card-border rounded-xl p-6">
+          <h2 className="font-semibold mb-1 flex items-center gap-2">
+            <UserCog className="h-4 w-4 text-primary" /> Create member directly
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">Create an account and add them to your organization immediately.</p>
+          <form onSubmit={handleCreateMember} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_140px_auto] gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cName">Full Name</Label>
+              <Input id="cName" required value={createForm.name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Rupinder Singh" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cEmail">Email</Label>
+              <Input id="cEmail" type="email" required value={createForm.email}
+                onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} placeholder="rupinder@example.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cPassword">Password</Label>
+              <Input id="cPassword" type="password" required minLength={8} value={createForm.password}
+                onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))} placeholder="Min 8 characters" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Select value={createForm.role} onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales_executive">Sales Executive</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button type="submit" disabled={creating} className="w-full sm:w-auto">
+                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Create Account
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div className="bg-card border border-card-border rounded-xl">
         <div className="p-4 border-b border-border">
           <h2 className="font-semibold">Active members</h2>
@@ -156,9 +233,9 @@ export default function MembersPage() {
               {canManage && me?.id !== m.userId ? (
                 <>
                   <Select value={m.role} onValueChange={(v) => updateRole.mutate({ userId: m.userId, data: { role: v as MemberRole } })} disabled={m.role === "owner"}>
-                    <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {ROLES.map((r) => <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>)}
+                      {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_DISPLAY[r] ?? r}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Button size="sm" variant="ghost" onClick={() => { if (confirm("Remove this member?")) removeMember.mutate({ userId: m.userId }); }}>
@@ -166,7 +243,7 @@ export default function MembersPage() {
                   </Button>
                 </>
               ) : (
-                <span className="text-xs capitalize px-2 py-1 rounded bg-muted">{m.role}</span>
+                <span className="text-xs px-2 py-1 rounded bg-muted">{ROLE_DISPLAY[m.role] ?? m.role}</span>
               )}
             </div>
           ))}
@@ -184,7 +261,7 @@ export default function MembersPage() {
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{i.email}</p>
-                  <p className="text-xs text-muted-foreground">Role: {i.role} · expires {formatDate(i.expiresAt)}</p>
+                  <p className="text-xs text-muted-foreground">Role: {ROLE_DISPLAY[i.role] ?? i.role} · expires {formatDate(i.expiresAt)}</p>
                 </div>
                 {canManage && (
                   <Button size="sm" variant="ghost" onClick={() => revokeInvite.mutate({ id: i.id })}>
