@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { Scale, Download } from "lucide-react";
 import { getAuthToken } from "@/lib/auth";
+import { getApiBase } from "@/lib/utils";
 
 async function downloadReport(asOf: string, format: "csv" | "xlsx") {
-  const res = await fetch(`/api/accounting/balance-sheet?asOf=${asOf}&format=${format}`, {
+  const res = await fetch(`${getApiBase()}/api/accounting/balance-sheet?asOf=${asOf}&format=${format}`, {
     headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` },
   });
   const blob = await res.blob();

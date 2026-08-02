@@ -1,6 +1,15 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+const RENDER_API_URL = "https://msme-erp-api-3s11.onrender.com";
+
+export function getApiBase(): string {
+  if (typeof window === "undefined") return "";
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "";
+  return process.env.NEXT_PUBLIC_API_URL || RENDER_API_URL;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

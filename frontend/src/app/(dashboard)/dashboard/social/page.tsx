@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sparkles, Send, Trash2, Calendar, Plus, Facebook, Instagram, Linkedin, Wand2, ImagePlus, X, BarChart3 } from "lucide-react";
 import { getAuthToken } from "@/lib/auth";
+import { getApiBase } from "@/lib/utils";
 
 type Platform = "facebook" | "instagram" | "linkedin";
 const PLATFORMS: { key: Platform; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -70,7 +71,7 @@ export default function SocialPage() {
 
   async function refreshMetrics(id: number) {
     try {
-      const resp = await fetch(`/api/social/posts/${id}/refresh-metrics`, {
+      const resp = await fetch(`${getApiBase()}/api/social/posts/${id}/refresh-metrics`, {
         method: "POST",
         headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` },
       });

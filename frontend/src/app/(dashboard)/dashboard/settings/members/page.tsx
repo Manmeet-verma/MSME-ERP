@@ -18,10 +18,9 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getApiBase } from "@/lib/utils";
 import { Loader2, UserPlus, Copy, Trash2, Mail, UserCog } from "lucide-react";
 import { formatDate } from "@/lib/format";
-
-const API_BASE = "";
 
 function authHeaders() {
   return { Authorization: `Bearer ${getToken() ?? ""}`, "Content-Type": "application/json" };
@@ -48,7 +47,7 @@ export default function MembersPage() {
   const { data: rolesRaw } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/roles`, { headers: authHeaders() });
+      const res = await fetch(`${getApiBase()}/api/roles`, { headers: authHeaders() });
       if (!res.ok) return [];
       return res.json() as Promise<ApiRole[]>;
     },
@@ -101,7 +100,7 @@ export default function MembersPage() {
     e.preventDefault();
     setCreating(true);
     try {
-      const res = await fetch(`${API_BASE}/api/organizations/current/members`, {
+      const res = await fetch(`${getApiBase()}/api/organizations/current/members`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify(createForm),

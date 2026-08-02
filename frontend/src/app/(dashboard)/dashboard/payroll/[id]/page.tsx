@@ -11,11 +11,12 @@ import { ArrowLeft, Download } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { getAuthToken } from "@/lib/auth";
+import { getApiBase } from "@/lib/utils";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 async function downloadPayslip(id: number) {
-  const res = await fetch(`/api/payslips/${id}/pdf`, {
+  const res = await fetch(`${getApiBase()}/api/payslips/${id}/pdf`, {
     headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` },
   });
   const blob = await res.blob();

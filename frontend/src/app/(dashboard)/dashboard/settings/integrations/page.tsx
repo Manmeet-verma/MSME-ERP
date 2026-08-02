@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plug, RefreshCw, Facebook, Instagram, Linkedin, Trash2 } from "lucide-react";
 import { getAuthToken } from "@/lib/auth";
+import { getApiBase } from "@/lib/utils";
 
 export default function IntegrationsSettingsPage() {
   const qc = useQueryClient();
@@ -134,7 +135,7 @@ function SocialAccountsPanel() {
   }, [qc, toast]);
 
   async function startOauth(platform: "facebook" | "instagram" | "linkedin") {
-    const r = await fetch(`/api/social/oauth/${platform}/start`, {
+    const r = await fetch(`${getApiBase()}/api/social/oauth/${platform}/start`, {
       headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     if (!r.ok) {

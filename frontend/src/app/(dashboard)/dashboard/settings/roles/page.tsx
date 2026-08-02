@@ -8,11 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { getApiBase } from "@/lib/utils";
 import {
   Loader2, Shield, Plus, Pencil, Trash2, X, Lock, Star,
 } from "lucide-react";
-
-const API_BASE = "";
 
 function authHeaders() {
   return { Authorization: `Bearer ${getToken() ?? ""}`, "Content-Type": "application/json" };
@@ -45,7 +44,7 @@ export default function RolesPage() {
   const { data: rolesRaw, isLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/roles`, { headers: authHeaders() });
+      const res = await fetch(`${getApiBase()}/api/roles`, { headers: authHeaders() });
       if (!res.ok) throw new Error("Failed to load roles");
       return res.json() as Promise<Role[]>;
     },
@@ -56,7 +55,7 @@ export default function RolesPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/roles`, {
+      const res = await fetch(`${getApiBase()}/api/roles`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ name: formName, description: formDesc }),
