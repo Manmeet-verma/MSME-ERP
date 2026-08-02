@@ -52,6 +52,7 @@ import GstPage from "@/pages/accounting/gst";
 import VendorAgeingPage from "@/pages/accounting/vendor-ageing";
 import BalanceSheetPage from "@/pages/accounting/balance-sheet";
 import SalesDashboardPage from "@/pages/sales-dashboard";
+import RolesPage from "@/pages/settings/roles";
 import { Layout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { isAuthenticated, hasOrg } from "@/lib/auth";
@@ -93,6 +94,7 @@ function Router() {
       <Route path="/settings/organization" component={() => <Guard component={OrganizationSettingsPage} />} />
       <Route path="/settings/members" component={() => <Guard component={MembersPage} />} />
       <Route path="/settings/modules" component={() => <Guard component={ModulesPage} />} />
+      <Route path="/settings/roles" component={() => <Guard component={RolesPage} />} />
       <Route path="/settings/integrations" component={() => <Guard component={IntegrationsSettingsPage} />} />
       <Route path="/leads" component={() => <Guard component={LeadsPage} />} />
       <Route path="/leads/:id" component={() => <Guard component={LeadDetailPage} />} />

@@ -5,9 +5,9 @@ import {
   useListMembers, useListInvitations, useCreateInvitation,
   useRevokeInvitation, useUpdateMemberRole, useRemoveMember,
   getListMembersQueryKey, getListInvitationsQueryKey,
-  type MemberRole, type InvitationInputRole,
+  type MemberRole,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { getCurrentRole, getCurrentUser, getToken } from "@/lib/auth";
 import { getLimits } from "@/lib/modules";
 import { getCurrentOrg } from "@/lib/auth";
@@ -21,13 +21,20 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, UserPlus, Copy, Trash2, Mail, UserCog } from "lucide-react";
 import { formatDate } from "@/lib/format";
 
-const ROLES: MemberRole[] = ["owner", "admin", "sales", "sales_executive", "viewer"];
-const INVITE_ROLES: InvitationInputRole[] = ["admin", "sales", "sales_executive", "viewer"];
+const API_BASE = "";
 
-const ROLE_DISPLAY: Record<string, string> = {
-  owner: "Owner", admin: "Admin", sales: "Sales",
-  sales_executive: "Sales Executive", viewer: "Viewer",
-};
+function authHeaders() {
+  return { Authorization: `Bearer ${getToken() ?? ""}`, "Content-Type": "application/json" };
+}
+
+interface ApiRole {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  isSystem: boolean;
+  isDefault: boolean;
+}
 
 export default function MembersPage() {
   const { toast } = useToast();
@@ -38,22 +45,37 @@ export default function MembersPage() {
   const limits = getLimits(org);
   const canManage = role === "owner" || role === "admin";
 
+  const { data: rolesRaw } = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/roles`, { headers: authHeaders() });
+      if (!res.ok) return [];
+      return res.json() as Promise<ApiRole[]>;
+    },
+  });
+  const apiRoles: ApiRole[] = Array.isArray(rolesRaw) ? rolesRaw : [];
+  const ROLE_DISPLAY: Record<string, string> = {};
+  for (const r of apiRoles) ROLE_DISPLAY[r.key] = r.name;
+  const INVITE_ROLE_KEYS = apiRoles.filter((r) => r.key !== "owner").map((r) => r.key);
+  const MEMBER_ROLE_KEYS = apiRoles.map((r) => r.key);
+  const defaultRole = apiRoles.find((r) => r.isDefault)?.key ?? "sales_executive";
+
   const { data: membersRaw } = useListMembers();
   const members = Array.isArray(membersRaw) ? membersRaw : [];
   const { data: invitesRaw } = useListInvitations();
   const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
 
-  const [form, setForm] = useState<{ email: string; role: InvitationInputRole }>({ email: "", role: "sales" });
+  const [form, setForm] = useState<{ email: string; role: string }>({ email: "", role: defaultRole });
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
 
-  const [createForm, setCreateForm] = useState({ name: "", email: "", password: "", role: "sales_executive" as string });
+  const [createForm, setCreateForm] = useState({ name: "", email: "", password: "", role: defaultRole });
   const [creating, setCreating] = useState(false);
 
   const createInvite = useCreateInvitation({
     mutation: {
       onSuccess(data) {
         setLastInviteUrl(data.acceptUrl ?? null);
-        setForm({ email: "", role: "sales" });
+        setForm({ email: "", role: defaultRole });
         queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
         toast({ title: "Invitation created", description: "Share the link with your teammate" });
       },
@@ -79,10 +101,9 @@ export default function MembersPage() {
     e.preventDefault();
     setCreating(true);
     try {
-      const API_BASE = "";
       const res = await fetch(`${API_BASE}/api/organizations/current/members`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${getToken() ?? ""}`, "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify(createForm),
       });
       const data = await res.json();
@@ -91,7 +112,7 @@ export default function MembersPage() {
         return;
       }
       toast({ title: "Member created", description: `${createForm.name} has been added as ${ROLE_DISPLAY[createForm.role] ?? createForm.role}` });
-      setCreateForm({ name: "", email: "", password: "", role: "sales_executive" });
+      setCreateForm({ name: "", email: "", password: "", role: defaultRole });
       queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
     } catch {
       toast({ title: "Could not create member", variant: "destructive" });
@@ -146,10 +167,10 @@ export default function MembersPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Role</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v as InvitationInputRole }))}>
+              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {INVITE_ROLES.map((r) => <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>)}
+                  {INVITE_ROLE_KEYS.map((k) => <SelectItem key={k} value={k}>{ROLE_DISPLAY[k] ?? k}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -199,10 +220,7 @@ export default function MembersPage() {
               <Select value={createForm.role} onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sales_executive">Sales Executive</SelectItem>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  {INVITE_ROLE_KEYS.map((k) => <SelectItem key={k} value={k}>{ROLE_DISPLAY[k] ?? k}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -235,7 +253,7 @@ export default function MembersPage() {
                   <Select value={m.role} onValueChange={(v) => updateRole.mutate({ userId: m.userId, data: { role: v as MemberRole } })} disabled={m.role === "owner"}>
                     <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_DISPLAY[r] ?? r}</SelectItem>)}
+                      {MEMBER_ROLE_KEYS.map((k) => <SelectItem key={k} value={k}>{ROLE_DISPLAY[k] ?? k}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Button size="sm" variant="ghost" onClick={() => { if (confirm("Remove this member?")) removeMember.mutate({ userId: m.userId }); }}>

@@ -40,6 +40,7 @@ import pushRouter from "./push";
 import whatsappRouter from "./whatsapp";
 import leadSourcesRouter from "./lead-sources";
 import dailyReportsRouter from "./daily-reports";
+import rolesRouter from "./roles";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(pushRouter);
 router.use(whatsappRouter);
 router.use(leadSourcesRouter);
 router.use(dailyReportsRouter);
+router.use(rolesRouter);
 
 export default router;

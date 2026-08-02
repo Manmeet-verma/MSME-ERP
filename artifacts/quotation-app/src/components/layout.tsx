@@ -10,7 +10,7 @@ import {
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
   Share2, Mail, Ban,
   UserCircle2, CalendarCheck, Wallet, BookOpen, Scale, Plane,
-  ClipboardCheck,
+  ClipboardCheck, Shield,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -211,6 +211,9 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
             {role === "owner" && (
               <NavLink href="/settings/modules" label="Modules" icon={Puzzle} onClick={() => setSidebarOpen(false)} />
+            )}
+            {(role === "owner" || role === "admin") && (
+              <NavLink href="/settings/roles" label="Roles" icon={Shield} onClick={() => setSidebarOpen(false)} />
             )}
             {(role === "owner" || role === "admin") && (
               <NavLink href="/settings/integrations" label="Integrations" icon={Sparkles} onClick={() => setSidebarOpen(false)} />

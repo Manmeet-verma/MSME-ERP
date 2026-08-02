@@ -13,7 +13,7 @@ import {
   Boxes, Warehouse, Truck, ClipboardList, FileBox,
   Share2, Mail, Ban,
   UserCircle2, CalendarCheck, Wallet, BookOpen, Scale, Plane, Loader2,
-  ClipboardCheck,
+  ClipboardCheck, Shield,
   ExternalLink,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -272,6 +272,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <NavLink href="/dashboard/settings/organization" label={collapsed ? "" : "Organization"} icon={Building2} onClick={() => setSidebarOpen(false)} />
               <NavLink href="/dashboard/settings/members" label={collapsed ? "" : "Members"} icon={UserPlus} onClick={() => setSidebarOpen(false)} />
               <NavLink href="/dashboard/settings/modules" label={collapsed ? "" : "Modules"} icon={Puzzle} onClick={() => setSidebarOpen(false)} />
+              <NavLink href="/dashboard/settings/roles" label={collapsed ? "" : "Roles"} icon={Shield} onClick={() => setSidebarOpen(false)} />
               <NavLink href="/dashboard/settings/integrations" label={collapsed ? "" : "Integrations"} icon={Sparkles} onClick={() => setSidebarOpen(false)} />
             </div>
           </nav>
