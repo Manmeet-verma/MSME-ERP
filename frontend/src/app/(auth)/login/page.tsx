@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, setToken, setUser, setOrg, setCurrentRole } from "@/lib/auth";
+import { api, setToken, setUser, setOrg, setCurrentRole, clearAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
@@ -24,6 +24,12 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Clear any stale session so a leftover/invalid token cannot trigger
+    // 401 loops on protected pages.
+    void clearAuth();
+  }, []);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
