@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getCurrentUser, getCurrentRole, getToken } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { getCurrentUser, getCurrentRole, getToken, canSubmitDailyReport } from "@/lib/auth";
 import { getApiBase } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -73,8 +74,17 @@ function authHeaders() {
 
 export default function DailyReportPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const me = getCurrentUser();
   const role = getCurrentRole();
+  const [denied, setDenied] = useState(false);
+
+  useEffect(() => {
+    if (!canSubmitDailyReport(role)) {
+      setDenied(true);
+      router.replace("/dashboard");
+    }
+  }, [role, router]);
 
   const [date, setDate] = useState(todayStr());
   const [reportId, setReportId] = useState<string | null>(null);
@@ -149,8 +159,9 @@ export default function DailyReportPage() {
   );
 
   useEffect(() => {
+    if (denied) return;
     loadReport(date);
-  }, [date, loadReport]);
+  }, [date, loadReport, denied]);
 
   function updateActivity(key: keyof typeof activities, value: string) {
     const num = Math.max(0, Math.floor(Number(value) || 0));
@@ -249,6 +260,25 @@ export default function DailyReportPage() {
 
   const overall = Object.values(progressValues).reduce((acc, k) => acc + Math.min(1, k.value / k.target), 0);
   const overallPct = Math.round((overall / Object.keys(progressValues).length) * 100);
+
+  if (denied) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-md mx-auto">
+        <div className="bg-card border border-card-border rounded-xl p-6 text-center space-y-4">
+          <div className="h-12 w-12 mx-auto rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+            <ClipboardCheck className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold">Daily report entry is not available for your role</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Only sales executives can submit daily reports. You can view all submitted reports on the Sales Dashboard.
+            </p>
+          </div>
+          <Button onClick={() => router.push("/dashboard/sales-dashboard")}>Go to Sales Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">

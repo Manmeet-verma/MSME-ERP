@@ -153,3 +153,9 @@ export function getCurrentRole(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(ROLE_KEY);
 }
+
+export const DAILY_REPORT_ROLES = ["sales_executive", "sales", "viewer"];
+
+export function canSubmitDailyReport(role: string | null | undefined): boolean {
+  return !!role && DAILY_REPORT_ROLES.includes(role);
+}

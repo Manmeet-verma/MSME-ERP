@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, forwardRef, type ReactNode } from "react";
 import Link from "next/link";
-import { clearAuth, getCurrentOrg, getCurrentUser, getCurrentRole, setCurrentOrg, setCurrentRole, setAuthToken } from "@/lib/auth";
+import { clearAuth, getCurrentOrg, getCurrentUser, getCurrentRole, setCurrentOrg, setCurrentRole, setAuthToken, DAILY_REPORT_ROLES } from "@/lib/auth";
 import { getModules, type ModuleKey } from "@/lib/modules";
 import {
   LayoutDashboard, FileText, Users, Package, Puzzle,
@@ -31,13 +31,14 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   module?: ModuleKey;
+  roles?: string[];
   external?: boolean;
 }
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/sales-dashboard", label: "Sales Dashboard", icon: ClipboardCheck },
-  { href: "/dashboard/daily-report", label: "Daily Report", icon: FileCheck2 },
+  { href: "/dashboard/daily-report", label: "Daily Report", icon: FileCheck2, roles: DAILY_REPORT_ROLES },
   { href: "/dashboard/clients", label: "Clients", icon: Users, module: "sales" },
   { href: "/dashboard/products", label: "Products", icon: Package, module: "sales" },
   { href: "/dashboard/leads", label: "Leads", icon: TrendingUp, module: "leads" },
@@ -176,7 +177,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   void orgVersion;
 
   const modules = getModules(org);
-  const visibleNav = navItems.filter((i) => !i.module || modules[i.module]);
+  const visibleNav = navItems.filter(
+    (i) => (!i.module || modules[i.module]) && (!i.roles || (role && i.roles.includes(role))),
+  );
   const visibleBottom = bottomNavItems.filter((i) => !i.module || modules[i.module]);
 
   if (!hydrated) {
