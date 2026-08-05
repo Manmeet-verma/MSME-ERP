@@ -8,6 +8,7 @@ import {
   useListSalesOrders,
 } from "@workspace/api-client-react";
 import { formatCurrency, formatDate } from "@/lib/format";
+import DailyReportsPanel from "@/components/daily-reports-panel";
 import {
   FileText,
   ShoppingCart,
@@ -54,12 +55,9 @@ function StatCard({
       </div>
       <p className="text-xl font-bold">{value}</p>
       {href && (
-        <Link
-          href={href}
-          className="text-xs text-primary mt-2 inline-flex items-center gap-1 hover:underline"
-        >
+        <span className="text-xs text-primary mt-2 inline-flex items-center gap-1">
           View details <ArrowRight className="h-3 w-3" />
-        </Link>
+        </span>
       )}
     </div>
   );
@@ -315,6 +313,11 @@ export default function SalesDashboardPage() {
           rows={recentInvoices}
           emptyMessage="No invoices yet"
         />
+      </div>
+
+      {/* Daily reports with date range filter */}
+      <div className="mb-6">
+        <DailyReportsPanel title="Daily Reports" />
       </div>
 
       {/* Quick links */}

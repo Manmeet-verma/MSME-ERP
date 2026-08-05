@@ -165,6 +165,50 @@ leadsRouter.post("/leads", requireAuth, async (req, res) => {
   }
 });
 
+leadsRouter.get("/leads/summary", requireAuth, async (req, res) => {
+  try {
+    const orgId = req.user!.organizationId;
+    const docs = await safeGetDocs(db().collection("leads").where("organizationId", "==", orgId).limit(1000));
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+
+    let total = 0;
+    let newToday = 0;
+    let statusCounts: Record<string, number> = {};
+    let priorityCounts: Record<string, number> = {};
+    let wonValue = 0;
+
+    for (const d of docs.docs) {
+      const l = d.data();
+      total++;
+      const st = l.status ?? "new";
+      statusCounts[st] = (statusCounts[st] ?? 0) + 1;
+      const pr = l.priority ?? "medium";
+      priorityCounts[pr] = (priorityCounts[pr] ?? 0) + 1;
+      if ((l.createdAt ?? "") >= todayStart) newToday++;
+      if (st === "won") {
+        const b = l.approxBudget ?? l.budget ?? 0;
+        wonValue += Number(b) || 0;
+      }
+    }
+
+    const won = statusCounts["won"] ?? 0;
+    res.json({
+      total,
+      newToday,
+      won,
+      lost: statusCounts["lost"] ?? 0,
+      conversionRate: total > 0 ? Math.round((won / total) * 1000) / 10 : 0,
+      wonValue,
+      statusCounts,
+      priorityCounts,
+    });
+  } catch (err: any) {
+    console.error("GET /leads/summary error:", err);
+    res.status(500).json({ error: err.message ?? "Failed to load lead summary" });
+  }
+});
+
 leadsRouter.get("/leads/:id", requireAuth, async (req, res) => {
   try {
     const orgId = req.user!.organizationId;

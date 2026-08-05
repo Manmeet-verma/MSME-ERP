@@ -30,11 +30,11 @@ const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ className?: string }
 };
 
 const MODULE_LINKS: Partial<Record<ModuleKey, string>> = {
-  sales: "/quotations",
-  leads: "/leads",
-  marketing: "/campaigns",
-  inventory: "/inventory",
-  purchase: "/purchase-orders",
+  sales: "/dashboard/quotations",
+  leads: "/dashboard/leads",
+  marketing: "/dashboard/campaigns",
+  inventory: "/dashboard/inventory",
+  purchase: "/dashboard/purchase-orders",
 };
 
 function LowStockPanel() {

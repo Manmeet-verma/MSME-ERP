@@ -92,7 +92,9 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
   const url = new URL(`${baseUrl}/api${path}`);
   if (opts.query) {
     for (const [k, v] of Object.entries(opts.query)) {

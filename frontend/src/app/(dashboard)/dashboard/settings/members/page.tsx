@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  useListMembers, useListInvitations, useCreateInvitation,
+  useListMembers, useListInvitations,
   useRevokeInvitation, useUpdateMemberRole, useRemoveMember,
   getListMembersQueryKey, getListInvitationsQueryKey,
   type MemberRole,
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getApiBase } from "@/lib/utils";
-import { Loader2, UserPlus, Copy, Trash2, Mail, UserCog } from "lucide-react";
+import { Loader2, UserPlus, Trash2, Mail, UserCog, KeyRound } from "lucide-react";
 import { formatDate } from "@/lib/format";
 
 function authHeaders() {
@@ -64,29 +64,8 @@ export default function MembersPage() {
   const { data: invitesRaw } = useListInvitations();
   const invites = Array.isArray(invitesRaw) ? invitesRaw : [];
 
-  const [form, setForm] = useState<{ email: string; role: string }>({ email: "", role: defaultRole });
-  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
-
   const [createForm, setCreateForm] = useState({ name: "", email: "", password: "", role: defaultRole });
   const [creating, setCreating] = useState(false);
-
-  const createInvite = useCreateInvitation({
-    mutation: {
-      onSuccess(data) {
-        setLastInviteUrl(data.acceptUrl ?? null);
-        setForm({ email: "", role: defaultRole });
-        queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
-        toast({ title: "Invitation created", description: "Share the link with your teammate" });
-      },
-      onError(err) {
-        toast({
-          title: "Could not invite",
-          description: (err as { data?: { error?: string } })?.data?.error ?? "Try again",
-          variant: "destructive",
-        });
-      },
-    },
-  });
 
   const revokeInvite = useRevokeInvitation({
     mutation: {
@@ -110,7 +89,10 @@ export default function MembersPage() {
         toast({ title: "Could not create member", description: data.error ?? "Try again", variant: "destructive" });
         return;
       }
-      toast({ title: "Member created", description: `${createForm.name} has been added as ${ROLE_DISPLAY[createForm.role] ?? createForm.role}` });
+      toast({
+        title: "Member created",
+        description: `Login: ${createForm.email}  ·  Password: ${createForm.password}`,
+      });
       setCreateForm({ name: "", email: "", password: "", role: defaultRole });
       queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
     } catch {
@@ -136,9 +118,31 @@ export default function MembersPage() {
     },
   });
 
+  async function handleResetPassword(userId: string | number, name: string) {
+    const newPassword = window.prompt(`Set a new password for ${name} (min 8 characters):`);
+    if (!newPassword) return;
+    if (newPassword.length < 8) {
+      toast({ title: "Password must be at least 8 characters", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiBase()}/api/organizations/current/members/${userId}/password`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Could not reset password", description: data.error ?? "Try again", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Password reset", description: `New password for ${name}: ${newPassword}` });
+    } catch {
+      toast({ title: "Could not reset password", variant: "destructive" });
+    }
+  }
+
   const pendingInvites = invites.filter((i) => !i.acceptedAt);
-  const teamCount = members.length + pendingInvites.length;
-  const atLimit = teamCount >= limits.members;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
@@ -151,46 +155,6 @@ export default function MembersPage() {
           <p className="text-sm text-muted-foreground">{members.length} active · {pendingInvites.length} pending · limit {limits.members}</p>
         </div>
       </div>
-
-      {canManage && (
-        <div className="bg-card border border-card-border rounded-xl p-6">
-          <h2 className="font-semibold mb-4">Invite a teammate</h2>
-          {atLimit && (
-            <p className="text-xs text-amber-500 mb-3">You've reached your free-tier limit of {limits.members} seats.</p>
-          )}
-          <form onSubmit={(e) => { e.preventDefault(); createInvite.mutate({ data: { email: form.email, role: form.role as any } }); }} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="invEmail">Email</Label>
-              <Input id="invEmail" type="email" required value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {INVITE_ROLE_KEYS.map((k) => <SelectItem key={k} value={k}>{ROLE_DISPLAY[k] ?? k}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button type="submit" disabled={createInvite.isPending || atLimit} className="w-full sm:w-auto">
-                {createInvite.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Send invite
-              </Button>
-            </div>
-          </form>
-          {lastInviteUrl && (
-            <div className="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-center gap-2">
-              <Mail className="h-4 w-4 text-primary shrink-0" />
-              <code className="text-xs flex-1 truncate">{lastInviteUrl}</code>
-              <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(lastInviteUrl); toast({ title: "Copied" }); }}>
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
 
       {canManage && (
         <div className="bg-card border border-card-border rounded-xl p-6">
@@ -211,7 +175,7 @@ export default function MembersPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="cPassword">Password</Label>
-              <Input id="cPassword" type="password" required minLength={8} value={createForm.password}
+              <Input id="cPassword" type="password" required minLength={8} autoComplete="new-password" value={createForm.password}
                 onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))} placeholder="Min 8 characters" />
             </div>
             <div className="space-y-1.5">
@@ -255,6 +219,9 @@ export default function MembersPage() {
                       {MEMBER_ROLE_KEYS.map((k) => <SelectItem key={k} value={k}>{ROLE_DISPLAY[k] ?? k}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <Button size="sm" variant="ghost" title="Reset password" onClick={() => handleResetPassword(m.userId, m.name ?? m.email)}>
+                    <KeyRound className="h-3.5 w-3.5" />
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => { if (confirm("Remove this member?")) removeMember.mutate({ userId: m.userId }); }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>

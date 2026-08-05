@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { ShoppingCart } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
+import DailyReportsPanel from "@/components/daily-reports-panel";
 
 export default function SalesOrdersPage() {
   const { data: ordersRaw } = useListSalesOrders();
@@ -66,6 +67,8 @@ export default function SalesOrdersPage() {
           </div>
         </>
       )}
+
+      <DailyReportsPanel title="Daily Reports" />
     </div>
   );
 }

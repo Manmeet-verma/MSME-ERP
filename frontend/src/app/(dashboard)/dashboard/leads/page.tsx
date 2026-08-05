@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Download, Trash2, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { Plus, Search, Download, Trash2, ChevronLeft, ChevronRight, Pencil, Users, TrendingUp, Flame, Trophy, XCircle, Percent, Banknote } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
 import {
@@ -104,6 +104,46 @@ function useLeadsQuery(params: { search: string; priority: string; status: strin
   });
 }
 
+interface LeadSummary {
+  total: number;
+  newToday: number;
+  won: number;
+  lost: number;
+  conversionRate: number;
+  wonValue: number;
+  statusCounts: Record<string, number>;
+  priorityCounts: Record<string, number>;
+}
+
+function useLeadSummary() {
+  return useQuery<LeadSummary>({
+    queryKey: ["/api/leads/summary"],
+    queryFn: () => customFetch<LeadSummary>("/api/leads/summary"),
+    staleTime: 30_000,
+  });
+}
+
+function KpiCard({ icon: Icon, label, value, tint, sub }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  tint: string;
+  sub?: string;
+}) {
+  return (
+    <div className="bg-card border border-card-border rounded-xl p-4 flex items-center gap-3">
+      <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${tint}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground truncate">{label}</p>
+        <p className="text-xl font-bold text-foreground leading-tight">{value}</p>
+        {sub && <p className="text-[11px] text-muted-foreground truncate">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -129,15 +169,21 @@ export default function LeadsPage() {
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
 
   const { data, isLoading } = useLeadsQuery({ search: debouncedSearch, priority: priorityFilter, status: statusFilter, page });
+  const { data: summary } = useLeadSummary();
   const paged = Array.isArray(data?.data) ? data.data : [];
   const totalPages = data?.totalPages ?? 1;
   const total = data?.total ?? 0;
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["/api/leads"] });
+    qc.invalidateQueries({ queryKey: ["/api/leads/summary"] });
+  };
 
   const createMut = useCreateLead({
     mutation: {
       onSuccess(leadData) {
         toast({ title: "Lead created" });
-        qc.invalidateQueries({ queryKey: ["/api/leads"] });
+        invalidateAll();
         setOpen(false);
         setForm(emptyForm);
         const payload = {
@@ -161,7 +207,7 @@ export default function LeadsPage() {
     mutation: {
       onSuccess() {
         toast({ title: "Lead deleted" });
-        qc.invalidateQueries({ queryKey: ["/api/leads"] });
+        invalidateAll();
       },
     },
   });
@@ -169,7 +215,7 @@ export default function LeadsPage() {
     mutation: {
       onSuccess(d) {
         toast({ title: d.message ?? `Imported ${d.imported} leads` });
-        qc.invalidateQueries({ queryKey: ["/api/leads"] });
+        invalidateAll();
       },
       onError(err: unknown) {
         const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
@@ -182,7 +228,7 @@ export default function LeadsPage() {
     mutation: {
       onSuccess() {
         toast({ title: "Lead updated" });
-        qc.invalidateQueries({ queryKey: ["/api/leads"] });
+        invalidateAll();
         setEditOpen(false);
         setEditingLead(null);
       },
@@ -269,8 +315,8 @@ export default function LeadsPage() {
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold">Leads</h1>
-          <p className="text-sm text-muted-foreground">{total} leads</p>
+          <h1 className="text-xl font-bold">Lead & CRM</h1>
+          <p className="text-sm text-muted-foreground">Track, qualify and convert your leads into clients</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
@@ -280,6 +326,15 @@ export default function LeadsPage() {
             <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Lead</span><span className="sm:hidden">New</span>
           </Button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+        <KpiCard icon={Users} label="Total Leads" value={summary ? String(summary.total) : "–"} tint="bg-primary/15 text-primary" sub={summary ? `${summary.statusCounts["qualified"] ?? 0} qualified` : undefined} />
+        <KpiCard icon={TrendingUp} label="New Today" value={summary ? String(summary.newToday) : "–"} tint="bg-cyan-500/15 text-cyan-400" sub="added today" />
+        <KpiCard icon={Flame} label="Hot Leads" value={summary ? String(summary.priorityCounts["hot"] ?? 0) : "–"} tint="bg-red-500/15 text-red-400" sub="high priority" />
+        <KpiCard icon={Trophy} label="Won" value={summary ? String(summary.won) : "–"} tint="bg-emerald-500/15 text-emerald-400" sub={summary ? `${formatCurrency(summary.wonValue)} pipeline` : undefined} />
+        <KpiCard icon={XCircle} label="Lost" value={summary ? String(summary.lost) : "–"} tint="bg-gray-500/15 text-gray-400" sub="closed" />
+        <KpiCard icon={Percent} label="Conversion" value={summary ? `${summary.conversionRate}%` : "–"} tint="bg-orange-500/15 text-orange-400" sub="won / total" />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

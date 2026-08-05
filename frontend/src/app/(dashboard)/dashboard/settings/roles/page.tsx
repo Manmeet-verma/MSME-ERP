@@ -179,7 +179,7 @@ export default function RolesPage() {
                   placeholder="e.g. Junior Sales Executive"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  A key will be auto-generated: {formName ? formName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/(^_|_$)/g, "") : "role_name"}
+                  A key will be auto-generated: {(formName ? formName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/(^_|_$)/g, "") : "role_name") || "role"}
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -264,7 +264,7 @@ export default function RolesPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          {!r.isSystem && isOwner && (
+                          {isOwner && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -289,10 +289,10 @@ export default function RolesPage() {
       <div className="bg-card border border-card-border rounded-xl p-4">
         <h3 className="font-semibold text-sm mb-2">About Roles</h3>
         <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-          <li><strong>System roles</strong> (Owner, Admin, Sales, Sales Executive, Viewer) cannot be deleted but can be renamed by the owner.</li>
+          <li><strong>System roles</strong> (Owner, Admin, Sales, Sales Executive, Viewer) can be renamed or deleted by the owner as long as no members use them.</li>
           <li><strong>Custom roles</strong> can be created, edited, and deleted by the owner.</li>
           <li>When creating a member, all roles (system + custom) appear in the role dropdown.</li>
-          <li>Members using a custom role cannot have that role deleted until reassigned.</li>
+          <li>A role cannot be deleted until it is reassigned from all members currently using it.</li>
         </ul>
       </div>
     </div>

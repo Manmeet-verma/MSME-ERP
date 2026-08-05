@@ -14,26 +14,27 @@ const DEFAULT_ROLES = [
   { key: "viewer", name: "Viewer", description: "Read-only access", isSystem: true, isDefault: false },
 ];
 
-// Seed default roles for an org if none exist
+// Seed default roles for an org if any are missing
 async function ensureDefaultRoles(orgId: string) {
-  const snap = await db().collection("roles").where("organizationId", "==", orgId).limit(1).get();
-  if (snap.empty) {
-    const batch = db().batch();
-    for (const r of DEFAULT_ROLES) {
-      const ref = db().collection("roles").doc();
-      batch.set(ref, {
-        organizationId: orgId,
-        key: r.key,
-        name: r.name,
-        description: r.description,
-        isSystem: r.isSystem,
-        isDefault: r.isDefault,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-    }
-    await batch.commit();
+  const snap = await db().collection("roles").where("organizationId", "==", orgId).get();
+  const existingKeys = new Set(snap.docs.map((d) => d.data().key));
+  const missing = DEFAULT_ROLES.filter((r) => !existingKeys.has(r.key));
+  if (missing.length === 0) return;
+  const batch = db().batch();
+  for (const r of missing) {
+    const ref = db().collection("roles").doc();
+    batch.set(ref, {
+      organizationId: orgId,
+      key: r.key,
+      name: r.name,
+      description: r.description,
+      isSystem: r.isSystem,
+      isDefault: r.isDefault,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   }
+  await batch.commit();
 }
 
 // List all roles for the organization
@@ -71,21 +72,39 @@ rolesRouter.post("/roles", requireAuth, requireAdmin, async (req, res) => {
       return;
     }
     // Generate key from name
-    const key = trimmedName
+    const slug = trimmedName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/(^_|_$)/g, "");
 
-    // Check for duplicate key
-    const existingSnap = await db()
+    // Check for duplicate name
+    const existingNameSnap = await db()
       .collection("roles")
       .where("organizationId", "==", orgId)
-      .where("key", "==", key)
+      .where("name", "==", trimmedName)
       .limit(1)
       .get();
-    if (!existingSnap.empty) {
+    if (!existingNameSnap.empty) {
       res.status(409).json({ error: `A role with the name "${trimmedName}" already exists` });
       return;
+    }
+
+    // Derive a unique key. Non-ASCII names slugify to an empty string, and
+    // some names collide with existing keys (e.g. system roles), so fall back
+    // to a base key and suffix until it is unique.
+    const baseKey = slug || "role";
+    let key = baseKey;
+    let counter = 2;
+    for (;;) {
+      const existingKeySnap = await db()
+        .collection("roles")
+        .where("organizationId", "==", orgId)
+        .where("key", "==", key)
+        .limit(1)
+        .get();
+      if (existingKeySnap.empty) break;
+      key = `${baseKey}_${counter}`;
+      counter += 1;
     }
 
     const roleData = {
@@ -176,19 +195,17 @@ rolesRouter.delete("/roles/:id", requireAuth, requireOwner, async (req, res) => 
       res.status(403).json({ error: "Access denied" });
       return;
     }
-    if (data.isSystem) {
-      res.status(400).json({ error: "Cannot delete a system role" });
-      return;
-    }
 
-    // Check if any member uses this role
+    // Check if any member uses this role. The owner role is exempt because
+    // access is granted via the membership record's role field, not the
+    // roles collection — deleting the doc is safe and won't revoke access.
     const memberSnap = await db()
       .collection("organization_members")
       .where("organizationId", "==", orgId)
       .where("role", "==", data.key)
       .limit(1)
       .get();
-    if (!memberSnap.empty) {
+    if (!memberSnap.empty && data.key !== "owner") {
       res.status(400).json({ error: `Cannot delete "${data.name}" — ${memberSnap.size} member(s) currently have this role. Reassign them first.` });
       return;
     }

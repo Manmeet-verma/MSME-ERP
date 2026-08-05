@@ -9,6 +9,25 @@ const db = () => getDb();
 
 const orgRouter = Router();
 
+// Validate that a role key exists for this organization. The "owner" role is
+// always accepted when allowOwner is true (it may not exist as a document if
+// the owner deleted it — access comes from the membership record).
+async function isValidRoleKey(
+  orgId: string,
+  role: unknown,
+  allowOwner = false,
+): Promise<boolean> {
+  if (typeof role !== "string" || role.length === 0) return false;
+  if (role === "owner") return allowOwner;
+  const snap = await db()
+    .collection("roles")
+    .where("organizationId", "==", orgId)
+    .where("key", "==", role)
+    .limit(1)
+    .get();
+  return !snap.empty;
+}
+
 const DEFAULT_LIMITS = {
   clients: 100,
   products: 100,
@@ -191,7 +210,7 @@ orgRouter.post("/organizations/current/members", requireAuth, requireAdmin, asyn
       res.status(400).json({ error: "name, email, and password are required" });
       return;
     }
-    if (!role || !["admin", "sales", "sales_executive", "viewer"].includes(role)) {
+    if (!role || !(await isValidRoleKey(req.user!.organizationId, role))) {
       res.status(400).json({ error: "Invalid role" });
       return;
     }
@@ -292,7 +311,7 @@ orgRouter.patch(
   async (req, res) => {
     const { role } = req.body ?? {};
     const targetUserId = req.params.userId;
-    if (!role || !["owner", "admin", "sales", "sales_executive", "viewer"].includes(role)) {
+    if (!role || !(await isValidRoleKey(req.user!.organizationId, role, true))) {
       res.status(400).json({ error: "Invalid role" });
       return;
     }
@@ -321,6 +340,34 @@ orgRouter.patch(
     }
     await db().collection("organization_members").doc(existingDoc.id).update({ role });
     res.json({ id: existingDoc.id, userId: targetUserId, role });
+  },
+);
+
+// Reset a member's password (owner/admin only)
+orgRouter.patch(
+  "/organizations/current/members/:userId/password",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const { password } = req.body ?? {};
+    const targetUserId = String(req.params.userId);
+    if (typeof password !== "string" || password.length < 8) {
+      res.status(400).json({ error: "Password must be at least 8 characters" });
+      return;
+    }
+    const targetSnap = await db()
+      .collection("organization_members")
+      .where("organizationId", "==", req.user!.organizationId)
+      .where("userId", "==", targetUserId)
+      .get();
+    if (targetSnap.empty) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await db().collection("users").doc(targetUserId).update({ passwordHash });
+    await logAction(req, "UPDATE", "member", targetUserId, "Reset member password");
+    res.json({ message: "Password updated" });
   },
 );
 

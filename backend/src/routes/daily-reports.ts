@@ -7,30 +7,38 @@ const db = () => getDb();
 const dailyReportsRouter = Router();
 
 // Get daily reports (owner/admin see all, sales executive sees own)
+// Supports ?date=YYYY-MM-DD for a single day or ?from=YYYY-MM-DD&to=YYYY-MM-DD for a range.
 dailyReportsRouter.get("/daily-reports", requireAuth, async (req, res) => {
   try {
     const orgId = req.user!.organizationId;
     const role = req.user!.role;
     const userId = req.user!.userId;
-    const { date, userId: filterUserId } = req.query;
+    const { date, from, to, userId: filterUserId } = req.query;
 
-    let query: FirebaseFirestore.Query = db()
+    // Single-field query on organizationId (auto-indexed) to avoid requiring
+    // a Firestore composite index for the date/userId ordering.
+    const snap = await db()
       .collection("dailyReports")
-      .where("organizationId", "==", orgId);
+      .where("organizationId", "==", orgId)
+      .get();
+
+    let reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     // Sales executives can only see their own reports
     if (role === "sales_executive" || role === "sales" || role === "viewer") {
-      query = query.where("userId", "==", userId);
+      reports = reports.filter((r: any) => r.userId === userId);
     } else if (filterUserId && typeof filterUserId === "string") {
-      query = query.where("userId", "==", filterUserId);
+      reports = reports.filter((r: any) => r.userId === filterUserId);
     }
 
     if (date && typeof date === "string") {
-      query = query.where("date", "==", date);
+      reports = reports.filter((r: any) => r.date === date);
+    } else if (from && typeof from === "string" && to && typeof to === "string") {
+      reports = reports.filter((r: any) => r.date >= from && r.date <= to);
     }
 
-    const snap = await query.orderBy("date", "desc").limit(100).get();
-    const reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    reports.sort((a: any, b: any) => (b.date ?? "").localeCompare(a.date ?? ""));
+    reports = reports.slice(0, 100);
     res.json(reports);
   } catch (err) {
     console.error("Failed to fetch daily reports:", err);
@@ -84,13 +92,15 @@ dailyReportsRouter.post("/daily-reports", requireAuth, async (req, res) => {
     }
 
     // Check if report already exists for this user+org+date
+    // Single-field query to avoid requiring a Firestore composite index,
+    // then filter for the exact user+date in memory.
     const existingSnap = await db()
       .collection("dailyReports")
       .where("organizationId", "==", orgId)
-      .where("userId", "==", userId)
-      .where("date", "==", date)
-      .limit(1)
       .get();
+    const existingDoc = existingSnap.docs.find(
+      (d) => d.data().userId === userId && d.data().date === date,
+    );
 
     const reportData = {
       organizationId: orgId,
@@ -119,9 +129,9 @@ dailyReportsRouter.post("/daily-reports", requireAuth, async (req, res) => {
 
     let reportId: string;
 
-    if (!existingSnap.empty) {
+    if (existingDoc) {
       // Update existing
-      reportId = existingSnap.docs[0].id;
+      reportId = existingDoc.id;
       await db().collection("dailyReports").doc(reportId).update(reportData);
       await logAction(req, "UPDATE", "dailyReport", reportId, `Updated report for ${date}`);
     } else {
@@ -192,24 +202,42 @@ dailyReportsRouter.delete("/daily-reports/:id", requireAuth, async (req, res) =>
   }
 });
 
-// Get daily report summary for owner dashboard (all team reports for a date)
+// Get daily report summary for dashboards (all team reports for a date or date range)
+// Supports ?date=YYYY-MM-DD or ?from=YYYY-MM-DD&to=YYYY-MM-DD.
+// Sales executives see only their own reports.
 dailyReportsRouter.get("/daily-reports-summary", requireAuth, async (req, res) => {
   try {
     const orgId = req.user!.organizationId;
-    const { date } = req.query;
+    const role = req.user!.role;
+    const userId = req.user!.userId;
+    const { date, from, to, userId: filterUserId } = req.query;
 
-    if (!date || typeof date !== "string") {
-      res.status(400).json({ error: "date query param required" });
+    if (!date && !(from && to)) {
+      res.status(400).json({ error: "date or from+to query params required" });
       return;
     }
 
+    // Single-field query on organizationId (auto-indexed) to avoid requiring
+    // a Firestore composite index for org+date filtering.
     const snap = await db()
       .collection("dailyReports")
       .where("organizationId", "==", orgId)
-      .where("date", "==", date)
       .get();
 
-    const reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    let reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Sales executives can only see their own reports
+    if (role === "sales_executive" || role === "sales" || role === "viewer") {
+      reports = reports.filter((r: any) => r.userId === userId);
+    } else if (filterUserId && typeof filterUserId === "string") {
+      reports = reports.filter((r: any) => r.userId === filterUserId);
+    }
+
+    if (date && typeof date === "string") {
+      reports = reports.filter((r: any) => r.date === date);
+    } else if (from && typeof from === "string" && to && typeof to === "string") {
+      reports = reports.filter((r: any) => r.date >= from && r.date <= to);
+    }
 
     // Get user names
     const userIds = [...new Set(reports.map((r: any) => r.userId))];
