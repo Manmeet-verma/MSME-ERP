@@ -19,13 +19,13 @@ let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
 /**
- * Returns the effective base URL for API calls. Returns null in all
- * environments so that requests stay same-origin and are proxied by
- * the Next.js rewrite in next.config.js to the backend specified by
- * API_BACKEND_URL.
+ * Returns the effective base URL for API calls, if one has been
+ * configured via setBaseUrl. When null, requests stay same-origin and
+ * are proxied by the Next.js rewrite in next.config.js to the backend
+ * specified by API_BACKEND_URL.
  */
 function getEffectiveBaseUrl(): string | null {
-  return null;
+  return _baseUrl;
 }
 
 /**

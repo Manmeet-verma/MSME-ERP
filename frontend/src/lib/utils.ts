@@ -2,12 +2,13 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /**
- * Returns the API base URL. In all environments this returns "" so that
- * requests stay same-origin and are proxied by the Next.js rewrite in
+ * Returns the API base URL. When NEXT_PUBLIC_API_URL is set (deployed
+ * environments) requests go directly to the backend; otherwise requests
+ * stay same-origin and are proxied by the Next.js rewrite in
  * next.config.js to the backend specified by API_BACKEND_URL.
  */
 export function getApiBase(): string {
-  return "";
+  return process.env.NEXT_PUBLIC_API_URL || "";
 }
 
 export function cn(...inputs: ClassValue[]) {
