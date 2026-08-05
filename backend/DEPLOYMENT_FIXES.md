@@ -69,6 +69,23 @@ try {
 app.use("/api/uploads", express.static(process.env.VERCEL ? "/tmp/uploads" : "uploads", { maxAge: "30d" }));
 ```
 
+## 6. `FUNCTION_INVOCATION_FAILED` — every request crashes on Vercel (no CORS headers)
+
+**Error:** Browser shows CORS "No 'Access-Control-Allow-Origin' header" on login. Probing the deployed function showed `FUNCTION_INVOCATION_FAILED` for every request, including `GET /api/health`.
+
+**Root cause:** npm workspaces hoist dependencies to the repo-root `node_modules`. The Vercel project root is `backend/` and `outputDirectory` is `"."`, so the deployed function only carries `backend/node_modules` (empty) — top-level `require("express")`, `require("firebase-admin/app")`, etc. failed at module load, crashing the function before any CORS middleware ran.
+
+**Fix (in `build.mjs`):** Made the esbuild CJS bundle fully self-contained:
+- The `externalizeMissingPlugin` previously marked *every* bare import as external. It now externalizes only specifiers Node cannot resolve.
+- The `external` list was reduced to native/binary packages that are never imported by the app (plus the pino transport chain, which is never loaded on Vercel because `src/lib/logger.ts` skips transports when `VERCEL` is set).
+- `api/index.cjs` now inlines express, firebase-admin, etc. (~19 MB single file) and runs with no `node_modules` present.
+
+Verified by running the bundle in an isolated empty directory: `/api/health` 200, preflight 204 with CORS headers, `/api/auth/login` 200.
+
+## 7. CORS `*` + `Access-Control-Allow-Credentials: true` is invalid
+
+**Fix (in `src/app.ts`):** The CORS middleware now echoes the request `Origin` (and only sends `Access-Control-Allow-Credentials` when echoing a concrete origin) instead of sending `*` with credentials, which browsers reject. Static CORS headers were removed from `backend/vercel.json` to avoid duplicate `Access-Control-Allow-Origin` headers between the edge config and the function.
+
 ---
 
 ## Summary of touched files
@@ -77,10 +94,10 @@ app.use("/api/uploads", express.static(process.env.VERCEL ? "/tmp/uploads" : "up
 |---|---|
 | `src/lib/logger.ts` | Skip `pino-pretty` when `VERCEL` env var is set |
 | `src/routes/uploads.ts` | Use `/tmp/uploads` on Vercel; wrap `mkdirSync` in try/catch |
-| `src/app.ts` | Static file path switches to `/tmp/uploads` on Vercel |
-| `build.mjs` | Builds self-contained CJS bundle to `api/index.cjs` |
+| `src/app.ts` | Static file path switches to `/tmp/uploads` on Vercel; CORS echoes Origin |
+| `build.mjs` | Builds self-contained CJS bundle to `api/index.cjs` (no runtime node_modules needed) |
 | `api/index.cjs` | Committed to git — the Vercel serverless function entry point |
-| `vercel.json` | `builds` points to `api/index.cjs`; `routes` rewrites all traffic there |
+| `vercel.json` | `builds` points to `api/index.cjs`; `routes` rewrites all traffic there; static CORS headers removed |
 
 ---
 

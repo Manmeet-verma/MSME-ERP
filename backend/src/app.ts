@@ -5,10 +5,18 @@ import { getFirebaseInitError } from "./lib/firebase";
 
 const app: Express = express();
 
-// CORS — must be FIRST so it runs even if later middleware crashes
+// CORS — must be FIRST so it runs even if later middleware crashes.
+// The app authenticates via Bearer tokens (no cookies), so we echo the
+// request Origin and only send credentials headers when echoing a concrete
+// origin (wildcard + credentials is rejected by browsers).
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Credentials", "true");
+  const origin = req.headers.origin;
+  const allowOrigin = origin || "*";
+  res.header("Access-Control-Allow-Origin", allowOrigin);
+  if (origin) {
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Vary", "Origin");
+  }
   res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,Accept,Origin");
   res.header("Access-Control-Max-Age", "86400");
@@ -91,8 +99,9 @@ app.all("/api/*path", (req: Request, res: Response) => {
 // Global error handler — last resort, prevents crashes
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("[unhandled]", err);
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Credentials", "true");
+  const origin = _req.headers.origin;
+  res.header("Access-Control-Allow-Origin", origin || "*");
+  if (origin) res.header("Access-Control-Allow-Credentials", "true");
   res.status(500).json({ error: "Internal server error" });
 });
 

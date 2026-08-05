@@ -10,17 +10,16 @@ globalThis.require = createRequire(import.meta.url);
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
 const external = [
+  // Native / binary / platform-specific packages that cannot be bundled and
+  // are never imported by this app's source. They stay as require() calls.
   "*.node",
   "sharp",
   "better-sqlite3",
   "sqlite3",
   "canvas",
-  "bcrypt",
   "argon2",
   "fsevents",
   "re2",
-  "farmhash",
-  "xxhash-addon",
   "bufferutil",
   "utf-8-validate",
   "ssh2",
@@ -31,30 +30,11 @@ const external = [
   "pg-native",
   "oracledb",
   "mongodb-client-encryption",
-  "nodemailer",
-  "handlebars",
-  "knex",
-  "typeorm",
-  "protobufjs",
   "onnxruntime-node",
   "@tensorflow/*",
   "@prisma/client",
   "@mikro-orm/*",
-  "@grpc/*",
   "@swc/*",
-  "@aws-sdk/*",
-  "@azure/*",
-  "@opentelemetry/*",
-  "@google-cloud/*",
-  "@google/*",
-  "googleapis",
-  "firebase-admin",
-  "firebase-admin/app",
-  "firebase-admin/firestore",
-  "firebase-admin/auth",
-  "firebase",
-  "firebase/app",
-  "firebase/firestore",
   "@parcel/watcher",
   "@sentry/profiling-node",
   "@tree-sitter/*",
@@ -64,7 +44,6 @@ const external = [
   "ffi-napi",
   "grpc",
   "hiredis",
-  "kerberos",
   "leveldown",
   "miniflare",
   "mysql2",
@@ -88,9 +67,13 @@ const external = [
   "puppeteer",
   "puppeteer-core",
   "electron",
-  "twilio",
-  "@anthropic-ai/sdk",
-  "pino",
+  "nodemailer",
+  "handlebars",
+  "knex",
+  "typeorm",
+  // pino transport chain: only loaded when a transport is configured,
+  // which never happens on Vercel (see src/lib/logger.ts). Kept external
+  // because transports are resolved via dynamic require() at runtime.
   "pino-pretty",
   "thread-stream",
   "sonic-boom",
@@ -98,8 +81,10 @@ const external = [
   "on-exit-leak-free",
 ];
 
-// Externalize any bare specifier that esbuild cannot resolve,
-// but only when imported from within a bundled file (not entry points).
+// Externalize only bare specifiers that Node cannot resolve (so esbuild
+// bundles everything else into the single-file serverless bundle). This
+// makes api/index.cjs self-contained and independent of node_modules at
+// runtime on Vercel.
 const externalizeMissingPlugin = {
   name: "externalize-missing",
   setup(build) {
@@ -108,7 +93,12 @@ const externalizeMissingPlugin = {
       if (!args.importer) return null;
       // Don't externalize relative workspace imports
       if (args.path.startsWith("@workspace/")) return null;
-      return { path: args.path, external: true };
+      try {
+        createRequire(args.importer).resolve(args.path);
+        return null; // resolvable via node — let esbuild bundle it
+      } catch {
+        return { path: args.path, external: true };
+      }
     });
   },
 };
