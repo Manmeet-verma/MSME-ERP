@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getApiBase } from "@/lib/utils";
 import { getToken } from "@/lib/auth";
 import { formatCurrency } from "@/lib/format";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import DateRangeFilter from "@/components/date-range-filter";
+import { todayStr, formatDateLabel } from "@/lib/dates";
 import {
   ClipboardCheck,
   CalendarRange,
@@ -16,37 +16,6 @@ import {
   ShoppingCart,
   BellRing,
 } from "lucide-react";
-
-function todayStr(): string {
-  const d = new Date();
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
-}
-
-function addDays(base: Date, days: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function toLocalStr(d: Date): string {
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
-}
-
-function weekRange(): { from: string; to: string } {
-  const today = new Date();
-  const day = today.getDay();
-  const diffToMonday = (day === 0 ? 7 : day) - 1;
-  const monday = addDays(today, -diffToMonday);
-  return { from: toLocalStr(monday), to: todayStr() };
-}
-
-function monthRange(): { from: string; to: string } {
-  const today = new Date();
-  const first = new Date(today.getFullYear(), today.getMonth(), 1);
-  return { from: toLocalStr(first), to: todayStr() };
-}
 
 interface CrmChecklist {
   callsUpdated: boolean;
@@ -81,22 +50,33 @@ interface DailyReportRow {
   status?: string;
 }
 
-const PRESETS = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "This Week" },
-  { key: "month", label: "This Month" },
-];
-
 export default function DailyReportsPanel({
   title = "Daily Reports",
+  from: fromProp,
+  to: toProp,
+  onRangeChange,
 }: {
   title?: string;
+  from?: string;
+  to?: string;
+  onRangeChange?: (from: string, to: string) => void;
 }) {
-  const [from, setFrom] = useState<string>(todayStr());
-  const [to, setTo] = useState<string>(todayStr());
+  const [internalFrom, setInternalFrom] = useState<string>(todayStr());
+  const [internalTo, setInternalTo] = useState<string>(todayStr());
+  const from = fromProp ?? internalFrom;
+  const to = toProp ?? internalTo;
   const [rows, setRows] = useState<DailyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  function setRange(f: string, t: string) {
+    if (onRangeChange) {
+      onRangeChange(f, t);
+    } else {
+      setInternalFrom(f);
+      setInternalTo(t);
+    }
+  }
 
   useEffect(() => {
     if (!from || !to || from > to) return;
@@ -153,21 +133,6 @@ export default function DailyReportsPanel({
     return t;
   }, [rows]);
 
-  function applyPreset(key: string) {
-    if (key === "today") {
-      setFrom(todayStr());
-      setTo(todayStr());
-    } else if (key === "week") {
-      const r = weekRange();
-      setFrom(r.from);
-      setTo(r.to);
-    } else if (key === "month") {
-      const r = monthRange();
-      setFrom(r.from);
-      setTo(r.to);
-    }
-  }
-
   const miniCards = [
     { icon: PhoneCall, label: "Calls", value: String(totals.callsMade), tint: "bg-cyan-500/15 text-cyan-400" },
     { icon: FileText, label: "Quotes", value: String(totals.quotationsSent), tint: "bg-blue-500/15 text-blue-400" },
@@ -184,38 +149,7 @@ export default function DailyReportsPanel({
           <CalendarRange className="h-4 w-4 text-primary" /> {title}
         </h3>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1">
-            {PRESETS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => applyPreset(p.key)}
-                className="px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-            From
-            <Input
-              type="date"
-              value={from}
-              max={to || undefined}
-              onChange={(e) => setFrom(e.target.value)}
-              className="h-8 w-[9.5rem] text-xs"
-            />
-          </label>
-          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-            To
-            <Input
-              type="date"
-              value={to}
-              min={from || undefined}
-              max={todayStr()}
-              onChange={(e) => setTo(e.target.value)}
-              className="h-8 w-[9.5rem] text-xs"
-            />
-          </label>
+          <DateRangeFilter from={from} to={to} onChange={setRange} />
         </div>
       </div>
 
@@ -300,9 +234,4 @@ export default function DailyReportsPanel({
       </div>
     </div>
   );
-}
-
-function formatDateLabel(d: string): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }

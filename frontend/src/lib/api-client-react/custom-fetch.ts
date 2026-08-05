@@ -8,6 +8,8 @@ export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
+import { clearAuth } from "@/lib/auth";
+
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
@@ -420,10 +422,7 @@ export async function customFetch<T = unknown>(
       if (response.status === 401) {
         // Auth failure — clear stale credentials and force login redirect
         try {
-          localStorage.removeItem("saas_token");
-          localStorage.removeItem("saas_user");
-          localStorage.removeItem("saas_org");
-          localStorage.removeItem("saas_role");
+          await clearAuth();
         } catch { /* noop */ }
         if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
           window.location.href = "/login";

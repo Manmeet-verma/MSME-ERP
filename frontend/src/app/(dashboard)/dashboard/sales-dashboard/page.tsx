@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   useGetDashboardWidgets,
@@ -9,6 +10,8 @@ import {
 } from "@workspace/api-client-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import DailyReportsPanel from "@/components/daily-reports-panel";
+import DateRangeFilter from "@/components/date-range-filter";
+import { todayStr, inDateRange, formatDateLabel } from "@/lib/dates";
 import {
   FileText,
   ShoppingCart,
@@ -18,6 +21,7 @@ import {
   Flame,
   AlertTriangle,
   Loader2,
+  CalendarRange,
 } from "lucide-react";
 
 function StatCard({
@@ -119,6 +123,8 @@ function RecentTable({
 }
 
 export default function SalesDashboardPage() {
+  const [from, setFrom] = useState<string>(todayStr());
+  const [to, setTo] = useState<string>(todayStr());
   const { data: widgets, isLoading: widgetsLoading } = useGetDashboardWidgets();
   const { data: quotationsRaw, isLoading: quotesLoading } = useListQuotations();
   const { data: invoicesRaw, isLoading: invoicesLoading } = useListInvoices();
@@ -128,28 +134,38 @@ export default function SalesDashboardPage() {
   const invoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
   const salesOrders = Array.isArray(salesOrdersRaw) ? salesOrdersRaw : [];
 
+  const rangedQuotations = quotations.filter((q: any) =>
+    inDateRange(q.createdAt, from, to),
+  );
+  const rangedInvoices = invoices.filter((i: any) =>
+    inDateRange(i.issueDate ?? i.createdAt, from, to),
+  );
+  const rangedSalesOrders = salesOrders.filter((s: any) =>
+    inDateRange(s.createdAt, from, to),
+  );
+
   const isLoading = widgetsLoading || quotesLoading || invoicesLoading || soLoading;
 
-  const pendingQuotes = quotations.filter(
+  const pendingQuotes = rangedQuotations.filter(
     (q: any) => q.status === "draft" || q.status === "sent",
   );
-  const approvedQuotes = quotations.filter((q: any) => q.status === "approved");
-  const wonQuotes = quotations.filter((q: any) => q.status === "won");
-  const totalQuoteValue = quotations.reduce(
+  const approvedQuotes = rangedQuotations.filter((q: any) => q.status === "approved");
+  const wonQuotes = rangedQuotations.filter((q: any) => q.status === "won");
+  const totalQuoteValue = rangedQuotations.reduce(
     (s: number, q: any) => s + Number(q.total ?? q.grandTotal ?? 0),
     0,
   );
 
-  const unpaidInvoices = invoices.filter(
+  const unpaidInvoices = rangedInvoices.filter(
     (i: any) => i.status !== "paid" && i.status !== "cancelled" && i.status !== "draft",
   );
-  const overdueInvoices = invoices.filter((i: any) => i.status === "overdue");
+  const overdueInvoices = rangedInvoices.filter((i: any) => i.status === "overdue");
   const totalOverdue = overdueInvoices.reduce(
     (s: number, i: any) => s + (Number(i.total) - Number(i.amountPaid ?? 0)),
     0,
   );
 
-  const recentQuotations = quotations
+  const recentQuotations = rangedQuotations
     .slice()
     .sort((a: any, b: any) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
     .slice(0, 8)
@@ -162,7 +178,7 @@ export default function SalesDashboardPage() {
       _id: q.id,
     }));
 
-  const recentInvoices = invoices
+  const recentInvoices = rangedInvoices
     .slice()
     .sort((a: any, b: any) => (b.issueDate ?? b.createdAt ?? "").localeCompare(a.issueDate ?? a.createdAt ?? ""))
     .slice(0, 8)
