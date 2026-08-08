@@ -152,6 +152,7 @@ function SocialAccountsPanel() {
         toast({ title: "Account connected" });
         qc.invalidateQueries({ queryKey: ["/api/social/accounts"] });
       },
+      onError() { toast({ title: "Failed to connect account", variant: "destructive" }); },
     },
   });
   const disconnectMut = useDisconnectSocialAccount({
@@ -160,6 +161,7 @@ function SocialAccountsPanel() {
         toast({ title: "Disconnected" });
         qc.invalidateQueries({ queryKey: ["/api/social/accounts"] });
       },
+      onError() { toast({ title: "Failed to disconnect account", variant: "destructive" }); },
     },
   });
 

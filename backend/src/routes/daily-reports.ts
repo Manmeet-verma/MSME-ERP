@@ -6,6 +6,61 @@ import { logAction } from "../lib/auditLog";
 const db = () => getDb();
 const dailyReportsRouter = Router();
 
+interface CallDetail {
+  customerName: string;
+  phone: string;
+  callType: "inbound" | "outbound";
+  duration: number;
+  outcome: string;
+  notes: string;
+  callDate: string;
+}
+
+interface QuotationDetail {
+  customerName: string;
+  quotationNumber: string;
+  amount: number;
+  products: string;
+  validityDate: string;
+  status: string;
+  notes: string;
+}
+
+interface MeetingDetail {
+  customerName: string;
+  meetingDate: string;
+  type: "video" | "call" | "in-person";
+  agenda: string;
+  attendees: string;
+  notes: string;
+}
+
+interface OrderDetail {
+  customerName: string;
+  orderNumber: string;
+  amount: number;
+  products: string;
+  status: string;
+  notes: string;
+}
+
+interface PaymentFollowupDetail {
+  customerName: string;
+  invoiceNumber: string;
+  amountDue: number;
+  followupDate: string;
+  status: string;
+  notes: string;
+}
+
+interface AfterSalesFollowupDetail {
+  customerName: string;
+  orderReference: string;
+  type: "satisfaction" | "check-in" | "support";
+  notes: string;
+  followupDate: string;
+}
+
 // Get daily reports (owner/admin see all, sales executive sees own)
 // Supports ?date=YYYY-MM-DD for a single day or ?from=YYYY-MM-DD&to=YYYY-MM-DD for a range.
 dailyReportsRouter.get("/daily-reports", requireAuth, async (req, res) => {
@@ -84,6 +139,12 @@ dailyReportsRouter.post("/daily-reports", requireAuth, async (req, res) => {
       issuesSupport,
       tomorrowPriority,
       status,
+      callDetails,
+      quotationDetails,
+      meetingDetails,
+      orderDetails,
+      paymentFollowupDetails,
+      afterSalesFollowupDetails,
     } = req.body ?? {};
 
     if (!date) {
@@ -124,6 +185,12 @@ dailyReportsRouter.post("/daily-reports", requireAuth, async (req, res) => {
       issuesSupport: issuesSupport ?? "",
       tomorrowPriority: tomorrowPriority ?? "",
       status: status ?? "draft",
+      callDetails: Array.isArray(callDetails) ? callDetails : [],
+      quotationDetails: Array.isArray(quotationDetails) ? quotationDetails : [],
+      meetingDetails: Array.isArray(meetingDetails) ? meetingDetails : [],
+      orderDetails: Array.isArray(orderDetails) ? orderDetails : [],
+      paymentFollowupDetails: Array.isArray(paymentFollowupDetails) ? paymentFollowupDetails : [],
+      afterSalesFollowupDetails: Array.isArray(afterSalesFollowupDetails) ? afterSalesFollowupDetails : [],
       updatedAt: new Date().toISOString(),
     };
 
@@ -266,6 +333,12 @@ dailyReportsRouter.get("/daily-reports-summary", requireAuth, async (req, res) =
       pendingFollowups: r.pendingFollowups ?? "",
       issuesSupport: r.issuesSupport ?? "",
       tomorrowPriority: r.tomorrowPriority ?? "",
+      callDetails: r.callDetails ?? [],
+      quotationDetails: r.quotationDetails ?? [],
+      meetingDetails: r.meetingDetails ?? [],
+      orderDetails: r.orderDetails ?? [],
+      paymentFollowupDetails: r.paymentFollowupDetails ?? [],
+      afterSalesFollowupDetails: r.afterSalesFollowupDetails ?? [],
     }));
 
     res.json(summary);

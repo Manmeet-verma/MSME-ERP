@@ -31,7 +31,13 @@ export default function InvoiceDetailPage() {
   const colReorder = useColumnReorder();
 
   const statusMut = useSetInvoiceStatus({
-    mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/invoices/${id}`] }); } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Invoice status updated" });
+        qc.invalidateQueries({ queryKey: [`/api/invoices/${id}`] });
+      },
+      onError() { toast({ title: "Failed to update status", variant: "destructive" }); },
+    },
   });
   const payMut = useCreatePayment({
     mutation: {
@@ -41,10 +47,17 @@ export default function InvoiceDetailPage() {
         setPayOpen(false);
         setPayForm({ amount: "", method: "bank_transfer", reference: "" });
       },
+      onError() { toast({ title: "Failed to record payment", variant: "destructive" }); },
     },
   });
   const delPayMut = useDeletePayment({
-    mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/invoices/${id}`] }); } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Payment deleted" });
+        qc.invalidateQueries({ queryKey: [`/api/invoices/${id}`] });
+      },
+      onError() { toast({ title: "Failed to delete payment", variant: "destructive" }); },
+    },
   });
 
   if (!inv) return <div className="p-4 sm:p-6">Loading...</div>;

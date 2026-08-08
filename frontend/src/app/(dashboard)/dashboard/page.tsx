@@ -6,7 +6,7 @@ import {
   useGetDashboardSummary, useGetDashboardWidgets, useListMembers, useGetLowStock,
   useGetAiInsights, useAiNlSearch,
 } from "@workspace/api-client-react";
-import { getCurrentOrg } from "@/lib/auth";
+import { getCurrentOrg, getCurrentRole, canSubmitDailyReport } from "@/lib/auth";
 import { getModules, getLimits, MODULE_LABELS, MODULE_DESCRIPTIONS, type ModuleKey } from "@/lib/modules";
 import { formatCurrency } from "@/lib/format";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   FileText, Users, TrendingUp, Megaphone, Boxes, ShoppingCart,
   Briefcase, BookOpen, Share2, ArrowRight, Sparkles, Flame, Phone, Mail,
-  Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse, Search, Lightbulb,
+  Receipt, AlertTriangle, CheckSquare, PackageOpen, Warehouse, Search, Lightbulb, Plus,
 } from "lucide-react";
 import TutorialButton from "@/components/tutorial";
 
@@ -146,8 +146,33 @@ function KpiCard({ icon: Icon, label, value, tint, href }: {
   return href ? <Link href={href}>{card}</Link> : card;
 }
 
+function QuickActionCard({ icon: Icon, label, desc, href }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string; desc: string; href: string;
+}) {
+  return (
+    <Link href={href} className="block">
+      <div className="bg-card border border-card-border rounded-xl p-4 hover:border-primary/50 hover:shadow-lg transition-all h-full">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+            <Icon className="h-4.5 w-4.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">{label}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{desc}</p>
+          </div>
+        </div>
+        <div className="text-xs text-primary flex items-center gap-1">
+          Open <ArrowRight className="h-3 w-3" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
   const org = getCurrentOrg();
+  const role = getCurrentRole();
   const modules = getModules(org);
   const limits = getLimits(org);
   const { data: summary } = useGetDashboardSummary();
@@ -173,6 +198,17 @@ export default function DashboardPage() {
           </div>
           <TutorialButton />
         </div>
+      </div>
+
+      {/* Quick actions - Sales & Quotation */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <QuickActionCard icon={FileText} label="New Quotation" desc="Create a sales quotation" href="/dashboard/quotations/new" />
+        <QuickActionCard icon={Receipt} label="Quotations" desc="All sales & quotation cards" href="/dashboard/quotations" />
+        {modules.leads && <QuickActionCard icon={Users} label="New Lead" desc="Add a new lead" href="/dashboard/leads/new" />}
+        {modules.sales && <QuickActionCard icon={ShoppingCart} label="Sales Orders" desc="View sales orders" href="/dashboard/sales-orders" />}
+        {canSubmitDailyReport(role)
+          ? <QuickActionCard icon={FileText} label="Daily Report" desc="Submit today's report" href="/dashboard/daily-report" />
+          : <QuickActionCard icon={Users} label="Sales Executive" desc="View all daily reports" href="/dashboard/sales-executive-reports" />}
       </div>
 
       {/* AI insights + NL search */}

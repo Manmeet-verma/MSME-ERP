@@ -25,9 +25,12 @@ export default function VendorBillDetailPage() {
   const updateMut = useUpdateVendorBill({
     mutation: {
       onSuccess() {
-        toast({ title: "Updated" });
+        toast({ title: "Payment recorded" });
         qc.invalidateQueries({ queryKey: [`/api/vendor-bills/${id}`] });
         qc.invalidateQueries({ queryKey: ["/api/vendor-bills"] });
+      },
+      onError(err: unknown) {
+        toast({ title: (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to record payment", variant: "destructive" });
       },
     },
   });

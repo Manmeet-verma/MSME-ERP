@@ -70,8 +70,10 @@ export default function MembersPage() {
   const revokeInvite = useRevokeInvitation({
     mutation: {
       onSuccess() {
+        toast({ title: "Invitation revoked" });
         queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
       },
+      onError() { toast({ title: "Failed to revoke invitation", variant: "destructive" }); },
     },
   });
 
@@ -105,16 +107,20 @@ export default function MembersPage() {
   const updateRole = useUpdateMemberRole({
     mutation: {
       onSuccess() {
+        toast({ title: "Role updated" });
         queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
       },
+      onError() { toast({ title: "Failed to update role", variant: "destructive" }); },
     },
   });
 
   const removeMember = useRemoveMember({
     mutation: {
       onSuccess() {
+        toast({ title: "Member removed" });
         queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
       },
+      onError() { toast({ title: "Failed to remove member", variant: "destructive" }); },
     },
   });
 

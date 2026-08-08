@@ -53,6 +53,9 @@ export default function PurchaseOrdersPage() {
         setOpen(false);
         router.push(`/dashboard/dashboard/purchase-orders/${data.id}`);
       },
+      onError(err: unknown) {
+        toast({ title: (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to create purchase order", variant: "destructive" });
+      },
     },
   });
 

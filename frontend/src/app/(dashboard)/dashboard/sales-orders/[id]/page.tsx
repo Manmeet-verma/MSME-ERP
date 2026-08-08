@@ -29,11 +29,13 @@ export default function SalesOrderDetailPage() {
         toast({ title: "Invoice created" });
         router.push(`/dashboard/invoices/${inv.id}`);
       },
+      onError() { toast({ title: "Failed to promote to invoice", variant: "destructive" }); },
     },
   });
   const updateMut = useUpdateSalesOrder({
     mutation: {
       onSuccess() {
+        toast({ title: "Sales order updated" });
         qc.invalidateQueries({ queryKey: getGetSalesOrderQueryKey(id) });
       },
       onError(err: unknown) {

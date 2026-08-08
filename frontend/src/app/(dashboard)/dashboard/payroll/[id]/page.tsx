@@ -19,6 +19,7 @@ async function downloadPayslip(id: number) {
   const res = await fetch(`${getApiBase()}/api/payslips/${id}/pdf`, {
     headers: { Authorization: `Bearer ${getAuthToken() ?? ""}` },
   });
+  if (!res.ok) throw new Error("Download failed");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank");
@@ -37,8 +38,18 @@ export default function PayrollDetailPage() {
         qc.invalidateQueries({ queryKey: [`/api/payroll-runs/${id}`] });
         qc.invalidateQueries({ queryKey: ["/api/payroll-runs"] });
       },
+      onError() { toast({ title: "Failed to mark payroll paid", variant: "destructive" }); },
     },
   });
+
+  async function handleDownloadPayslip(payslipId: number) {
+    try {
+      await downloadPayslip(payslipId);
+      toast({ title: "Payslip downloaded" });
+    } catch {
+      toast({ title: "Payslip download failed", variant: "destructive" });
+    }
+  }
 
   if (isLoading || !run) return <div className="p-6 text-muted-foreground">Loading…</div>;
 
@@ -96,7 +107,7 @@ export default function PayrollDetailPage() {
                 <td className="p-3 text-right text-xs">{formatCurrency(s.otherDeductions)}</td>
                 <td className="p-3 right font-semibold text-primary">{formatCurrency(s.net)}</td>
                 <td className="p-3 text-right">
-                  <button onClick={() => downloadPayslip(s.id)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <button onClick={() => handleDownloadPayslip(s.id)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     <Download className="h-3 w-3" /> Slip
                   </button>
                 </td>

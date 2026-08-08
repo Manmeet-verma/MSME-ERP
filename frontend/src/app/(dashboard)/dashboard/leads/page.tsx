@@ -209,6 +209,7 @@ export default function LeadsPage() {
         toast({ title: "Lead deleted" });
         invalidateAll();
       },
+      onError() { toast({ title: "Failed to delete lead", variant: "destructive" }); },
     },
   });
   const syncMut = useSyncIndiamartLeads({
@@ -245,7 +246,7 @@ export default function LeadsPage() {
         toast({ title: `Client created (ID: ${data.id})` });
         qc.invalidateQueries({ queryKey: ["/api/clients"] });
       },
-      onError() {},
+      onError() { toast({ title: "Client could not be created", variant: "destructive" }); },
     },
   });
 

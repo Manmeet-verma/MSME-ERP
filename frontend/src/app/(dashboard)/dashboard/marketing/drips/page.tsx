@@ -44,14 +44,22 @@ export default function DripsPage() {
         invalidate(); setOpen(false); setForm(emptyForm);
         toast({ title: "Drip sequence created" });
       },
+      onError() { toast({ title: "Failed to create sequence", variant: "destructive" }); },
     },
   });
   const updateMut = useUpdateDripSequence({
-    mutation: { onSuccess() { invalidate(); } },
+    mutation: {
+      onSuccess() {
+        invalidate();
+        toast({ title: "Sequence updated" });
+      },
+      onError() { toast({ title: "Failed to update sequence", variant: "destructive" }); },
+    },
   });
   const enrollMut = useEnrollDripSequence({
     mutation: {
       onSuccess(r) { invalidate(); toast({ title: `Enrolled ${r.enrolled} contacts` }); },
+      onError() { toast({ title: "Failed to enroll contacts", variant: "destructive" }); },
     },
   });
 

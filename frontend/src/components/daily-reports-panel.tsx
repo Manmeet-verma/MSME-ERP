@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getApiBase } from "@/lib/utils";
 import { getToken } from "@/lib/auth";
 import { formatCurrency } from "@/lib/format";
@@ -15,7 +15,11 @@ import {
   CalendarClock,
   ShoppingCart,
   BellRing,
+  Wrench,
 } from "lucide-react";
+import DailyReportDetailModal from "@/components/daily-report-detail-modal";
+import DailyReportExcelModal from "@/components/daily-report-excel-modal";
+import type { MetricKey } from "@/components/daily-report-excel-modal";
 
 interface CrmChecklist {
   callsUpdated: boolean;
@@ -29,6 +33,61 @@ interface OrderRow {
   customer: string;
   amount: number | string;
   status: string;
+}
+
+interface CallDetail {
+  customerName: string;
+  phone: string;
+  callType: "inbound" | "outbound";
+  duration: number;
+  outcome: string;
+  notes: string;
+  callDate: string;
+}
+
+interface QuotationDetail {
+  customerName: string;
+  quotationNumber: string;
+  amount: number;
+  products: string;
+  validityDate: string;
+  status: string;
+  notes: string;
+}
+
+interface MeetingDetail {
+  customerName: string;
+  meetingDate: string;
+  type: "video" | "call" | "in-person";
+  agenda: string;
+  attendees: string;
+  notes: string;
+}
+
+interface OrderDetail {
+  customerName: string;
+  orderNumber: string;
+  amount: number;
+  products: string;
+  status: string;
+  notes: string;
+}
+
+interface PaymentFollowupDetail {
+  customerName: string;
+  invoiceNumber: string;
+  amountDue: number;
+  followupDate: string;
+  status: string;
+  notes: string;
+}
+
+interface AfterSalesFollowupDetail {
+  customerName: string;
+  orderReference: string;
+  type: "satisfaction" | "check-in" | "support";
+  notes: string;
+  followupDate: string;
 }
 
 interface DailyReportRow {
@@ -48,6 +107,12 @@ interface DailyReportRow {
   issuesSupport?: string;
   tomorrowPriority?: string;
   status?: string;
+  callDetails?: CallDetail[];
+  quotationDetails?: QuotationDetail[];
+  meetingDetails?: MeetingDetail[];
+  orderDetails?: OrderDetail[];
+  paymentFollowupDetails?: PaymentFollowupDetail[];
+  afterSalesFollowupDetails?: AfterSalesFollowupDetail[];
 }
 
 export default function DailyReportsPanel({
@@ -68,6 +133,15 @@ export default function DailyReportsPanel({
   const [rows, setRows] = useState<DailyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<DailyReportRow | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [excelMetric, setExcelMetric] = useState<MetricKey | null>(null);
+  const [excelOpen, setExcelOpen] = useState(false);
+
+  function openExcelView(metric: MetricKey) {
+    setExcelMetric(metric);
+    setExcelOpen(true);
+  }
 
   function setRange(f: string, t: string) {
     if (onRangeChange) {
@@ -134,13 +208,18 @@ export default function DailyReportsPanel({
   }, [rows]);
 
   const miniCards = [
-    { icon: PhoneCall, label: "Calls", value: String(totals.callsMade), tint: "bg-cyan-500/15 text-cyan-400" },
-    { icon: FileText, label: "Quotes", value: String(totals.quotationsSent), tint: "bg-blue-500/15 text-blue-400" },
-    { icon: CalendarClock, label: "Meetings", value: String(totals.meetingsScheduled), tint: "bg-primary/15 text-primary" },
-    { icon: ShoppingCart, label: "Orders", value: String(totals.ordersReceived), tint: "bg-emerald-500/15 text-emerald-400" },
-    { icon: ClipboardCheck, label: "Orders Closed", value: formatCurrency(totals.ordersClosedValue), tint: "bg-emerald-500/15 text-emerald-400" },
-    { icon: BellRing, label: "Reminders", value: String(totals.paymentReminders), tint: "bg-orange-500/15 text-orange-400" },
+    { icon: PhoneCall, label: "Calls", value: String(totals.callsMade), tint: "bg-cyan-500/15 text-cyan-400", key: "calls" },
+    { icon: FileText, label: "Quotes", value: String(totals.quotationsSent), tint: "bg-blue-500/15 text-blue-400", key: "quotations" },
+    { icon: CalendarClock, label: "Meetings", value: String(totals.meetingsScheduled), tint: "bg-primary/15 text-primary", key: "meetings" },
+    { icon: ShoppingCart, label: "Orders", value: String(totals.ordersReceived), tint: "bg-emerald-500/15 text-emerald-400", key: "orders" },
+    { icon: ClipboardCheck, label: "Orders Closed", value: formatCurrency(totals.ordersClosedValue), tint: "bg-emerald-500/15 text-emerald-400", key: "ordersClosed" },
+    { icon: BellRing, label: "Reminders", value: String(totals.paymentReminders), tint: "bg-orange-500/15 text-orange-400", key: "payments" },
   ];
+
+  function openReportDetail(report: DailyReportRow) {
+    setSelectedReport(report);
+    setModalOpen(true);
+  }
 
   return (
     <div className="bg-card border border-card-border rounded-xl overflow-hidden">
@@ -149,14 +228,18 @@ export default function DailyReportsPanel({
           <CalendarRange className="h-4 w-4 text-primary" /> {title}
         </h3>
         <div className="flex items-center gap-2 flex-wrap">
-          <DateRangeFilter from={from} to={to} onChange={setRange} />
+          {!onRangeChange && <DateRangeFilter from={from} to={to} onChange={setRange} />}
         </div>
       </div>
 
       {rows.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 px-4 py-3 border-b border-border bg-muted/20">
           {miniCards.map((m) => (
-            <div key={m.label} className="flex items-center gap-2">
+            <div
+              key={m.key}
+              className="flex items-center gap-2 cursor-pointer hover:bg-muted/40 rounded-lg p-1 transition-colors"
+              onClick={() => openExcelView(m.key as MetricKey)}
+            >
               <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${m.tint}`}>
                 <m.icon className="h-4 w-4" />
               </div>
@@ -186,34 +269,50 @@ export default function DailyReportsPanel({
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left px-4 py-2 font-medium text-muted-foreground">Date</th>
                 <th className="text-left px-4 py-2 font-medium text-muted-foreground">Employee</th>
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground">Calls</th>
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground">Quotes</th>
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground">Meetings</th>
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground">Orders</th>
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground">Orders Closed</th>
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground">Reminders</th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("calls")}>Calls</span></th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("quotations")}>Quotes</span></th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("meetings")}>Meetings</span></th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("orders")}>Orders</span></th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("ordersClosed")}>Orders Closed</span></th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("payments")}>Reminders</span></th>
+                <th className="text-left px-4 py-2"><span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => openExcelView("afterSales")}>After Sales</span></th>
                 <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
-                let closed = "";
+                let closed = "-";
                 if (Array.isArray(r.ordersClosed) && r.ordersClosed.length > 0) {
                   const val = r.ordersClosed.reduce((s, o) => s + (Number(o?.amount) || 0), 0);
                   closed = `${r.ordersClosed.length} · ${formatCurrency(val)}`;
-                } else {
-                  closed = "-";
                 }
                 return (
-                  <tr key={r.id ?? r.date} className="border-b border-border last:border-0 hover:bg-muted/20">
+                  <tr
+                    key={r.id ?? r.date}
+                    className="border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer"
+                    onClick={() => openReportDetail(r)}
+                  >
                     <td className="px-4 py-2.5 font-medium">{r.date}</td>
                     <td className="px-4 py-2.5">{r.userName ?? "-"}</td>
-                    <td className="px-4 py-2.5">{Number(r.callsMade) || 0}</td>
-                    <td className="px-4 py-2.5">{Number(r.quotationsSent) || 0}</td>
-                    <td className="px-4 py-2.5">{Number(r.meetingsScheduled) || 0}</td>
-                    <td className="px-4 py-2.5">{Number(r.ordersReceived) || 0}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-primary font-semibold hover:underline">{Number(r.callsMade) || 0}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-primary font-semibold hover:underline">{Number(r.quotationsSent) || 0}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-primary font-semibold hover:underline">{Number(r.meetingsScheduled) || 0}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-primary font-semibold hover:underline">{Number(r.ordersReceived) || 0}</span>
+                    </td>
                     <td className="px-4 py-2.5">{closed}</td>
-                    <td className="px-4 py-2.5">{Number(r.paymentReminders) || 0}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-primary font-semibold hover:underline">{Number(r.paymentReminders) || 0}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-primary font-semibold hover:underline">{Number(r.afterSalesFollowup) || 0}</span>
+                    </td>
                     <td className="px-4 py-2.5">
                       <span
                         className={`text-xs uppercase px-1.5 py-0.5 rounded ${
@@ -232,6 +331,23 @@ export default function DailyReportsPanel({
           </table>
         )}
       </div>
+
+      {selectedReport && (
+        <DailyReportDetailModal
+          report={selectedReport}
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+        />
+      )}
+
+      {excelMetric && rows.length > 0 && (
+        <DailyReportExcelModal
+          rows={rows}
+          metric={excelMetric}
+          open={excelOpen}
+          onOpenChange={setExcelOpen}
+        />
+      )}
     </div>
   );
 }

@@ -37,9 +37,12 @@ export default function PurchaseOrderDetailPage() {
   const updateMut = useUpdatePurchaseOrder({
     mutation: {
       onSuccess() {
-        toast({ title: "Updated" });
+        toast({ title: "Purchase order updated" });
         qc.invalidateQueries({ queryKey: [`/api/purchase-orders/${id}`] });
         qc.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      },
+      onError(err: unknown) {
+        toast({ title: (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to update purchase order", variant: "destructive" });
       },
     },
   });

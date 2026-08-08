@@ -24,9 +24,9 @@ export default function WarehousesPage() {
   const [form, setForm] = useState<Form>(empty);
 
   function invalidate() { qc.invalidateQueries({ queryKey: ["/api/warehouses"] }); }
-  const createMut = useCreateWarehouse({ mutation: { onSuccess() { toast({ title: "Warehouse created" }); invalidate(); setOpen(false); } } });
-  const updateMut = useUpdateWarehouse({ mutation: { onSuccess() { toast({ title: "Updated" }); invalidate(); setOpen(false); } } });
-  const deleteMut = useDeleteWarehouse({ mutation: { onSuccess() { toast({ title: "Deleted" }); invalidate(); } } });
+  const createMut = useCreateWarehouse({ mutation: { onSuccess() { toast({ title: "Warehouse created" }); invalidate(); setOpen(false); }, onError() { toast({ title: "Failed to create warehouse", variant: "destructive" }); } } });
+  const updateMut = useUpdateWarehouse({ mutation: { onSuccess() { toast({ title: "Warehouse updated" }); invalidate(); setOpen(false); }, onError() { toast({ title: "Failed to update warehouse", variant: "destructive" }); } } });
+  const deleteMut = useDeleteWarehouse({ mutation: { onSuccess() { toast({ title: "Warehouse deleted" }); invalidate(); }, onError() { toast({ title: "Failed to delete warehouse", variant: "destructive" }); } } });
 
   function openCreate() { setEditing(null); setForm(empty); setOpen(true); }
   function openEdit(w: Warehouse) {

@@ -49,6 +49,9 @@ export default function VendorBillsPage() {
         setOpen(false);
         router.push(`/dashboard/dashboard/vendor-bills/${data.id}`);
       },
+      onError(err: unknown) {
+        toast({ title: (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to create bill", variant: "destructive" });
+      },
     },
   });
 

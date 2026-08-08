@@ -39,10 +39,14 @@ export default function LeadDetailPage() {
   const [aiPrompt, setAiPrompt] = useState("");
 
   const updateMut = useUpdateLead({
-    mutation: { onSuccess() {
-      qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
-      qc.invalidateQueries({ queryKey: ["/api/leads"] });
-    } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Lead updated" });
+        qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
+        qc.invalidateQueries({ queryKey: ["/api/leads"] });
+      },
+      onError() { toast({ title: "Failed to update lead", variant: "destructive" }); },
+    },
   });
   const convertMut = useConvertLead({
     mutation: {
@@ -51,13 +55,17 @@ export default function LeadDetailPage() {
         if (d.quotationId) router.push(`/dashboard/quotations/${d.quotationId}`);
         else router.push(`/dashboard/clients`);
       },
+      onError() { toast({ title: "Failed to convert lead", variant: "destructive" }); },
     },
   });
   const scoreMut = useScoreLead({
-    mutation: { onSuccess() {
-      toast({ title: "Lead re-scored" });
-      qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
-    } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Lead re-scored" });
+        qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
+      },
+      onError() { toast({ title: "Failed to re-score lead", variant: "destructive" }); },
+    },
   });
   const initiateMut = useInitiateCall({
     mutation: {
@@ -85,10 +93,17 @@ export default function LeadDetailPage() {
         setEmailOpen(false);
         qc.invalidateQueries({ queryKey: ["/api/emails"] });
       },
+      onError() { toast({ title: "Failed to send email", variant: "destructive" }); },
     },
   });
   const noteMut = useCreateLeadActivity({
-    mutation: { onSuccess() { qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] }); } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Note added" });
+        qc.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
+      },
+      onError() { toast({ title: "Failed to add note", variant: "destructive" }); },
+    },
   });
 
   if (!id) return <div className="p-4 sm:p-6 text-center"><p className="text-muted-foreground">Invalid lead ID</p></div>;

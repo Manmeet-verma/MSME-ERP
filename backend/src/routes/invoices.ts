@@ -320,76 +320,92 @@ invoicesRouter.patch("/invoices/:id/status", requireAuth, async (req, res) => {
   }
 });
 
+export async function createInvoiceFromSalesOrder(
+  organizationId: string,
+  userId: string,
+  salesOrderId: string,
+): Promise<{ id: string; invoiceNumber: string; orderNumber: string }> {
+  const soDoc = await db().collection("sales_orders").doc(salesOrderId).get();
+  if (!soDoc.exists || (soDoc.data() as any).organizationId !== organizationId) {
+    const err = new Error("Sales order not found") as Error & { status?: number };
+    err.status = 404;
+    throw err;
+  }
+  const so = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
+
+  const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", salesOrderId).get();
+  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  const orgDoc = await db().collection("organizations").doc(organizationId).get();
+  const org = orgDoc.exists ? orgDoc.data() : null;
+
+  let buyerState: string | null = null;
+  if (so.clientId) {
+    const clientDoc = await db().collection("clients").doc(so.clientId).get();
+    if (clientDoc.exists) buyerState = (clientDoc.data() as any).state ?? null;
+  }
+
+  const now = new Date().toISOString();
+  const invData = {
+    organizationId,
+    invoiceNumber: genNumber(),
+    clientId: so.clientId,
+    salesOrderId,
+    status: "sent",
+    issueDate: now,
+    dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
+    sellerState: org?.state ?? null,
+    buyerState,
+    subtotal: "0",
+    discountAmount: "0",
+    taxableAmount: "0",
+    cgst: "0",
+    sgst: "0",
+    igst: "0",
+    taxRate: "18",
+    total: "0",
+    amountPaid: "0",
+    createdById: userId,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const invRef = await db().collection("invoices").add(invData);
+  const inv = { id: invRef.id, ...invData };
+
+  if (items.length > 0) {
+    for (const i of items) {
+      const itemData = {
+        invoiceId: inv.id,
+        description: i.description,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        totalPrice: i.totalPrice,
+      };
+      await db().collection("invoice_items").add(itemData);
+    }
+  }
+
+  await recalc(inv.id);
+  return { id: inv.id, invoiceNumber: inv.invoiceNumber, orderNumber: so.orderNumber };
+}
+
 invoicesRouter.post("/invoices/from-sales-order/:salesOrderId", requireAuth, async (req, res) => {
   try {
     const orgId = req.user!.organizationId;
-    const soId = req.params.salesOrderId;
-
-    const soDoc = await db().collection("sales_orders").doc(soId).get();
-    if (!soDoc.exists || (soDoc.data() as any).organizationId !== orgId) {
-      res.status(404).json({ error: "Sales order not found" });
-      return;
-    }
-    const so = { id: soDoc.id, ...soDoc.data() } as Record<string, any>;
-
-    const itemsSnap = await db().collection("sales_order_items").where("salesOrderId", "==", soId).get();
-    const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-    const orgDoc = await db().collection("organizations").doc(orgId).get();
-    const org = orgDoc.exists ? orgDoc.data() : null;
-
-    let buyerState: string | null = null;
-    if (so.clientId) {
-      const clientDoc = await db().collection("clients").doc(so.clientId).get();
-      if (clientDoc.exists) buyerState = (clientDoc.data() as any).state ?? null;
-    }
-
-    const now = new Date().toISOString();
-    const invData = {
-      organizationId: orgId,
-      invoiceNumber: genNumber(),
-      clientId: so.clientId,
-      salesOrderId: soId,
-      status: "sent",
-      issueDate: now,
-      dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
-      sellerState: org?.state ?? null,
-      buyerState,
-      subtotal: "0",
-      discountAmount: "0",
-      taxableAmount: "0",
-      cgst: "0",
-      sgst: "0",
-      igst: "0",
-      taxRate: "18",
-      total: "0",
-      amountPaid: "0",
-      createdById: req.user!.userId,
-      createdAt: now,
-      updatedAt: now,
-    };
-    const invRef = await db().collection("invoices").add(invData);
-    const inv = { id: invRef.id, ...invData };
-
-    if (items.length > 0) {
-      for (const i of items) {
-        const itemData = {
-          invoiceId: inv.id,
-          description: i.description,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          totalPrice: i.totalPrice,
-        };
-        await db().collection("invoice_items").add(itemData);
-      }
-    }
-
-    await recalc(inv.id);
-    const updatedDoc = await db().collection("invoices").doc(inv.id).get();
-    const updated = { id: updatedDoc.id, ...updatedDoc.data() } as Record<string, any>;
-    await logAction(req, "PROMOTE", "invoice", inv.id as any, `From SO ${so.orderNumber}`);
+    const created = await createInvoiceFromSalesOrder(
+      orgId,
+      req.user!.userId,
+      req.params.salesOrderId,
+    );
+    const invDoc = await db().collection("invoices").doc(created.id).get();
+    const updated = { id: invDoc.id, ...invDoc.data() } as Record<string, any>;
+    await logAction(req, "PROMOTE", "invoice", created.id as any, `From SO ${created.orderNumber}`);
     res.status(201).json(await fmt(updated));
   } catch (err: any) {
+    if (err?.status === 404) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: err.message ?? "Failed to create invoice from sales order" });
   }
 });

@@ -31,17 +31,23 @@ export default function CampaignsPage() {
   const { data: campaignsRaw } = useListCampaigns();
   const campaigns = Array.isArray(campaignsRaw) ? campaignsRaw : [];
   const createMut = useCreateCampaign({
-    mutation: { onSuccess() {
-      toast({ title: "Campaign created" });
-      qc.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      setOpen(false); setForm(empty);
-    } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Campaign created" });
+        qc.invalidateQueries({ queryKey: ["/api/campaigns"] });
+        setOpen(false); setForm(empty);
+      },
+      onError() { toast({ title: "Failed to create campaign", variant: "destructive" }); },
+    },
   });
   const sendMut = useSendCampaign({
-    mutation: { onSuccess(c) {
-      toast({ title: `Sent to ${c.stats?.sent ?? 0}` });
-      qc.invalidateQueries({ queryKey: ["/api/campaigns"] });
-    } },
+    mutation: {
+      onSuccess(c) {
+        toast({ title: `Sent to ${c.stats?.sent ?? 0}` });
+        qc.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      },
+      onError() { toast({ title: "Failed to send campaign", variant: "destructive" }); },
+    },
   });
 
   function submit(e: React.FormEvent) {

@@ -43,9 +43,9 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<Form>(empty);
 
   const inv = () => qc.invalidateQueries({ queryKey: ["/api/employees"] });
-  const createMut = useCreateEmployee({ mutation: { onSuccess() { toast({ title: "Employee added" }); inv(); setOpen(false); } } });
-  const updateMut = useUpdateEmployee({ mutation: { onSuccess() { toast({ title: "Updated" }); inv(); setOpen(false); } } });
-  const deleteMut = useDeleteEmployee({ mutation: { onSuccess() { toast({ title: "Removed" }); inv(); } } });
+  const createMut = useCreateEmployee({ mutation: { onSuccess() { toast({ title: "Employee added" }); inv(); setOpen(false); }, onError() { toast({ title: "Failed to add employee", variant: "destructive" }); } } });
+  const updateMut = useUpdateEmployee({ mutation: { onSuccess() { toast({ title: "Employee updated" }); inv(); setOpen(false); }, onError() { toast({ title: "Failed to update employee", variant: "destructive" }); } } });
+  const deleteMut = useDeleteEmployee({ mutation: { onSuccess() { toast({ title: "Employee removed" }); inv(); }, onError() { toast({ title: "Failed to remove employee", variant: "destructive" }); } } });
 
   function openCreate() { setEditing(null); setForm(empty); setOpen(true); }
   function openEdit(e: Employee) {

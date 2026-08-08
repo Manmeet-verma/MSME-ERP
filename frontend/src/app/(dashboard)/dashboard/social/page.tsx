@@ -96,7 +96,10 @@ export default function SocialPage() {
     },
   });
   const rewriteMut = useRewriteSocialPost({
-    mutation: { onSuccess(d) { setContent(d.text); toast({ title: "Rewritten" }); } },
+    mutation: {
+      onSuccess(d) { setContent(d.text); toast({ title: "Rewritten" }); },
+      onError() { toast({ title: "Rewrite failed", variant: "destructive" }); },
+    },
   });
   const createMut = useCreateSocialPost({
     mutation: {
@@ -106,13 +109,20 @@ export default function SocialPage() {
         setPrompt(""); setContent(""); setVariants({});
         toast({ title: "Post saved" });
       },
+      onError() { toast({ title: "Failed to save post", variant: "destructive" }); },
     },
   });
   const deleteMut = useDeleteSocialPost({
-    mutation: { onSuccess() { invalidate(); toast({ title: "Deleted" }); } },
+    mutation: {
+      onSuccess() { invalidate(); toast({ title: "Post deleted" }); },
+      onError() { toast({ title: "Failed to delete post", variant: "destructive" }); },
+    },
   });
   const publishMut = usePublishSocialPost({
-    mutation: { onSuccess() { invalidate(); toast({ title: "Publish complete" }); } },
+    mutation: {
+      onSuccess() { invalidate(); toast({ title: "Publish complete" }); },
+      onError() { toast({ title: "Failed to publish", variant: "destructive" }); },
+    },
   });
 
   function togglePlatform(p: Platform) {

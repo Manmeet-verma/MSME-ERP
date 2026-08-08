@@ -50,13 +50,24 @@ export default function ExpensesPage() {
   const colReorder = useColumnReorder();
 
   const inv = () => qc.invalidateQueries({ queryKey: ["/api/expenses"] });
-  const createMut = useCreateExpense({ mutation: { onSuccess() { toast({ title: "Expense added" }); inv(); setOpen(false); setForm(empty()); } } });
-  const deleteMut = useDeleteExpense({ mutation: { onSuccess() { toast({ title: "Deleted" }); inv(); } } });
+  const createMut = useCreateExpense({
+    mutation: {
+      onSuccess() { toast({ title: "Expense added" }); inv(); setOpen(false); setForm(empty()); },
+      onError() { toast({ title: "Failed to add expense", variant: "destructive" }); },
+    },
+  });
+  const deleteMut = useDeleteExpense({
+    mutation: {
+      onSuccess() { toast({ title: "Expense deleted" }); inv(); },
+      onError() { toast({ title: "Failed to delete expense", variant: "destructive" }); },
+    },
+  });
   const createCat = useCreateExpenseCategory({
     mutation: { onSuccess() {
       qc.invalidateQueries({ queryKey: ["/api/expense-categories"] });
       setCatOpen(false); setCatName("");
-    } },
+      toast({ title: "Category created" });
+    }, onError() { toast({ title: "Failed to create category", variant: "destructive" }); } },
   });
 
   async function uploadReceipt(file: File) {
@@ -70,7 +81,12 @@ export default function ExpensesPage() {
         body: fd,
       });
       const j = await res.json();
-      if (j.url) setForm((f) => ({ ...f, receiptUrl: j.url }));
+      if (j.url) {
+        setForm((f) => ({ ...f, receiptUrl: j.url }));
+        toast({ title: "Receipt uploaded" });
+      } else {
+        toast({ title: "Upload failed", variant: "destructive" });
+      }
     } catch {
       toast({ title: "Upload failed", variant: "destructive" });
     } finally {

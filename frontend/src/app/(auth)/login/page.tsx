@@ -65,7 +65,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-          <CardDescription>Sign in to your MSME Pro account</CardDescription>
+          <CardDescription>Login to your MSME Pro account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -92,14 +92,14 @@ export default function LoginPage() {
             </div>
             {error && <div className="text-sm text-destructive text-center">{error}</div>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Sign in
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Login
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <Link href="/signup" className="text-primary hover:underline">Sign up</Link>
+            <Link href="/signup" className="text-primary hover:underline">Register account</Link>
           </p>
         </CardFooter>
       </Card>

@@ -24,9 +24,9 @@ export default function VendorsPage() {
   const [form, setForm] = useState<Form>(empty);
 
   function invalidate() { qc.invalidateQueries({ queryKey: ["/api/vendors"] }); }
-  const createMut = useCreateVendor({ mutation: { onSuccess() { toast({ title: "Vendor created" }); invalidate(); setOpen(false); } } });
-  const updateMut = useUpdateVendor({ mutation: { onSuccess() { toast({ title: "Updated" }); invalidate(); setOpen(false); } } });
-  const deleteMut = useDeleteVendor({ mutation: { onSuccess() { toast({ title: "Deleted" }); invalidate(); } } });
+  const createMut = useCreateVendor({ mutation: { onSuccess() { toast({ title: "Vendor created" }); invalidate(); setOpen(false); }, onError() { toast({ title: "Failed to create vendor", variant: "destructive" }); } } });
+  const updateMut = useUpdateVendor({ mutation: { onSuccess() { toast({ title: "Vendor updated" }); invalidate(); setOpen(false); }, onError() { toast({ title: "Failed to update vendor", variant: "destructive" }); } } });
+  const deleteMut = useDeleteVendor({ mutation: { onSuccess() { toast({ title: "Vendor deleted" }); invalidate(); }, onError() { toast({ title: "Failed to delete vendor", variant: "destructive" }); } } });
 
   function openCreate() { setEditing(null); setForm(empty); setOpen(true); }
   function openEdit(v: Vendor) {

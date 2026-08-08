@@ -52,8 +52,8 @@ export default function ItemsPage() {
   }
 
   const createMut = useCreateItem({ mutation: { onSuccess() { toast({ title: "Item created" }); invalidate(); setOpen(false); }, onError() { toast({ title: "Failed to create", variant: "destructive" }); } } });
-  const updateMut = useUpdateItem({ mutation: { onSuccess() { toast({ title: "Item updated" }); invalidate(); setOpen(false); } } });
-  const deleteMut = useDeleteItem({ mutation: { onSuccess() { toast({ title: "Item deleted" }); invalidate(); } } });
+  const updateMut = useUpdateItem({ mutation: { onSuccess() { toast({ title: "Item updated" }); invalidate(); setOpen(false); }, onError() { toast({ title: "Failed to update item", variant: "destructive" }); } } });
+  const deleteMut = useDeleteItem({ mutation: { onSuccess() { toast({ title: "Item deleted" }); invalidate(); }, onError() { toast({ title: "Failed to delete item", variant: "destructive" }); } } });
 
   function openCreate() { setEditing(null); setForm(empty); setOpen(true); }
   function openEdit(i: Item) {

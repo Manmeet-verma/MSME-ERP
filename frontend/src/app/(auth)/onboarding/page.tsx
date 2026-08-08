@@ -32,6 +32,7 @@ export default function OnboardingPage() {
         setAuthToken(data.token);
         setCurrentOrg(data.organization);
         setCurrentRole(data.role);
+        toast({ title: "Workspace created", description: `Welcome to ${data.organization.name}` });
         router.push("/");
       },
       onError(err) {

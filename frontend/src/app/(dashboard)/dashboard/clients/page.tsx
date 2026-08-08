@@ -209,7 +209,10 @@ export default function ClientsPage() {
 
   const toggleActiveMutation = useUpdateClient({
     mutation: {
-      onSuccess() { qc.invalidateQueries({ queryKey: ["/api/clients"] }); },
+      onSuccess() {
+        toast({ title: "Client status updated" });
+        qc.invalidateQueries({ queryKey: ["/api/clients"] });
+      },
       onError() { toast({ title: "Failed to toggle status", variant: "destructive" }); },
     },
   });

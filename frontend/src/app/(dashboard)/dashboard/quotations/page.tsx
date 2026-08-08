@@ -22,6 +22,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6b7280",
+  open: "#f59e0b",
   sent: "#3b82f6",
   approved: "#22c55e",
   rejected: "#ef4444",
@@ -36,7 +37,7 @@ export default function QuotationsPage() {
 
   const { data, isLoading } = useListQuotations({
     ...(search ? { clientName: search } : {}),
-    ...(status !== "all" ? { status: status as "draft" | "sent" | "approved" | "rejected" } : {}),
+    ...(status !== "all" ? { status: status as "draft" | "open" | "sent" | "approved" | "rejected" } : {}),
   });
 
   const deleteMutation = useDeleteQuotation({
@@ -82,7 +83,7 @@ export default function QuotationsPage() {
             />
           </div>
           <div className="flex gap-2 flex-wrap overflow-x-auto scrollbar-hide pb-1">
-            {["all", "draft", "sent", "approved", "rejected"].map((s) => (
+            {["all", "draft", "open", "sent", "approved", "rejected"].map((s) => (
               <button
                 key={s}
                 onClick={() => setStatus(s)}

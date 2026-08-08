@@ -3,6 +3,8 @@ import { getDb } from "../lib/firebase";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logAction } from "../lib/auditLog";
 import { recalcQuotation } from "../lib/recalcQuotation";
+import { createSalesOrderFromQuotation } from "./sales-orders";
+import { createInvoiceFromSalesOrder } from "./invoices";
 
 const quotationsRouter = Router();
 
@@ -83,6 +85,8 @@ async function formatQuotation(q: any) {
     notes: q.notes ?? null,
     terms: q.terms ?? null,
     itemCount,
+    convertedSalesOrderId: q.convertedSalesOrderId ?? null,
+    convertedInvoiceId: q.convertedInvoiceId ?? null,
     createdAt: q.createdAt,
     updatedAt: q.updatedAt,
   };
@@ -159,6 +163,8 @@ quotationsRouter.get("/quotations", requireAuth, async (req, res) => {
       notes: q.notes ?? null,
       terms: q.terms ?? null,
       itemCount: itemCountMap.get(q.id) ?? 0,
+      convertedSalesOrderId: q.convertedSalesOrderId ?? null,
+      convertedInvoiceId: q.convertedInvoiceId ?? null,
       createdAt: q.createdAt,
       updatedAt: q.updatedAt,
     };
@@ -333,6 +339,58 @@ quotationsRouter.delete("/quotations/:id", requireAuth, requireAdmin, async (req
   res.json({ message: "Quotation deleted" });
 });
 
+// Convert an approved quotation into a sales order + invoice (idempotent).
+async function convertQuotationToInvoiceAndOrder(orgId: string, userId: string, quotationId: string) {
+  const qSnap = await db().collection("quotations").doc(quotationId).get();
+  if (!qSnap.exists) {
+    const err = new Error("Quotation not found") as Error & { status?: number };
+    err.status = 404;
+    throw err;
+  }
+  const q = { id: qSnap.id, ...qSnap.data()! } as Record<string, any>;
+
+  if (q.convertedSalesOrderId && q.convertedInvoiceId) {
+    return { salesOrderId: q.convertedSalesOrderId, invoiceId: q.convertedInvoiceId, alreadyConverted: true };
+  }
+
+  const so = await createSalesOrderFromQuotation(orgId, userId, quotationId);
+  let invoiceId: string;
+  try {
+    const inv = await createInvoiceFromSalesOrder(orgId, userId, so.id);
+    invoiceId = inv.id;
+  } catch (e) {
+    await db().collection("sales_orders").doc(so.id).delete();
+    throw e;
+  }
+
+  await db()
+    .collection("quotations")
+    .doc(quotationId)
+    .update({
+      convertedSalesOrderId: so.id,
+      convertedInvoiceId: invoiceId,
+      status: "approved",
+      updatedAt: new Date().toISOString(),
+    });
+
+  return { salesOrderId: so.id, invoiceId, alreadyConverted: false };
+}
+
+quotationsRouter.post("/quotations/:id/convert", requireAuth, async (req, res) => {
+  const orgId = req.user!.organizationId as string;
+  const id = req.params.id;
+  const existing = await loadOrgQuotation(orgId, id);
+  if (!existing) {
+    res.status(404).json({ error: "Quotation not found" });
+    return;
+  }
+  const conv = await convertQuotationToInvoiceAndOrder(orgId, req.user!.userId as string, id);
+  const updatedSnap = await db().collection("quotations").doc(id).get();
+  const q = { id: updatedSnap.id, ...updatedSnap.data()! };
+  await logAction(req, "CONVERT", "quotation", id, `Converted to sales order ${conv.salesOrderId} and invoice ${conv.invoiceId}`);
+  res.json({ ...(await formatQuotation(q)), alreadyConverted: conv.alreadyConverted });
+});
+
 quotationsRouter.patch("/quotations/:id/status", requireAuth, async (req, res) => {
   const orgId = req.user!.organizationId as string;
   const id = req.params.id;
@@ -346,10 +404,25 @@ quotationsRouter.patch("/quotations/:id/status", requireAuth, async (req, res) =
     res.status(404).json({ error: "Quotation not found" });
     return;
   }
+
+  let convertedSalesOrderId = existing.convertedSalesOrderId ?? null;
+  let convertedInvoiceId = existing.convertedInvoiceId ?? null;
+
   await db()
     .collection("quotations")
     .doc(id)
     .update({ status, updatedAt: new Date().toISOString() });
+
+  if (status === "approved" && !convertedInvoiceId) {
+    try {
+      const conv = await convertQuotationToInvoiceAndOrder(orgId, req.user!.userId as string, id);
+      convertedSalesOrderId = conv.salesOrderId;
+      convertedInvoiceId = conv.invoiceId;
+    } catch (e: any) {
+      req.log.warn({ err: e, quotationId: id }, "Auto-convert approved quotation to sales order/invoice failed");
+    }
+  }
+
   const updatedSnap = await db().collection("quotations").doc(id).get();
   const q = { id: updatedSnap.id, ...updatedSnap.data()! };
   await logAction(req, "STATUS_CHANGE", "quotation", id, `Status changed to ${status}`);

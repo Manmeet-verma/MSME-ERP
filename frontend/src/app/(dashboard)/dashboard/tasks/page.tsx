@@ -29,13 +29,25 @@ export default function TasksPage() {
       toast({ title: "Task created" });
       qc.invalidateQueries({ queryKey: ["/api/tasks"] });
       setOpen(false); setForm(empty);
-    } },
+    }, onError() { toast({ title: "Failed to create task", variant: "destructive" }); } },
   });
   const updateMut = useUpdateTask({
-    mutation: { onSuccess() { qc.invalidateQueries({ queryKey: ["/api/tasks"] }); } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Task updated" });
+        qc.invalidateQueries({ queryKey: ["/api/tasks"] });
+      },
+      onError() { toast({ title: "Failed to update task", variant: "destructive" }); },
+    },
   });
   const deleteMut = useDeleteTask({
-    mutation: { onSuccess() { qc.invalidateQueries({ queryKey: ["/api/tasks"] }); } },
+    mutation: {
+      onSuccess() {
+        toast({ title: "Task deleted" });
+        qc.invalidateQueries({ queryKey: ["/api/tasks"] });
+      },
+      onError() { toast({ title: "Failed to delete task", variant: "destructive" }); },
+    },
   });
 
   function toggle(t: Task) {
