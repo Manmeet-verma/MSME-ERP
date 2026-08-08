@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Client } from "@workspace/api-client-react";
+import ExcelExportButton from "@/components/excel-export-button";
 
 const STATES: Record<string, string[]> = {
   "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari", "Guntur", "Krishna", "Kurnool", "Nellore", "Prakasam", "Srikakulam", "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"],
@@ -312,6 +313,17 @@ export default function ClientsPage() {
                 className="pl-9"
               />
             </div>
+            <ExcelExportButton
+                rows={clients.map((c) => ({
+                  Name: c.name, Email: c.email ?? "", Phone: c.phone ?? "", Company: c.company ?? "",
+                  City: c.city ?? "", State: c.state ?? "", GST: c.gstNumber ?? "",
+                  Value: c.totalValue ?? 0,
+                  Quotations: c.quotationCount ?? 0, Notes: c.notes ?? "", Created: c.createdAt ?? "",
+                }))}
+                columns={["Name", "Email", "Phone", "Company", "City", "State", "GST", "Value", "Quotations", "Notes", "Created"]}
+                filename="clients"
+                amountKeys={["Value"]}
+              />
             <Button size="sm" className="gap-2 shrink-0" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Client
             </Button>

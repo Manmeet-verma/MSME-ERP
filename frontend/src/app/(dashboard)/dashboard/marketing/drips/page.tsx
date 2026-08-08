@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Play, Pause, UserPlus } from "lucide-react";
+import ExcelExportButton from "@/components/excel-export-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 interface StepDraft { delayDays: number; subject: string; body: string }
@@ -100,7 +101,18 @@ export default function DripsPage() {
           <h1 className="text-xl font-bold">Drip sequences</h1>
           <p className="text-sm text-muted-foreground">Automated email follow-ups for leads and clients.</p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-1"><Plus className="h-4 w-4" />New sequence</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={sequences.map((s) => ({
+              Name: s.name, Description: s.description ?? "", Target: s.trigger.entity,
+              From: s.fromEmail, Status: s.status, Steps: s.steps?.length ?? 0,
+              Created: s.createdAt ?? "",
+            }))}
+            columns={["Name", "Description", "Target", "From", "Status", "Steps", "Created"]}
+            filename="drip-sequences"
+          />
+          <Button onClick={() => setOpen(true)} className="gap-1"><Plus className="h-4 w-4" />New sequence</Button>
+        </div>
       </div>
 
       <div className="grid gap-3">

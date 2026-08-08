@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/format";
+import ExcelExportButton, { exportRowsToCsv } from "@/components/excel-export-button";
 
 const STATES: Record<string, string[]> = {
   "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari", "Guntur", "Krishna", "Kurnool", "Nellore", "Prakasam", "Srikakulam", "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"],
@@ -179,6 +180,47 @@ export default function LeadsPage() {
     qc.invalidateQueries({ queryKey: ["/api/leads/summary"] });
   };
 
+  const [exporting, setExporting] = useState(false);
+
+  async function exportAllLeads() {
+    setExporting(true);
+    try {
+      const qp = new URLSearchParams();
+      if (debouncedSearch) qp.set("search", debouncedSearch);
+      if (priorityFilter !== "all") qp.set("priority", priorityFilter);
+      if (statusFilter !== "all") qp.set("status", statusFilter);
+      const all: Lead[] = [];
+      let pg = 1;
+      let pages = 1;
+      do {
+        const q = new URLSearchParams(qp);
+        q.set("page", String(pg));
+        q.set("limit", String(PAGE_SIZE));
+        const res = await customFetch<LeadsResponse>(`/api/leads?${q.toString()}`);
+        const arr = Array.isArray(res?.data) ? res.data : [];
+        all.push(...arr);
+        pages = res?.totalPages ?? 1;
+        pg += 1;
+      } while (pg <= pages);
+      exportRowsToCsv(
+        all.map((l) => ({
+          Name: l.name, Email: l.email ?? "", Phone: l.phone ?? "", Company: l.company ?? "",
+          City: l.city ?? "", State: l.state ?? "", Source: l.source ?? "", Status: l.status ?? "",
+          Priority: l.priority ?? "", Score: l.score ?? "", Budget: l.budget ?? "", Product: l.product ?? "",
+          Notes: l.notes ?? "", NextAction: l.nextAction ?? "", AssignedTo: l.assignedToId ?? "",
+          LastContacted: l.lastContactedAt ?? "", CreatedAt: l.createdAt ?? "",
+        })),
+        ["Name", "Email", "Phone", "Company", "City", "State", "Source", "Status", "Priority", "Score", "Budget", "Product", "Notes", "NextAction", "AssignedTo", "LastContacted", "CreatedAt"],
+        "leads",
+      );
+      toast({ title: "Export complete", description: `${all.length} leads downloaded.` });
+    } catch {
+      toast({ title: "Export failed", description: "Could not download leads. Please try again.", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const createMut = useCreateLead({
     mutation: {
       onSuccess(leadData) {
@@ -320,6 +362,14 @@ export default function LeadsPage() {
           <p className="text-sm text-muted-foreground">Track, qualify and convert your leads into clients</p>
         </div>
         <div className="flex gap-2">
+          <ExcelExportButton
+            rows={[]}
+            columns={[]}
+            filename="leads"
+            label={exporting ? "Exporting..." : "Export Excel"}
+            disabled={exporting || total === 0}
+            onExport={exportAllLeads}
+          />
           <Button variant="outline" size="sm" onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
             <Download className="h-4 w-4" /> <span className="hidden sm:inline">Sync IndiaMart</span><span className="sm:hidden">Sync</span>
           </Button>

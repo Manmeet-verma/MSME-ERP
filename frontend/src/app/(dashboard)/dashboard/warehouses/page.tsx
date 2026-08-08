@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Warehouse as WIcon, Pencil, Trash2 } from "lucide-react";
+import ExcelExportButton from "@/components/excel-export-button";
 
 type Form = { name: string; code: string; city: string; state: string; address: string; isDefault: boolean };
 const empty: Form = { name: "", code: "", city: "", state: "", address: "", isDefault: false };
@@ -48,7 +49,18 @@ export default function WarehousesPage() {
           <h1 className="text-xl font-bold">Warehouses</h1>
           <p className="text-sm text-muted-foreground">{warehouses.length} locations</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />Add Warehouse</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={warehouses.map((w) => ({
+              Name: w.name, Code: w.code ?? "", City: w.city ?? "", State: w.state ?? "",
+              Address: w.address ?? "", Default: w.isDefault ? "Yes" : "No",
+              Active: w.isActive ? "Yes" : "No", Created: w.createdAt ?? "",
+            }))}
+            columns={["Name", "Code", "City", "State", "Address", "Default", "Active", "Created"]}
+            filename="warehouses"
+          />
+          <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />Add Warehouse</Button>
+        </div>
       </div>
       {warehouses.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">

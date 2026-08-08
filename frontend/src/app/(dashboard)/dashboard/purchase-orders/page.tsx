@@ -14,6 +14,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus, FileBox, Trash2 } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
+import ExcelExportButton from "@/components/excel-export-button";
 
 type Line = { itemId?: number; description: string; quantity: number; unitPrice: number };
 
@@ -118,7 +119,19 @@ export default function PurchaseOrdersPage() {
           <h1 className="text-xl font-bold">Purchase Orders</h1>
           <p className="text-sm text-muted-foreground">{pos.length} orders</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => openCreate()}><Plus className="h-4 w-4" />New PO</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={pos.map((p) => ({
+              "PO #": p.poNumber, Vendor: p.vendorName ?? "", Status: p.status,
+              Subtotal: p.subtotal, Tax: p.taxAmount ?? 0, Total: p.total,
+              Expected: p.expectedDate ?? "", Notes: p.notes ?? "", Created: p.createdAt ?? "",
+            }))}
+            columns={["PO #", "Vendor", "Status", "Subtotal", "Tax", "Total", "Expected", "Notes", "Created"]}
+            filename="purchase-orders"
+            amountKeys={["Subtotal", "Tax", "Total"]}
+          />
+          <Button size="sm" className="gap-2" onClick={() => openCreate()}><Plus className="h-4 w-4" />New PO</Button>
+        </div>
       </div>
       {pos.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">

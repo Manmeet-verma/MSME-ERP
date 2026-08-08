@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { Plus, Wallet, ChevronRight } from "lucide-react";
+import ExcelExportButton from "@/components/excel-export-button";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -45,7 +46,20 @@ export default function PayrollPage() {
           <h1 className="text-xl font-bold flex items-center gap-2"><Wallet className="h-5 w-5" /> Payroll</h1>
           <p className="text-sm text-muted-foreground">{runs.length} payroll runs</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> New payroll run</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={runs.map((r) => ({
+              Month: `${MONTHS[r.periodMonth - 1]} ${r.periodYear}`,
+              Status: r.status, "Gross Total": r.totalGross,
+              "Deductions Total": r.totalDeductions, "Net Total": r.totalNet,
+              "Paid At": r.paidAt ?? "", Created: r.createdAt ?? "",
+            }))}
+            columns={["Month", "Status", "Gross Total", "Deductions Total", "Net Total", "Paid At", "Created"]}
+            filename="payroll-runs"
+            amountKeys={["Gross Total", "Deductions Total", "Net Total"]}
+          />
+          <Button size="sm" className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> New payroll run</Button>
+        </div>
       </div>
 
       {isLoading ? <div className="text-muted-foreground">Loading…</div> : runs.length === 0 ? (

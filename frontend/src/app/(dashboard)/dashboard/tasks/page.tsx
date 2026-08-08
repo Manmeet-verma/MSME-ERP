@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, CheckCircle2, Circle, Clock, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import ExcelExportButton from "@/components/excel-export-button";
 
 import type { TaskInputPriority } from "@workspace/api-client-react";
 const empty = { title: "", description: "", dueAt: "", priority: "medium" as TaskInputPriority };
@@ -61,7 +62,18 @@ export default function TasksPage() {
           <h1 className="text-xl font-bold">Tasks</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} {filter !== "all" ? filter : "total"} tasks</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />New task</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={filtered.map((t) => ({
+              Title: t.title, Status: t.status, Priority: t.priority,
+              "Due Date": t.dueAt ?? "", "Assigned To": t.assignedToName ?? t.assignedToId ?? "",
+              Description: t.description ?? "", "Completed At": t.completedAt ?? "", Created: t.createdAt ?? "",
+            }))}
+            columns={["Title", "Status", "Priority", "Due Date", "Assigned To", "Description", "Completed At", "Created"]}
+            filename="tasks"
+          />
+          <Button size="sm" className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />New task</Button>
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">

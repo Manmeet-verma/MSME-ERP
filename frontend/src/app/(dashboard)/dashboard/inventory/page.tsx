@@ -16,6 +16,7 @@ import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { useRef } from "react";
 import { formatCurrency } from "@/lib/format";
+import ExcelExportButton from "@/components/excel-export-button";
 
 type Form = {
   sku: string; name: string; category: string; unit: string; hsnCode: string;
@@ -132,6 +133,18 @@ export default function ItemsPage() {
         </div>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept=".csv" onChange={handleCsv} className="hidden" />
+          <ExcelExportButton
+            rows={items.map((i) => ({
+              SKU: i.sku, Name: i.name, Category: i.category ?? "", Unit: i.unit,
+              HSN: i.hsnCode ?? "", "GST Rate": i.gstRate, "Sale Price": i.salePrice,
+              "Purchase Price": i.purchasePrice, "Avg Cost": i.avgCost, Stock: i.currentStock ?? 0,
+              "Low Stock Threshold": i.lowStockThreshold ?? 0,
+              "Low Stock": (i.currentStock ?? 0) <= (i.lowStockThreshold ?? 0) ? "Yes" : "No",
+            }))}
+            columns={["SKU", "Name", "Category", "Unit", "HSN", "GST Rate", "Sale Price", "Purchase Price", "Avg Cost", "Stock", "Low Stock Threshold", "Low Stock"]}
+            filename="inventory-items"
+            amountKeys={["Sale Price", "Purchase Price", "Avg Cost"]}
+          />
           <Button size="sm" variant="outline" className="gap-2" disabled={importing} onClick={() => fileRef.current?.click()}>
             <Upload className="h-4 w-4" />{importing ? "Importing..." : "Import CSV"}
           </Button>

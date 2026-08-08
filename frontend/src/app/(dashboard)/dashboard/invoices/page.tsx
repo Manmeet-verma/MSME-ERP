@@ -7,6 +7,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { Receipt } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
+import ExcelExportButton from "@/components/excel-export-button";
 
 const STATUSES = ["all", "draft", "sent", "partial", "paid", "overdue", "cancelled"] as const;
 type StatusFilter = (typeof STATUSES)[number];
@@ -26,9 +27,22 @@ export default function InvoicesPage() {
   const invoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">Invoices</h1>
-        <p className="text-sm text-muted-foreground">{invoices.length} invoices</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold">Invoices</h1>
+          <p className="text-sm text-muted-foreground">{invoices.length} invoices</p>
+        </div>
+        <ExcelExportButton
+          rows={invoices.map((v) => ({
+            "Invoice #": v.invoiceNumber, Client: v.clientName ?? "", Status: v.status,
+            "Issue Date": v.issueDate ?? "", "Due Date": v.dueDate ?? "", Subtotal: v.subtotal ?? 0,
+            Discount: v.discountAmount ?? 0, Taxable: v.taxableAmount ?? 0, Total: v.total ?? 0,
+            Paid: v.amountPaid ?? 0, CGST: v.cgst ?? 0, SGST: v.sgst ?? 0, IGST: v.igst ?? 0,
+          }))}
+          columns={["Invoice #", "Client", "Status", "Issue Date", "Due Date", "Subtotal", "Discount", "Taxable", "CGST", "SGST", "IGST", "Total", "Paid"]}
+          filename="invoices"
+          amountKeys={["Subtotal", "Discount", "Taxable", "CGST", "SGST", "IGST", "Total", "Paid"]}
+        />
       </div>
       <div className="flex gap-2 flex-wrap overflow-x-auto scrollbar-hide pb-1">
         {STATUSES.map((s) => (

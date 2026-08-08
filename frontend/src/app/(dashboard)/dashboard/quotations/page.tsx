@@ -19,6 +19,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
+import ExcelExportButton from "@/components/excel-export-button";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6b7280",
@@ -63,12 +64,26 @@ export default function QuotationsPage() {
             <h1 className="text-xl font-bold">Quotations</h1>
             <p className="text-sm text-muted-foreground">{quotations.length} total quotations</p>
           </div>
-          <Link href="/dashboard/quotations/new">
-            <Button size="sm" className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Quotation
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <ExcelExportButton
+              rows={quotations.map((q) => ({
+                "Quote #": q.quotationNumber, Client: (q as { clientName?: string }).clientName ?? "",
+                Status: q.status, "Valid Until": formatDate(q.validUntil), Subtotal: q.subtotal,
+                Discount: q.discountAmount ?? 0, Tax: q.taxAmount ?? 0, Total: q.total,
+                Items: q.itemCount ?? 0, "Created By": q.createdByName ?? "", Notes: q.notes ?? "",
+                Created: q.createdAt ?? "",
+              }))}
+              columns={["Quote #", "Client", "Status", "Valid Until", "Subtotal", "Discount", "Tax", "Total", "Items", "Created By", "Notes", "Created"]}
+              filename="quotations"
+              amountKeys={["Subtotal", "Discount", "Tax", "Total"]}
+            />
+            <Link href="/dashboard/quotations/new">
+              <Button size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Quotation
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}

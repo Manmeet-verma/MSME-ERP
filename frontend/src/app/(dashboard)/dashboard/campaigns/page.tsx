@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Send, Megaphone } from "lucide-react";
+import ExcelExportButton from "@/components/excel-export-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const empty = {
@@ -76,7 +77,17 @@ export default function CampaignsPage() {
           <h1 className="text-xl font-bold">Email campaigns</h1>
           <p className="text-sm text-muted-foreground">{campaigns.length} campaigns</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />New campaign</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={campaigns.map((c) => ({
+              Name: c.name, Subject: c.subject, From: c.fromEmail ?? "", Segment: c.segment?.entity ?? "",
+              Status: c.status, Sent: c.sentAt ?? "", Created: c.createdAt ?? "",
+            }))}
+            columns={["Name", "Subject", "From", "Segment", "Status", "Sent", "Created"]}
+            filename="campaigns"
+          />
+          <Button size="sm" className="gap-2" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />New campaign</Button>
+        </div>
       </div>
 
       {campaigns.length === 0 ? (

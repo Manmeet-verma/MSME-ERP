@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sparkles, Send, Trash2, Calendar, Plus, Facebook, Instagram, Linkedin, Wand2, ImagePlus, X, BarChart3 } from "lucide-react";
+import ExcelExportButton from "@/components/excel-export-button";
 import { getAuthToken } from "@/lib/auth";
 import { getApiBase } from "@/lib/utils";
 
@@ -158,7 +159,18 @@ export default function SocialPage() {
           <h1 className="text-xl font-bold">Social Composer</h1>
           <p className="text-sm text-muted-foreground">Draft, schedule, and publish across Facebook, Instagram, and LinkedIn.</p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-1"><Plus className="h-4 w-4" />New post</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={posts.map((p) => ({
+              Content: p.content, Platforms: (p.platforms ?? []).join(", "),
+              Status: p.status, "Scheduled At": p.scheduledAt ?? "", "Published At": p.publishedAt ?? "",
+              Created: p.createdAt ?? "",
+            }))}
+            columns={["Content", "Platforms", "Status", "Scheduled At", "Published At", "Created"]}
+            filename="social-posts"
+          />
+          <Button onClick={() => setOpen(true)} className="gap-1"><Plus className="h-4 w-4" />New post</Button>
+        </div>
       </div>
 
       <div className="bg-card border border-card-border rounded-xl p-4">

@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import ExcelExportButton from "@/components/excel-export-button";
 
 type Form = {
   employeeCode: string; name: string; email: string; phone: string;
@@ -72,9 +73,22 @@ export default function EmployeesPage() {
           <h1 className="text-xl font-bold">Employees</h1>
           <p className="text-sm text-muted-foreground">{employees.length} employees</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" /> Add Employee
-        </Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={employees.map((e) => ({
+              Code: e.employeeCode, Name: e.name, Email: e.email ?? "", Phone: e.phone ?? "",
+              Role: e.role ?? "", Department: e.department ?? "", "Joining Date": e.dateOfJoining ?? "",
+              Status: e.status, Basic: e.basic, HRA: e.hra, Allowances: e.allowances,
+              "Other Deductions": e.otherDeductions, PF: e.pfEnabled ? "Yes" : "No", ESI: e.esiEnabled ? "Yes" : "No",
+            }))}
+            columns={["Code", "Name", "Email", "Phone", "Role", "Department", "Joining Date", "Status", "Basic", "HRA", "Allowances", "Other Deductions", "PF", "ESI"]}
+            filename="employees"
+            amountKeys={["Basic", "HRA", "Allowances", "Other Deductions"]}
+          />
+          <Button size="sm" className="gap-2" onClick={openCreate}>
+            <Plus className="h-4 w-4" /> Add Employee
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

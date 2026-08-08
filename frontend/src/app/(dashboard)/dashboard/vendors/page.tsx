@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Truck, Pencil, Trash2, Mail, Phone } from "lucide-react";
+import ExcelExportButton from "@/components/excel-export-button";
 
 type Form = { name: string; contactName: string; email: string; phone: string; address: string; city: string; state: string; gstNumber: string; paymentTermsDays: number };
 const empty: Form = { name: "", contactName: "", email: "", phone: "", address: "", city: "", state: "", gstNumber: "", paymentTermsDays: 30 };
@@ -51,7 +52,18 @@ export default function VendorsPage() {
           <h1 className="text-xl font-bold">Vendors</h1>
           <p className="text-sm text-muted-foreground">{vendors.length} vendors</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />Add Vendor</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={vendors.map((v) => ({
+              Name: v.name, "Contact Person": v.contactName ?? "", Email: v.email ?? "",
+              Phone: v.phone ?? "", Address: v.address ?? "", City: v.city ?? "", State: v.state ?? "",
+              GST: v.gstNumber ?? "", "Payment Terms (days)": v.paymentTermsDays, Created: v.createdAt ?? "",
+            }))}
+            columns={["Name", "Contact Person", "Email", "Phone", "Address", "City", "State", "GST", "Payment Terms (days)", "Created"]}
+            filename="vendors"
+          />
+          <Button size="sm" className="gap-2" onClick={openCreate}><Plus className="h-4 w-4" />Add Vendor</Button>
+        </div>
       </div>
       {vendors.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">

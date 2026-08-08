@@ -20,6 +20,7 @@ import {
 import DailyReportDetailModal from "@/components/daily-report-detail-modal";
 import DailyReportExcelModal from "@/components/daily-report-excel-modal";
 import type { MetricKey } from "@/components/daily-report-excel-modal";
+import ExcelExportButton from "@/components/excel-export-button";
 
 interface CrmChecklist {
   callsUpdated: boolean;
@@ -229,6 +230,19 @@ export default function DailyReportsPanel({
         </h3>
         <div className="flex items-center gap-2 flex-wrap">
           {!onRangeChange && <DateRangeFilter from={from} to={to} onChange={setRange} />}
+          <ExcelExportButton
+            rows={rows.map((r) => ({
+              Date: r.date ?? "", Employee: r.userName ?? "",
+              Calls: r.callsMade ?? 0, Quotes: r.quotationsSent ?? 0,
+              Meetings: r.meetingsScheduled ?? 0, Orders: r.ordersReceived ?? 0,
+              "Orders Closed": Array.isArray(r.ordersClosed) ? r.ordersClosed.reduce((s, o) => s + (Number(o?.amount) || 0), 0) : 0,
+              Reminders: r.paymentReminders ?? 0, "After Sales": r.afterSalesFollowup ?? 0,
+              Status: r.status ?? "draft",
+            }))}
+            columns={["Date", "Employee", "Calls", "Quotes", "Meetings", "Orders", "Orders Closed", "Reminders", "After Sales", "Status"]}
+            filename={`daily-reports-${from}-to-${to}`}
+            label="Export Summary"
+          />
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { ShoppingCart } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
 import DailyReportsPanel from "@/components/daily-reports-panel";
+import ExcelExportButton from "@/components/excel-export-button";
 
 export default function SalesOrdersPage() {
   const { data: ordersRaw } = useListSalesOrders();
@@ -14,9 +15,22 @@ export default function SalesOrdersPage() {
   const colReorder = useColumnReorder();
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">Sales Orders</h1>
-        <p className="text-sm text-muted-foreground">{orders.length} orders</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold">Sales Orders</h1>
+          <p className="text-sm text-muted-foreground">{orders.length} orders</p>
+        </div>
+        <ExcelExportButton
+          rows={orders.map((o) => ({
+            "Order #": o.orderNumber, Client: o.clientName ?? "", Status: o.status,
+            Subtotal: o.subtotal, Discount: o.discountAmount ?? 0, Tax: o.taxAmount ?? 0,
+            Total: o.total, "Expected Delivery": o.expectedDeliveryAt ?? "",
+            Notes: o.notes ?? "", Created: o.createdAt ?? "",
+          }))}
+          columns={["Order #", "Client", "Status", "Subtotal", "Discount", "Tax", "Total", "Expected Delivery", "Notes", "Created"]}
+          filename="sales-orders"
+          amountKeys={["Subtotal", "Discount", "Tax", "Total"]}
+        />
       </div>
       {orders.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">

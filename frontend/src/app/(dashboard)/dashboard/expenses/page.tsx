@@ -20,6 +20,7 @@ import { Plus, Receipt, Trash2, Tag, Upload } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
 import { getAuthToken } from "@/lib/auth";
+import ExcelExportButton from "@/components/excel-export-button";
 
 type Form = {
   expenseDate: string; categoryId: number | null;
@@ -105,6 +106,17 @@ export default function ExpensesPage() {
           <p className="text-sm text-muted-foreground">{expenses.length} expenses · {formatCurrency(total)} total</p>
         </div>
         <div className="flex gap-2">
+          <ExcelExportButton
+            rows={expenses.map((e) => ({
+              Date: e.expenseDate, Category: e.categoryId != null ? catMap.get(e.categoryId)?.name ?? "" : "",
+              Vendor: e.vendorName ?? "", Description: e.description ?? "", Amount: e.amount,
+              "GST Rate": e.gstRate ?? 0, "GST Amount": e.gstAmount ?? 0, Total: e.total,
+              "Payment Method": e.paymentMethod ?? "", Notes: e.notes ?? "", Created: e.createdAt ?? "",
+            }))}
+            columns={["Date", "Category", "Vendor", "Description", "Amount", "GST Rate", "GST Amount", "Total", "Payment Method", "Notes", "Created"]}
+            filename="expenses"
+            amountKeys={["Amount", "GST Amount", "Total"]}
+          />
           <Button size="sm" variant="outline" className="gap-2" onClick={() => setCatOpen(true)}><Tag className="h-4 w-4" /> Categories</Button>
           <Button size="sm" className="gap-2" onClick={() => { setForm(empty()); setOpen(true); }}><Plus className="h-4 w-4" /> Add expense</Button>
         </div>

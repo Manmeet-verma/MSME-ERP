@@ -14,6 +14,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { Plus, Receipt } from "lucide-react";
 import { DraggableTh } from "@/components/draggable-th";
 import { useColumnReorder } from "@/hooks/use-column-reorder";
+import ExcelExportButton from "@/components/excel-export-button";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-secondary text-muted-foreground",
@@ -74,7 +75,20 @@ export default function VendorBillsPage() {
           <h1 className="text-xl font-bold">Vendor Bills</h1>
           <p className="text-sm text-muted-foreground">{bills.length} bills</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => { setVendorId(""); setPoId(""); setBillNumber(""); setDueDate(""); setOpen(true); }}><Plus className="h-4 w-4" />New Bill</Button>
+        <div className="flex gap-2">
+          <ExcelExportButton
+            rows={bills.map((b) => ({
+              "Bill #": b.billNumber, Vendor: b.vendorName ?? "", Status: b.status,
+              "Issue Date": b.issueDate ?? "", "Due Date": b.dueDate ?? "",
+              Subtotal: b.subtotal, Tax: b.taxAmount ?? 0, Total: b.total, Paid: b.amountPaid,
+              Notes: b.notes ?? "", Created: b.createdAt ?? "",
+            }))}
+            columns={["Bill #", "Vendor", "Status", "Issue Date", "Due Date", "Subtotal", "Tax", "Total", "Paid", "Notes", "Created"]}
+            filename="vendor-bills"
+            amountKeys={["Subtotal", "Tax", "Total", "Paid"]}
+          />
+          <Button size="sm" className="gap-2" onClick={() => { setVendorId(""); setPoId(""); setBillNumber(""); setDueDate(""); setOpen(true); }}><Plus className="h-4 w-4" />New Bill</Button>
+        </div>
       </div>
       {bills.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">
